@@ -1,0 +1,1104 @@
+.calendar-page {
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    font-family: var(--font-main);
+}
+
+.calendar-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Header Section */
+.header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    background-color: var(--color-bg-orange);
+    padding: 1.5rem 2rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 102, 0, 0.1);
+}
+
+.back-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    background: #f1f3f5;
+    border-radius: 12px;
+    color: #495057;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.title-container {
+    text-align: center;
+}
+
+.page-title {
+    margin: 0;
+    color: #003366;
+    font-size: 1.75rem;
+    font-weight: 800;
+}
+
+.page-subtitle {
+    margin: 0;
+    color: #FF6600;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.attendance-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    background: #28a745;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    transition: all 0.2s;
+    margin-right: 1rem;
+}
+
+.new-event-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: #FF6600;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3);
+    transition: all 0.2s;
+}
+
+/* Content Grid */
+.content-grid {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 2rem;
+}
+
+/* Calendar Section */
+.calendar-wrapper {
+    background-color: var(--color-bg-pastel-orange);
+    padding: 1.5rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    min-height: 600px;
+    border: 1px solid rgba(255, 102, 0, 0.1);
+}
+
+/* Custom Calendar Header - Perfect Fit Version */
+.custom-calendar-header.banner-container {
+    position: relative;
+    width: 100%;
+    height: auto;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.banner-image {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    object-position: top;
+}
+
+.banner-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    /* Allow events to pass through */
+    z-index: 10;
+}
+
+.header-controls-left,
+.header-controls-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    pointer-events: auto;
+    /* Enable clicks on controls */
+}
+
+/* Month display container and image removed as they are no longer used inline */
+
+.nav-icon-btn {
+    background: transparent;
+    border: none;
+    color: #FF6600;
+    /* Primary brand color */
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.nav-icon-btn:hover {
+    background-color: rgba(255, 102, 0, 0.1);
+    transform: scale(1.15);
+}
+
+.nav-text-btn {
+    background: white;
+    border: 2px solid #FF6600;
+    color: #FF6600;
+    padding: 0.5rem 1.2rem;
+    border-radius: 24px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 0.5rem;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 5px rgba(255, 102, 0, 0.1);
+}
+
+.nav-text-btn:hover {
+    background: #FF6600;
+    color: white;
+    box-shadow: 0 4px 10px rgba(255, 102, 0, 0.3);
+    transform: translateY(-1px);
+}
+
+/* FullCalendar Customizations */
+/* FullCalendar Customizations - 3D & Visual Upgrade */
+.fc-daygrid-event-harness {
+    margin-top: 4px !important;
+    /* increased spacing */
+}
+
+.fc-event {
+    font-size: 0.75rem !important;
+    cursor: pointer !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    overflow: hidden;
+    margin: 0 4px !important;
+    backdrop-filter: blur(4px);
+}
+
+/* Specific Event Colors with Gradients matches logic in JSX */
+.fc-event-main {
+    padding: 0 !important;
+    /* Let content handle padding */
+}
+
+/* Match Event Style (Purple) */
+.evt-match {
+    background: linear-gradient(135deg, #9370DB 0%, #6A5ACD 100%) !important;
+    color: white !important;
+}
+
+/* Training Event Style (Blue) */
+.evt-training {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+    color: white !important;
+}
+
+/* Training Event Style (Blue/Gray) - default handling in JSX, but we can target by content? 
+   Actually, JSX sets the 'color' prop which sets background. 
+   We can use that but add a glossy overlay or shadow.
+*/
+
+.fc-event:hover {
+    transform: translateY(-3px) scale(1.02) !important;
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2), 0 5px 10px rgba(0, 0, 0, 0.1) !important;
+    z-index: 50 !important;
+    filter: brightness(1.1);
+}
+
+.fc-daygrid-day-events {
+    margin-top: 2px !important;
+}
+
+.fc-daygrid-day-frame {
+    align-items: flex-start !important;
+    padding: 4px !important;
+}
+
+/* Calendar Grid Styling */
+.fc-theme-standard td,
+.fc-theme-standard th {
+    border-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.fc-col-header-cell {
+    background-color: #f8fafc;
+    padding: 10px 0 !important;
+    color: #475569;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+.fc-day-today {
+    background-color: rgba(255, 102, 0, 0.03) !important;
+}
+
+.fc-daygrid-day-number {
+    font-weight: 600;
+    color: #475569;
+    padding: 8px !important;
+    text-decoration: none !important;
+    font-size: 0.9rem;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin: 4px;
+}
+
+.fc-day-today .fc-daygrid-day-number {
+    background-color: #FF6600;
+    color: white;
+    box-shadow: 0 2px 5px rgba(255, 102, 0, 0.4);
+}
+
+/* Upcoming Events Section */
+.upcoming-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.upcoming-card {
+    background-color: var(--color-bg-orange);
+    padding: 1.5rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    flex: 1;
+    border: 1px solid rgba(255, 102, 0, 0.1);
+}
+
+.upcoming-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #003366;
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+}
+
+.upcoming-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.upcoming-event-item {
+    padding: 1rem;
+    border-radius: 12px;
+    position: relative;
+    background-color: white;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.upcoming-event-item:hover {
+    transform: scale(1.02) translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    z-index: 2;
+}
+
+.upcoming-event-teams {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.team-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.team-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.team-name {
+    font-size: 0.7rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+.vs-text {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.score-display {
+    text-align: center;
+    font-size: 1rem;
+    font-weight: bold;
+    color: #003366;
+    margin-bottom: 0.5rem;
+}
+
+.event-title-simple {
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.event-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #666;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+
+.location-link {
+    color: #003366;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.delete-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #dc3545;
+    opacity: 0.6;
+}
+
+.empty-message {
+    text-align: center;
+    color: #999;
+    padding: 2rem 0;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background-color: var(--color-bg-orange);
+    width: 100%;
+    max-width: 800px;
+    border-radius: 24px;
+    padding: 2rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+    max-height: 90vh;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 102, 0, 0.2);
+}
+
+.modal-title {
+    color: #003366;
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.tab-container {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    background: #f8f9fa;
+    padding: 0.25rem;
+    border-radius: 12px;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-button.active {
+    background: white;
+    color: #003366;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Event Content Renderer */
+.event-content-match {
+    font-size: 0.7rem;
+    padding: 2px 4px;
+    line-height: 1.1;
+}
+
+.event-time {
+    font-weight: bold;
+    margin-bottom: 1px;
+}
+
+.event-time.centered {
+    text-align: center;
+}
+
+.event-type {
+    font-size: 0.6rem;
+    text-align: center;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    color: white;
+}
+
+.event-teams-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 2px;
+}
+
+.event-team-shield {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+
+.event-vs {
+    font-size: 0.65rem;
+    font-weight: bold;
+}
+
+.event-score {
+    font-weight: bold;
+    margin-top: 2px;
+    text-align: center;
+    color: #003366;
+}
+
+.event-content-simple {
+    font-size: 0.75rem;
+    padding: 2px 4px;
+    line-height: 1.2;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+}
+
+.form-textarea {
+    resize: vertical;
+}
+
+/* Match Specific Form */
+.match-details-container {
+    background: #fff3e6;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid #ffcc99;
+    margin-bottom: 1rem;
+}
+
+.match-details-title {
+    margin: 0 0 1rem 0;
+    color: #e65100;
+}
+
+/* Training Specific Form */
+.training-details-container {
+    background: #e3f2fd;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid #90caf9;
+    margin-bottom: 1rem;
+}
+
+.training-details-title {
+    margin: 0 0 1rem 0;
+    color: #1565c0;
+}
+
+/* Modal Actions */
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.btn-cancel {
+    flex: 1;
+    padding: 1rem;
+    border: none;
+    background: #e9ecef;
+    color: #495057;
+    border-radius: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-submit {
+    flex: 2;
+    padding: 1rem;
+    border: none;
+    background: #FF6600;
+    color: white;
+    border-radius: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3);
+}
+
+.btn-close {
+    flex: 1;
+    padding: 1rem;
+    background: #ccc;
+    color: #333;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-edit {
+    flex: 1;
+    padding: 1rem;
+    background: #FF6600;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* Match/Training View Modal */
+.modal-header-banner {
+    background: linear-gradient(135deg, #003366 0%, #004080 100%);
+    padding: 1.5rem;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    color: white;
+    text-align: center;
+    position: relative;
+}
+
+.modal-close-icon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    cursor: pointer;
+    color: white;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.match-info-badge {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+.badge-content {
+    display: flex;
+    gap: 1.5rem;
+    background: #f8f9fa;
+    padding: 0.75rem 1.5rem;
+    border-radius: 16px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
+}
+
+.badge-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #495057;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.matchup-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    margin-bottom: 2.5rem;
+}
+
+.team-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 35%;
+}
+
+.team-shield-large-container {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.score-vs-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.score-large {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #FF6600;
+    line-height: 1;
+    background: #fff3e6;
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    border: 1px solid #ffcc99;
+}
+
+.vs-large {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: #e9ecef;
+    padding: 0.5rem 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+}
+
+.match-status {
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.location-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+}
+
+.detail-section-title {
+    color: #003366;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.75rem 0;
+    font-size: 0.95rem;
+}
+
+.team-name-large {
+    font-weight: 700;
+    font-size: 1rem;
+    text-align: center;
+    line-height: 1.2;
+    color: #212529;
+}
+
+/* Detail Grid and Cards */
+.detail-grid {
+    background: #f8f9fa;
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+.detail-card {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 16px;
+}
+
+/* Training View Specifics */
+.training-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 2rem;
+}
+
+.training-card-gray {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 16px;
+}
+
+.training-split-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.training-card-blue {
+    background: #e3f2fd;
+    padding: 1.5rem;
+    border-radius: 16px;
+}
+
+.training-card-orange {
+    background: #fff3e0;
+    padding: 1.5rem;
+    border-radius: 16px;
+}
+
+.training-section-title {
+    color: #003366;
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+
+.training-text {
+    line-height: 1.6;
+    color: #495057;
+}
+
+/* Modal Body */
+.modal-body {
+    padding: 2rem;
+}
+
+/* Team Shield Image */
+.team-shield-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Modal Header Text */
+.modal-header-title {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.modal-header-subtitle {
+    margin: 0;
+    opacity: 0.9;
+}
+
+/* Detail Rows (Match/Training) */
+.detail-row {
+    margin: 0.4rem 0;
+    display: flex;
+    justify-content: space-between;
+}
+
+.detail-label {
+    color: #868e96;
+}
+
+.detail-value {
+    font-weight: 500;
+}
+
+.detail-text {
+    font-size: 0.9rem;
+    color: #495057;
+    line-height: 1.5;
+}
+
+.detail-text p {
+    margin: 0;
+}
+
+/* Objectives Section */
+.objectives-container {
+    border-top: 1px solid #eee;
+    padding-top: 1.5rem;
+}
+
+.objectives-title {
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.objectives-content {
+    color: #333;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 900px) {
+    .content-grid {
+        grid-template-columns: 1fr;
+        /* Stack calendar and upcoming events */
+    }
+
+    .calendar-wrapper {
+        min-height: auto;
+        /* Allow height to adjust */
+        padding: 1rem;
+    }
+
+    .upcoming-section {
+        order: 2;
+        /* Ensure it stays below or move it if needed */
+    }
+
+    .modal-content {
+        padding: 1rem;
+        width: 95%;
+    }
+
+    .matchup-container {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .team-container {
+        width: 100%;
+    }
+
+    .detail-grid,
+    .training-split-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* FullCalendar Mobile Overrides */
+    .fc-header-toolbar {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .fc-toolbar-chunk {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .fc-toolbar-title {
+        font-size: 1.2rem !important;
+    }
+
+    /* List View Styling - 3D Effects */
+    .fc-list-event.evt-match {
+        background: linear-gradient(145deg, #9370DB, #6A5ACD) !important;
+        box-shadow:
+            0 4px 6px rgba(0, 0, 0, 0.2),
+            0 1px 3px rgba(0, 0, 0, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        /* Top highlight for 3D */
+        border-radius: 8px !important;
+        transform: translateY(0);
+        transition: transform 0.1s, box-shadow 0.1s;
+        border: 1px solid rgba(0, 0, 0, 0.05) !important;
+        margin-bottom: 8px !important;
+        /* Space between cards */
+    }
+
+    .fc-list-event.evt-match:active {
+        transform: translateY(2px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    .fc-list-event.evt-training {
+        background: linear-gradient(145deg, #007bff, #0056b3) !important;
+        box-shadow:
+            0 4px 6px rgba(0, 0, 0, 0.2),
+            0 1px 3px rgba(0, 0, 0, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        border-radius: 8px !important;
+        border: 1px solid rgba(0, 0, 0, 0.05) !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* Remove default table borders for clean card look */
+    .fc-list-table td,
+    .fc-theme-standard td,
+    .fc-theme-standard th {
+        border: none !important;
+    }
+
+    .fc-list-day-cushion {
+        background: transparent !important;
+        padding: 1rem 0 0.5rem 0 !important;
+    }
+
+    .fc-list-day-text {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #334155;
+        text-transform: capitalize;
+    }
+
+    .fc-list-day-side-text {
+        font-size: 1rem;
+        color: #64748b;
+    }
+
+    /* Text Colors in List View Rows */
+    .fc-list-event.evt-match .fc-list-event-time,
+    .fc-list-event.evt-match .fc-list-event-title,
+    .fc-list-event.evt-training .fc-list-event-time,
+    .fc-list-event.evt-training .fc-list-event-title {
+        color: white !important;
+    }
+
+    /* Hide the dot since we color the row */
+    .fc-list-event-dot {
+        display: none !important;
+    }
+
+    /* Adjust padding and alignment */
+    .fc-list-event td {
+        border: none !important;
+    }
+
+    .fc-list-day-cushion {
+        background: #f1f5f9 !important;
+    }
+
+    .fc-list-event-time {
+        font-size: 1.1rem !important;
+        /* Bigger time */
+        font-weight: bold !important;
+        padding-right: 12px !important;
+    }
+
+    .fc-scroller {
+        overflow: hidden !important;
+    }
+
+    .fc-view-harness {
+        min-height: auto !important;
+        /* Allow height to shrink */
+        height: auto !important;
+        overflow: hidden !important;
+        /* Prevent horizontal scroll */
+    }
+
+    .fc-scroller {
+        overflow: hidden !important;
+    }
+
+    .fc-daygrid-day-frame {
+        min-height: 40px !important;
+        /* Smaller day cells */
+        padding: 2px !important;
+    }
+
+    .fc-daygrid-day-number {
+        font-size: 0.75rem;
+        width: 20px;
+        height: 20px;
+        margin: 2px;
+        padding: 0 !important;
+    }
+
+    .fc-col-header-cell {
+        font-size: 0.7rem;
+        /* Smaller day headers */
+        padding: 4px 0 !important;
+    }
+
+    .fc-toolbar-title {
+        font-size: 1rem !important;
+        /* Smaller title */
+    }
+
+    .fc-button {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.8rem !important;
+    }
+
+    .header-section {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .back-button,
+    .attendance-button,
+    .new-event-button {
+        width: 100%;
+        justify-content: center;
+        margin: 0;
+    }
+
+    .header-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+    }
+}

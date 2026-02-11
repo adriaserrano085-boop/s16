@@ -1,0 +1,253 @@
+.attendance-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.attendance-modal-content {
+    background: var(--color-bg-orange);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 102, 0, 0.2);
+}
+
+.attendance-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.attendance-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #003366;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    color: #6c757d;
+    transition: color 0.2s;
+}
+
+.btn-icon:hover {
+    color: #343a40;
+}
+
+.event-selector-section {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    background: rgba(255, 102, 0, 0.05);
+}
+
+.section-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    color: #495057;
+}
+
+.filter-group {
+    margin-bottom: 1rem;
+}
+
+.filter-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.form-control:focus {
+    border-color: #003366;
+    outline: none;
+}
+
+.players-list-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background: transparent;
+}
+
+.status-message {
+    text-align: center;
+    padding: 2rem;
+    color: #6c757d;
+}
+
+.player-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+}
+
+.player-item:hover {
+    background: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.player-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.player-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.player-avatar-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #495057;
+}
+
+.player-info-name {
+    font-weight: bold;
+    color: #212529;
+}
+
+.player-info-pos {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.player-status-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: bold;
+}
+
+.modal-footer {
+    padding: 1.5rem;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    gap: 1rem;
+    background: rgba(255, 102, 0, 0.05);
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+}
+
+.btn-modal-cancel {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    background: #e9ecef;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #495057;
+    transition: background 0.2s;
+}
+
+.btn-modal-cancel:hover {
+    background: #dee2e6;
+}
+
+.btn-modal-save {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    background: #003366;
+    color: white;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: background 0.2s;
+}
+
+.btn-modal-save:hover {
+    background: #002244;
+}
+
+
+/* Status Colors */
+.status-Presente {
+    color: #28a745;
+}
+
+.status-Retraso {
+    color: #ffc107;
+}
+
+.status-Falta {
+    color: #dc3545;
+}
+
+.status-Falta-Justificada {
+    color: #3498db;
+}
+
+.status-Lesion {
+    color: #e67e22;
+}
+
+.status-Emfermo {
+    color: #bdc3c7;
+}
+
+.status-Enfermo {
+    color: #bdc3c7;
+}
+
+.status-Catalana {
+    color: #9b59b6;
+}
+
+.status-Pendiente {
+    color: #6c757d;
+}

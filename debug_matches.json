@@ -1,0 +1,122 @@
+[
+  {
+    "id": "82f02c31-e610-46cf-af38-2efd090beec5",
+    "evento": "3d864fc2-c788-4d8f-89c7-713a463be80a",
+    "es_local": true,
+    "lugar": "CE Feixa Llarga",
+    "marcador_local": 10,
+    "marcador_visitante": 33,
+    "observaciones": null,
+    "Rival": "d3f1c4e7-4e9c-4e08-914f-b463a6d1276a"
+  },
+  {
+    "id": "c32cefb7-4e8d-46ac-9539-b16356b70381",
+    "evento": "873e49c6-f6cb-44ed-b771-4e4a95bdac7d",
+    "es_local": true,
+    "lugar": "Feixa Llarga",
+    "marcador_local": 0,
+    "marcador_visitante": 115,
+    "observaciones": null,
+    "Rival": "399325f5-c945-40be-8b27-857988a5bd60"
+  },
+  {
+    "id": "f75e4c1d-c707-4e56-b152-bc2aebf3be67",
+    "evento": "eb96b107-0403-4ad0-81c6-22c2218f757a",
+    "es_local": true,
+    "lugar": "Feixa Llarga",
+    "marcador_local": 30,
+    "marcador_visitante": 24,
+    "observaciones": null,
+    "Rival": "a95a7455-28ed-47f6-a3ec-168215cc0bca"
+  },
+  {
+    "id": "9d886f1f-8933-43fa-a7ca-b87005c54b66",
+    "evento": "f4c2ba9f-1d8f-48da-a5d0-42eb8f96fbc4",
+    "es_local": false,
+    "lugar": "Foixarda",
+    "marcador_local": 48,
+    "marcador_visitante": 8,
+    "observaciones": null,
+    "Rival": "a90347da-4892-4e37-884a-9977f017a2f8"
+  },
+  {
+    "id": "bedbcef8-d587-46dc-bcea-a2b76e6cbaae",
+    "evento": "a2eaa0d3-bfdd-435b-bf7d-563ee14cc048",
+    "es_local": false,
+    "lugar": "Guinardera",
+    "marcador_local": 110,
+    "marcador_visitante": 10,
+    "observaciones": null,
+    "Rival": "101bb793-6ae3-4494-84f5-f143055a28ab"
+  },
+  {
+    "id": "0e3d2f4c-e083-487e-9b73-8aa159f78c55",
+    "evento": "9ab4534e-5ef0-442e-b920-78448d0a1805",
+    "es_local": false,
+    "lugar": "Pins Vens",
+    "marcador_local": 85,
+    "marcador_visitante": 10,
+    "observaciones": null,
+    "Rival": "ff7cdc1b-2a97-49c9-aa53-f5b4d41ef68b"
+  },
+  {
+    "id": "df90e18e-33b2-4180-868a-24421f39ce28",
+    "evento": "5c98215d-a861-4458-bee8-036f3b6fb060",
+    "es_local": false,
+    "lugar": "David Cañada",
+    "marcador_local": 28,
+    "marcador_visitante": 14,
+    "observaciones": null,
+    "Rival": "d3f1c4e7-4e9c-4e08-914f-b463a6d1276a"
+  },
+  {
+    "id": "aab6ff52-6594-43ad-8d16-1dabbe2346b1",
+    "evento": "b59ba4d9-bd2a-4dea-afc2-247208fc64b2",
+    "es_local": true,
+    "lugar": "Feixa Llarga",
+    "marcador_local": 29,
+    "marcador_visitante": 18,
+    "observaciones": null,
+    "Rival": "a90347da-4892-4e37-884a-9977f017a2f8"
+  },
+  {
+    "id": "38058516-8a03-4af6-b16b-f919010cd91c",
+    "evento": "10b69f35-2130-4499-a00e-7ff4e2266c6d",
+    "es_local": false,
+    "lugar": "Baldiri Aleu",
+    "marcador_local": null,
+    "marcador_visitante": null,
+    "observaciones": null,
+    "Rival": "399325f5-c945-40be-8b27-857988a5bd60"
+  },
+  {
+    "id": "b57c4b7e-8235-4af9-b0b9-b8017174056a",
+    "evento": "1abf576a-0c5e-40d3-a2d2-f9b8028b7bb8",
+    "es_local": true,
+    "lugar": "Feixa Llarga",
+    "marcador_local": null,
+    "marcador_visitante": null,
+    "observaciones": null,
+    "Rival": "101bb793-6ae3-4494-84f5-f143055a28ab"
+  },
+  {
+    "id": "de7e53ab-0d51-4c50-ae6f-f1cb64942e50",
+    "evento": "3ef206da-a646-4167-a308-59b617403369",
+    "es_local": false,
+    "lugar": "Pitort",
+    "marcador_local": null,
+    "marcador_visitante": null,
+    "observaciones": null,
+    "Rival": "a95a7455-28ed-47f6-a3ec-168215cc0bca"
+  },
+  {
+    "id": "025a420f-dfe3-43e5-a7aa-3a791041abd9",
+    "evento": "4bcd5a0c-6577-4d92-80c2-b7d396629b0f",
+    "es_local": true,
+    "lugar": "Feixa Llarga",
+    "marcador_local": null,
+    "marcador_visitante": null,
+    "observaciones": null,
+    "Rival": "ff7cdc1b-2a97-49c9-aa53-f5b4d41ef68b"
+  }
+]

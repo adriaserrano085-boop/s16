@@ -1,0 +1,223 @@
+/* Google Fonts loaded via index.html <link> for non-blocking render */
+
+:root {
+  /* Corporate Colors */
+  --color-primary-blue: #003366;
+  /* Deep Corporate Blue */
+  --color-primary-orange: #FF6600;
+  /* Vibrant Orange */
+
+  /* Background Colors (Pastel) */
+  --color-bg-blue: #E6F0FF;
+  /* Pastel Blue */
+  --color-bg-orange: #FFF9F5;
+  /* Soft Pastel Orange */
+  --color-bg-white: #FFFFFF;
+  --color-bg-grey: #F5F5F5;
+  --color-bg-pastel-orange: #FFFBF5;
+
+  /* Text Colors */
+  --color-text-main: #333333;
+  --color-text-light: #666666;
+  --color-text-white: #FFFFFF;
+
+  /* Typography */
+  --font-main: 'EB Garamond', 'Garamond', 'Georgia', serif;
+
+  /* Spacing */
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 2rem;
+  --radius-md: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-main);
+  background: linear-gradient(135deg, var(--color-bg-blue, #f0f4f8) 20%, var(--color-bg-orange, #fff3e0) 80%);
+  color: var(--color-text-main);
+  line-height: 1.6;
+  min-height: 100vh;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/campo%20hospi%20rugby.jpg");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.15;
+  z-index: -1;
+  pointer-events: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--color-primary-blue);
+  margin-bottom: var(--spacing-md);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-main);
+  cursor: pointer;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+}
+
+/* Utilities */
+.text-center {
+  text-align: center;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+.w-full {
+  width: 100%;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.btn-primary {
+  background-color: var(--color-primary-blue);
+  color: var(--color-text-white);
+}
+
+.btn-primary:hover {
+  background-color: #002244;
+}
+
+.btn-secondary {
+  background-color: var(--color-primary-orange);
+  color: var(--color-text-white);
+}
+
+.btn-secondary:hover {
+  background-color: #E65C00;
+}
+
+.card {
+  background-color: var(--color-bg-pastel-orange);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 102, 0, 0.1);
+}
+
+/* Global Mobile Scaling */
+@media (max-width: 768px) {
+  :root {
+    /* Reduce spacing */
+    --spacing-sm: 0.25rem;
+    --spacing-md: 0.5rem;
+    --spacing-lg: 1rem;
+    --radius-md: 6px;
+  }
+
+  html {
+    /* Scale down base font size to ~80% (13px aprox if base is 16px) */
+    /* User asked for "half size", let's try 75% first (12px) to be significant but readable */
+    font-size: 75%;
+  }
+
+  /* Adjust headings if they feel too big still */
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  h3 {
+    font-size: 1.1rem;
+  }
+
+  .container {
+    padding: var(--spacing-md);
+  }
+}
+
+/* App Loading Screen */
+.app-loading-screen {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #003366 0%, #001a33 100%);
+  color: white;
+  gap: 20px;
+  text-align: center;
+  padding: 20px;
+}
+
+.app-loading-text {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.app-loading-error {
+  color: #FF6600;
+  font-size: 0.9rem;
+}
+
+.app-loading-skip {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid white;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.app-loading-hint {
+  font-size: 0.7rem;
+  opacity: 0.5;
+}

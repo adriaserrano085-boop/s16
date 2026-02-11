@@ -1,0 +1,33 @@
+{
+  "eventos": {
+    "id": "045db875-c54f-4d52-8c5d-2fca8b30f693",
+    "tipo": "Entrenamiento",
+    "fecha": "2025-09-05",
+    "hora": "18:30:00",
+    "estado": "Finalizado",
+    "observaciones": null,
+    "equip_id": "eb0b4ebe-c326-4b49-bda2-27f7936a82e1",
+    "id_eventos": "49f8136e-7ffb-4939-9f37-8244173ac501",
+    "created_at": "2026-02-07T22:43:36.271164",
+    "updated_at": "2026-02-08T01:26:55.477155"
+  },
+  "partidos": {
+    "id": "82f02c31-e610-46cf-af38-2efd090beec5",
+    "evento": "3d864fc2-c788-4d8f-89c7-713a463be80a",
+    "es_local": true,
+    "lugar": "CE Feixa Llarga",
+    "marcador_local": 10,
+    "marcador_visitante": 33,
+    "observaciones": null,
+    "Rival": "d3f1c4e7-4e9c-4e08-914f-b463a6d1276a"
+  },
+  "entrenamientos": {
+    "error": "No data"
+  },
+  "asistencia": {
+    "id": "255a4172-b93c-4f11-ac97-4a5357d6665c",
+    "entrenamiento": null,
+    "jugador": null,
+    "asistencia": null
+  }
+}

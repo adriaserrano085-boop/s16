@@ -1,0 +1,297 @@
+.training-details-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease-out;
+}
+
+.training-details-content {
+    background: white;
+    border-radius: 1rem;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    animation: slideIn 0.3s ease-out;
+}
+
+.training-details-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #003366;
+    border-radius: 1rem 1rem 0 0;
+}
+
+.training-details-type {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: white;
+    font-size: 1.1rem;
+}
+
+.close-button {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.375rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-button:hover {
+    background-color: #e2e8f0;
+    color: #0f172a;
+}
+
+.training-details-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.training-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 0.75rem;
+}
+
+.info-item {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.info-item svg {
+    color: #3b82f6;
+    margin-top: 0.125rem;
+}
+
+.info-item label {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-bottom: 0.125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.info-item p {
+    font-size: 0.95rem;
+    color: #0f172a;
+    font-weight: 500;
+    margin: 0;
+}
+
+/* Attendance Summary Stats */
+.attendance-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card {
+    background: #f8fafc;
+    padding: 0.75rem 0.5rem;
+    border-radius: 0.5rem;
+    text-align: center;
+    border: 1px solid #e2e8f0;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.65rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.stat-presente .stat-value {
+    color: #22c55e;
+}
+
+.stat-retraso .stat-value {
+    color: #eab308;
+}
+
+.stat-justificada .stat-value {
+    color: #3b82f6;
+}
+
+.stat-ausente .stat-value {
+    color: #ef4444;
+}
+
+/* Attendance List */
+.attendance-list-section {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 1rem;
+}
+
+.attendance-list-header {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.attendance-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.attendance-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.player-name {
+    font-weight: 500;
+    color: #334155;
+}
+
+.attendance-badge {
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.badge-presente {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-retraso {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.badge-falta-justificada {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-lesion {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.badge-emfermo {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.badge-catalana {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.badge-falta {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-ausente {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-no-registrado {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.badge-unknown {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.training-details-footer {
+    padding: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    background: #f8fafc;
+    border-radius: 0 0 1rem 1rem;
+}
+
+.btn-close-modal {
+    padding: 0.5rem 1.5rem;
+    background: #0f172a;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-close-modal:hover {
+    background: #1e293b;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

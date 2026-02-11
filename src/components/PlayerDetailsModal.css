@@ -1,0 +1,322 @@
+.player-details-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease-out;
+}
+
+.player-details-content {
+    background: white;
+    border-radius: 1rem;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    animation: slideIn 0.3s ease-out;
+}
+
+.player-details-header {
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    background: #f8fafc;
+    border-radius: 1rem 1rem 0 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.player-header-info {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.player-header-photo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.player-header-text h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 1.25rem;
+}
+
+.player-header-text p {
+    margin: 0.25rem 0 0 0;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.2s;
+}
+
+.close-button:hover {
+    color: #0f172a;
+}
+
+/* Tabs */
+.player-tabs {
+    display: flex;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0 1.5rem;
+    background: white;
+}
+
+.tab-button {
+    padding: 1rem 1.5rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #64748b;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-button.active {
+    color: #003366;
+    border-bottom-color: #003366;
+    font-weight: 600;
+}
+
+/* Body */
+.player-details-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Details Tab */
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+.detail-group label {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.detail-group p {
+    margin: 0;
+    color: #0f172a;
+    font-weight: 500;
+    font-size: 1rem;
+}
+
+/* Attendance Tab */
+.attendance-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: #f8fafc;
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+}
+
+.history-date {
+    display: flex;
+    flex-direction: column;
+}
+
+.history-date-main {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.history-type {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+/* Badges (Reusing/Extending similar styles to Training Details) */
+.history-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+/* Use same colors as TrainingDetailsModal.css for consistency if possible, 
+   or redefine here for isolation */
+.badge-presente {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-retraso {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.badge-falta-justificada {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-lesion {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.badge-emfermo {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.badge-catalana {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.badge-falta {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-ausente {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-unknown {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+@media (max-width: 640px) {
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Edit Mode Styles */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #64748b;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-button:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+.edit-button {
+    color: #3b82f6;
+}
+
+.edit-button:hover {
+    background-color: #eff6ff;
+    color: #2563eb;
+}
+
+.save-button {
+    color: #10b981;
+}
+
+.save-button:hover {
+    background-color: #ecfdf5;
+    color: #059669;
+}
+
+.cancel-button {
+    color: #ef4444;
+}
+
+.cancel-button:hover {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.edit-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.edit-input {
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.375rem;
+    font-size: 0.95rem;
+    color: #0f172a;
+    background-color: #fff;
+    transition: border-color 0.2s;
+    font-family: inherit;
+}
+
+.edit-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.edit-header-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+}
+
+.header-input {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.full-width {
+    grid-column: 1 / -1;
+}
+
+textarea.edit-input {
+    resize: vertical;
+    min-height: 2.5rem;
+}

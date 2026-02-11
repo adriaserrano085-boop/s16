@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RCLH - S16</string>
+    <string name="title_activity_main">RCLH - S16</string>
+    <string name="package_name">com.rclh.s16</string>
+    <string name="custom_url_scheme">com.rclh.s16</string>
+</resources>
