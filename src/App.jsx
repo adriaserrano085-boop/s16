@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
+import Sidebar from './components/Sidebar';
 import './index.css';
 
 // Lazy-loaded pages — only downloaded when user navigates to them
@@ -18,6 +19,36 @@ const PageLoader = () => (
     <div className="app-loading-text">Cargando...</div>
   </div>
 );
+
+// Authenticated layout with sidebar
+function AuthLayout({ user, setUser }) {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    navigate('/login');
+  };
+
+  return (
+    <>
+      <Sidebar onLogout={handleLogout} />
+      <div className="app-with-sidebar">
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/dashboard" element={<Dashboard user={user} />} />
+            <Route path="/calendario" element={<CalendarPage user={user} />} />
+            <Route path="/asistencia" element={<AttendancePage user={user} />} />
+            <Route path="/jugadores" element={<PlayersPage user={user} />} />
+            <Route path="/statistics" element={<StatsPage user={user} />} />
+            <Route path="/physical-tests" element={<PhysicalTestsPage user={user} />} />
+            <Route path="*" element={<Navigate to="/dashboard" />} />
+          </Routes>
+        </Suspense>
+      </div>
+    </>
+  );
+}
 
 function App() {
   const [user, setUser] = useState(null);
@@ -48,44 +79,28 @@ function App() {
             setUser({
               ...session.user,
               role: 'STAFF',
-              full_name: userData ? `${userData.nombre} ${userData.apellidos}` : (session.user.user_metadata?.full_name || 'Usuario')
+              nombre: userData?.nombre || session.user.email
             });
-          } catch (profileErr) {
-            setUser({ ...session.user, role: 'STAFF' });
+          } catch {
+            setUser({ ...session.user, role: 'STAFF', nombre: session.user.email });
           }
         }
-      } catch (err) {
-        setInitError(err.message);
+      } catch {
+        setInitError('Error de conexión');
       } finally {
         setInitializing(false);
-        clearTimeout(globalTimeout);
       }
     };
 
     initAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        setUser({
-          ...session.user,
-          role: 'STAFF',
-          full_name: session.user.user_metadata?.full_name || 'Usuario'
-        });
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(globalTimeout);
-    };
+    return () => clearTimeout(globalTimeout);
   }, []);
 
   if (initializing) {
     return (
       <div className="app-loading-screen">
-        <div className="app-loading-text">Iniciando sesión...</div>
+        <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png" alt="Logo" width="80" />
+        <div className="app-loading-text">RCLH - S16</div>
         {initError && <div className="app-loading-error">{initError}</div>}
         <button onClick={() => setInitializing(false)} className="app-loading-skip">
           Saltar y entrar al Login
@@ -100,13 +115,11 @@ function App() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login setUser={setUser} />} />
-          <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} />
-          <Route path="/calendario" element={user ? <CalendarPage user={user} /> : <Navigate to="/login" />} />
-          <Route path="/asistencia" element={user ? <AttendancePage user={user} /> : <Navigate to="/login" />} />
-          <Route path="/jugadores" element={user ? <PlayersPage user={user} /> : <Navigate to="/login" />} />
-          <Route path="/statistics" element={user ? <StatsPage user={user} /> : <Navigate to="/login" />} />
-          <Route path="/physical-tests" element={user ? <PhysicalTestsPage user={user} /> : <Navigate to="/login" />} />
-          <Route path="/" element={<Navigate to="/login" />} />
+          {user ? (
+            <Route path="/*" element={<AuthLayout user={user} setUser={setUser} />} />
+          ) : (
+            <Route path="*" element={<Navigate to="/login" />} />
+          )}
         </Routes>
       </Suspense>
     </Router>
@@ -114,3 +127,4 @@ function App() {
 }
 
 export default App;
+
