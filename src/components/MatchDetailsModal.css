@@ -254,3 +254,182 @@
         font-size: 1rem;
     }
 }
+
+/* ===== Convocatoria Section ===== */
+.convocatoria-section {
+    margin-top: 1.5rem;
+    border: 1px solid rgba(76, 175, 80, 0.15);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(76, 175, 80, 0.03);
+}
+
+.convocatoria-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 1.25rem;
+    background: rgba(76, 175, 80, 0.08);
+    cursor: pointer;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.convocatoria-header:hover {
+    background: rgba(76, 175, 80, 0.12);
+}
+
+.convocatoria-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: #4CAF50;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.convocatoria-count {
+    background: #4CAF50;
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.convocatoria-toggle {
+    font-size: 1.2rem;
+    color: #4CAF50;
+    transition: transform 0.3s;
+}
+
+.convocatoria-toggle.open {
+    transform: rotate(180deg);
+}
+
+.convocatoria-body {
+    padding: 1rem 1.25rem;
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+.convocatoria-loading {
+    text-align: center;
+    color: #94a3b8;
+    padding: 1rem;
+    font-size: 0.9rem;
+}
+
+.squad-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.squad-slot {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+
+.squad-slot:hover {
+    background: rgba(76, 175, 80, 0.06);
+}
+
+.squad-slot--filled {
+    background: rgba(76, 175, 80, 0.05);
+}
+
+.squad-number {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #4CAF50;
+    color: white;
+    font-weight: 800;
+    font-size: 0.75rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.squad-slot:not(.squad-slot--filled) .squad-number {
+    background: #ccc;
+}
+
+.squad-select {
+    flex: 1;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.squad-select:focus {
+    border-color: #4CAF50;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.15);
+}
+
+.squad-player-name {
+    flex: 1;
+    font-size: 0.9rem;
+    color: #333;
+    font-weight: 500;
+}
+
+.convocatoria-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.btn-save-squad {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-save-squad:hover {
+    background: #388e3c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.btn-save-squad:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.squad-message {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* Make modal scrollable for convocatoria */
+.match-details-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}

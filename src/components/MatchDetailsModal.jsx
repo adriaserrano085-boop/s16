@@ -1,20 +1,108 @@
-import React from 'react';
-import { X, Calendar, Clock, MapPin, Trophy, Info, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Calendar, Clock, MapPin, Activity, Info, Users, Save, ClipboardList } from 'lucide-react';
+import { convocatoriaService } from '../services/convocatoriaService';
+import playerService from '../services/playerService';
 import './MatchDetailsModal.css';
+
+const MAX_SQUAD = 23;
 
 const MatchDetailsModal = ({ match, onClose }) => {
     if (!match) return null;
 
     const props = match.extendedProps || {};
     const isFinished = props.isFinished;
+    const isFutureMatch = !isFinished && match.start && new Date(match.start) >= new Date();
+    const matchId = props.match_id;
+
     const dateStr = match.start ? new Date(match.start).toLocaleDateString('es-ES', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric'
     }) : '';
-
     const timeStr = props.hora ? props.hora.slice(0, 5) : '';
+
+    // Convocatoria state
+    const [squad, setSquad] = useState(Array.from({ length: MAX_SQUAD }, (_, i) => ({ numero: i + 1, jugador: '' })));
+    const [allPlayers, setAllPlayers] = useState([]);
+    const [loadingSquad, setLoadingSquad] = useState(false);
+    const [savingSquad, setSavingSquad] = useState(false);
+    const [squadMessage, setSquadMessage] = useState('');
+    const [showConvocatoria, setShowConvocatoria] = useState(false);
+
+    useEffect(() => {
+        if (matchId) {
+            loadSquadData();
+        }
+    }, [matchId]);
+
+    const loadSquadData = async () => {
+        setLoadingSquad(true);
+        try {
+            // Load players independently
+            let players = [];
+            try {
+                players = await playerService.getAll();
+                console.log('Players loaded:', players?.length);
+            } catch (err) {
+                console.error('Error loading players:', err);
+            }
+            setAllPlayers(players || []);
+
+            // Load existing squad independently
+            try {
+                const existingSquad = await convocatoriaService.getByMatchId(matchId);
+                console.log('Existing squad loaded:', existingSquad?.length);
+                if (existingSquad && existingSquad.length > 0) {
+                    const newSquad = Array.from({ length: MAX_SQUAD }, (_, i) => {
+                        const existing = existingSquad.find(e => e.numero === i + 1);
+                        return { numero: i + 1, jugador: existing?.jugador || '' };
+                    });
+                    setSquad(newSquad);
+                    setShowConvocatoria(true);
+                }
+            } catch (err) {
+                console.error('Error loading existing squad:', err);
+            }
+        } finally {
+            setLoadingSquad(false);
+        }
+    };
+
+    const handlePlayerChange = (index, playerId) => {
+        const newSquad = [...squad];
+        newSquad[index] = { ...newSquad[index], jugador: playerId };
+        setSquad(newSquad);
+    };
+
+    const handleSaveSquad = async () => {
+        setSavingSquad(true);
+        setSquadMessage('');
+        try {
+            await convocatoriaService.saveSquad(matchId, squad);
+            setSquadMessage('✅ Convocatoria guardada');
+            setTimeout(() => setSquadMessage(''), 3000);
+        } catch (err) {
+            console.error('Error saving squad:', err);
+            setSquadMessage('❌ Error al guardar');
+        } finally {
+            setSavingSquad(false);
+        }
+    };
+
+    const selectedPlayerIds = squad.map(s => s.jugador).filter(Boolean);
+    const getAvailablePlayers = (currentSlotPlayerId) => {
+        return allPlayers.filter(
+            p => p.id === currentSlotPlayerId || !selectedPlayerIds.includes(p.id)
+        );
+    };
+
+    const getPlayerName = (playerId) => {
+        const player = allPlayers.find(p => p.id === playerId);
+        return player ? `${player.nombre} ${player.apellidos}` : '';
+    };
+
+    const filledCount = squad.filter(s => s.jugador).length;
 
     return (
         <div className="match-details-overlay" onClick={onClose}>
@@ -97,6 +185,75 @@ const MatchDetailsModal = ({ match, onClose }) => {
                                 <span>Observaciones</span>
                             </div>
                             <p className="obs-text">{props.observaciones}</p>
+                        </div>
+                    )}
+
+                    {/* Convocatoria Section */}
+                    {matchId && (
+                        <div className="convocatoria-section">
+                            <div
+                                className="convocatoria-header"
+                                onClick={() => setShowConvocatoria(!showConvocatoria)}
+                            >
+                                <div className="convocatoria-title">
+                                    <ClipboardList size={20} />
+                                    <span>CONVOCATORIA</span>
+                                    <span className="convocatoria-count">{filledCount}/{MAX_SQUAD}</span>
+                                </div>
+                                <span className={`convocatoria-toggle ${showConvocatoria ? 'open' : ''}`}>▾</span>
+                            </div>
+
+                            {showConvocatoria && (
+                                <div className="convocatoria-body">
+                                    {loadingSquad ? (
+                                        <p className="convocatoria-loading">Cargando plantilla...</p>
+                                    ) : (
+                                        <>
+                                            <div className="squad-list">
+                                                {squad.map((slot, idx) => (
+                                                    <div key={idx} className={`squad-slot ${slot.jugador ? 'squad-slot--filled' : ''}`}>
+                                                        <span className="squad-number">{slot.numero}</span>
+                                                        {isFutureMatch ? (
+                                                            <select
+                                                                className="squad-select"
+                                                                value={slot.jugador || ''}
+                                                                onChange={(e) => handlePlayerChange(idx, e.target.value)}
+                                                            >
+                                                                <option value="">— Vacante —</option>
+                                                                {getAvailablePlayers(slot.jugador).map(p => (
+                                                                    <option key={p.id} value={p.id}>
+                                                                        {p.apellidos}, {p.nombre}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        ) : (
+                                                            <span className="squad-player-name">
+                                                                {slot.jugador ? getPlayerName(slot.jugador) : '—'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {isFutureMatch && (
+                                                <div className="convocatoria-actions">
+                                                    <button
+                                                        className="btn-save-squad"
+                                                        onClick={handleSaveSquad}
+                                                        disabled={savingSquad}
+                                                    >
+                                                        <Save size={16} />
+                                                        {savingSquad ? 'Guardando...' : 'Guardar Convocatoria'}
+                                                    </button>
+                                                    {squadMessage && (
+                                                        <span className="squad-message">{squadMessage}</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

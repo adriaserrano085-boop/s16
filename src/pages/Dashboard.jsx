@@ -150,6 +150,7 @@ const Dashboard = ({ user: propUser }) => {
 
                             matchDetails = {
                                 isMatch: true,
+                                match_id: matchRecord.id,
                                 league: matchRecord.competicion || 'Liga',
                                 homeTeamName: isHospitaletLocal ? 'RC HOSPITALET' : rivalName,
                                 homeTeamShield: isHospitaletLocal ? HOSPITALET_SHIELD : rivalShield,
