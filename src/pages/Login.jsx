@@ -9,7 +9,33 @@ const Login = ({ setUser }) => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [resetMode, setResetMode] = useState(false);
+    const [resetSent, setResetSent] = useState(false);
     const navigate = useNavigate();
+
+    const handleResetPassword = async (e) => {
+        e.preventDefault();
+        if (!email) {
+            setError('Introduce tu correo electrónico.');
+            return;
+        }
+        setLoading(true);
+        setError('');
+        try {
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/login`,
+            });
+            if (resetError) {
+                setError(resetError.message);
+            } else {
+                setResetSent(true);
+            }
+        } catch {
+            setError('Error al enviar el correo de recuperación.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -80,43 +106,91 @@ const Login = ({ setUser }) => {
                 <h1 className="login-title">S16 RCLH</h1>
                 <h2 className="login-subtitle">Bienvenido al equipo</h2>
 
-                <form onSubmit={handleSubmit} className="login-form">
-                    <input
-                        type="email"
-                        placeholder="Correo electrónico"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        className="login-input"
-                    />
-                    <input
-                        type="password"
-                        placeholder="Contraseña"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="login-input"
-                    />
+                {resetMode ? (
+                    /* Password Recovery Form */
+                    resetSent ? (
+                        <div className="login-reset-success">
+                            <div className="login-reset-icon">✉️</div>
+                            <p>Se ha enviado un enlace de recuperación a:</p>
+                            <p className="login-reset-email">{email}</p>
+                            <p>Revisa tu bandeja de entrada y sigue las instrucciones.</p>
+                            <button
+                                className="login-button"
+                                onClick={() => { setResetMode(false); setResetSent(false); setError(''); }}
+                            >
+                                Volver al Login
+                            </button>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleResetPassword} className="login-form">
+                            <p className="login-reset-hint">Introduce tu correo y te enviaremos un enlace para restablecer tu contraseña.</p>
+                            <input
+                                type="email"
+                                placeholder="Correo electrónico"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                className="login-input"
+                            />
+                            <button
+                                type="submit"
+                                className="login-button"
+                                disabled={loading}
+                            >
+                                {loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
+                            </button>
+                            <button
+                                type="button"
+                                className="login-link-btn"
+                                onClick={() => { setResetMode(false); setError(''); }}
+                            >
+                                ← Volver al Login
+                            </button>
+                        </form>
+                    )
+                ) : (
+                    /* Normal Login Form */
+                    <form onSubmit={handleSubmit} className="login-form">
+                        <input
+                            type="email"
+                            placeholder="Correo electrónico"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            className="login-input"
+                        />
+                        <input
+                            type="password"
+                            placeholder="Contraseña"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            className="login-input"
+                        />
 
-                    <button
-                        type="submit"
-                        className="login-button"
-                        disabled={loading}
-                    >
-                        {loading ? 'Iniciando...' : 'Iniciar Sesión'}
-                    </button>
-                </form>
+                        <button
+                            type="submit"
+                            className="login-button"
+                            disabled={loading}
+                        >
+                            {loading ? 'Iniciando...' : 'Iniciar Sesión'}
+                        </button>
+
+                        <button
+                            type="button"
+                            className="login-link-btn"
+                            onClick={() => { setResetMode(true); setError(''); }}
+                        >
+                            ¿Olvidaste tu contraseña?
+                        </button>
+                    </form>
+                )}
 
                 {error && (
                     <p className="login-error">
                         {error}
                     </p>
                 )}
-
-                <div className="login-footer">
-                    <p>Para probar roles:</p>
-                    <p>staff@s16.com / jugador@s16.com</p>
-                </div>
             </div>
         </div>
     );
