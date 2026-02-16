@@ -31,7 +31,7 @@ export default defineConfig({
       },
     },
     // Target modern browsers for smaller output
-    target: 'es2020',
+    target: 'esnext',
     // Remove console.log in production
     terserOptions: {
       compress: {
