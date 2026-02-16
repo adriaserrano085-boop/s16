@@ -1,0 +1,2 @@
+ALTER TABLE partidos ADD COLUMN IF NOT EXISTS jornada INT;
+ALTER TABLE partidos_externos ADD COLUMN IF NOT EXISTS jornada INT;

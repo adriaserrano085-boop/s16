@@ -1,0 +1,1 @@
+ALTER TABLE estadisticas_jugador ADD COLUMN IF NOT EXISTS fue_convocado BOOLEAN DEFAULT TRUE;

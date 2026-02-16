@@ -28,6 +28,7 @@ import { rivalService } from '../services/rivalService';
 import { trainingService } from '../services/trainingService';
 import playerService from '../services/playerService';
 import attendanceService from '../services/attendanceService';
+import { leagueService } from '../services/leagueService';
 
 import AttendanceModal from '../components/AttendanceModal';
 import MatchDetailsModal from '../components/MatchDetailsModal';
@@ -73,6 +74,7 @@ const Dashboard = ({ user: propUser }) => {
     const [events, setEvents] = useState([]);
     const [hospitaletPlayers, setHospitaletPlayers] = useState([]);
     const [allAttendance, setAllAttendance] = useState([]);
+    const [standings, setStandings] = useState([]);
 
     // Modal states
     const [selectedMatch, setSelectedMatch] = useState(null);
@@ -112,13 +114,14 @@ const Dashboard = ({ user: propUser }) => {
         setLoading(true);
         try {
             console.log('Fetching dashboard data from standardized services...');
-            const [eventData, matchData, rivalData, trainingData, playersData, attData] = await Promise.all([
+            const [eventData, matchData, rivalData, trainingData, playersData, attData, leagueData] = await Promise.all([
                 eventService.getAll(),
                 matchService.getAll(),
                 rivalService.getAll(),
                 trainingService.getAll(),
                 playerService.getAll(),
-                attendanceService.getAll()
+                attendanceService.getAll(),
+                leagueService.getStandings()
             ]);
 
             console.log('Data received:', {
@@ -127,11 +130,13 @@ const Dashboard = ({ user: propUser }) => {
                 rivals: rivalData?.length || 0,
                 trainings: trainingData?.length || 0,
                 players: playersData?.length || 0,
-                attendance: attData?.length || 0
+                attendance: attData?.length || 0,
+                league: leagueData?.length || 0
             });
 
             setHospitaletPlayers(playersData || []);
             setAllAttendance(attData || []);
+            setStandings(leagueData || []);
 
             if (eventData) {
                 const mappedEvents = eventData.map(e => {
@@ -352,6 +357,55 @@ const Dashboard = ({ user: propUser }) => {
                                 );
                             });
                         })()}
+                    </div>
+                </div>
+
+                {/* Classification Section */}
+                <div className="dashboard-card dashboard-card--standings">
+                    <div className="card-header card-header--bordered">
+                        <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Centro%20de%20estadisticas%20ICON.png" alt="Clasificación" className="section-icon section-icon--lg" />
+                        <h2 className="card-title card-title--section">CLASIFICACIÓN</h2>
+                    </div>
+                    <div className="standings-mini-table">
+                        <table className="mini-table">
+                            <thead>
+                                <tr>
+                                    <th className="th-rank">#</th>
+                                    <th className="th-team">Equipo</th>
+                                    <th className="th-pj">PJ</th>
+                                    <th className="th-pts">Pts</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {standings.slice(0, 6).map((team, idx) => (
+                                    <tr key={idx} className={team.team === 'RC HOSPITALET' ? 'row-highlight' : ''}>
+                                        <td className="td-rank">{team.ranking}</td>
+                                        <td className="td-team">
+                                            <div className="team-cell">
+                                                {team.escudo && <img src={team.escudo} alt="" className="mini-shield" />}
+                                                <span>{team.team}</span>
+                                            </div>
+                                        </td>
+                                        <td className="td-pj">{team.jugados}</td>
+                                        <td className="td-pts">{team.puntos}</td>
+                                    </tr>
+                                ))}
+                                {standings.length === 0 && (
+                                    <tr>
+                                        <td colSpan="4" className="empty-table-text">No hay datos de clasificación.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="card-actions-footer">
+                        <button
+                            onClick={() => navigate('/statistics')}
+                            className="btn btn-light-green"
+                        >
+                            <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Centro%20de%20estadisticas%20ICON.png" alt="Stats" className="btn-icon-custom" />
+                            VER ESTADÍSTICAS
+                        </button>
                     </div>
                 </div>
 

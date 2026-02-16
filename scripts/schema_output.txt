@@ -1,0 +1,5 @@
+--- Inspecting Entrenamientos ---
+Columns: ["id_entrenamiento","calentamiento","trabajo_separado","trabajo_conjunto","creado_en","actualizado_en","evento"]
+
+--- Inspecting Partidos ---
+Columns: ["id","es_local","lugar","marcador_local","marcador_visitante","observaciones","Rival","Evento"]

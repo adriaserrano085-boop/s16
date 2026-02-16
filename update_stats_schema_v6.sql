@@ -1,0 +1,2 @@
+ALTER TABLE partidos ADD COLUMN IF NOT EXISTS ensayos_local INT DEFAULT 0;
+ALTER TABLE partidos ADD COLUMN IF NOT EXISTS ensayos_visitante INT DEFAULT 0;
