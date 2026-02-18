@@ -1,0 +1,107 @@
+{
+    "resumen": "Derrota severa del CRUC (7-69) ante una U.E. Santboiana muy superior. El partido se rompió definitivamente con la expulsión del zaguero local en el minuto 50. La UES dominó con un juego rápido a la mano, castigando la defensa local que se vio superada físicamente y en organización.",
+    "analisis_dinamico": "La UES salió con mucha intensidad, anotando 3 ensayos en los primeros 17 minutos. El CRUC intentó reaccionar al inicio de la segunda parte con un ensayo de su capitán (min 42), reduciendo la distancia momentáneamente. Sin embargo, la tarjeta roja directa en el min 50 por un placaje peligroso dejó al CRUC con 14, provocando un colapso defensivo donde encajaron 38 puntos en los últimos 20 minutos.",
+    "scouting_fases": {
+        "mele": "La UES dominó el empuje, ganando sus propias melés y complicando la salida de ocho del CRUC, obligando al 9 local a jugar bajo presión.",
+        "touch": "Plataforma segura para la UES. El CRUC perdió varias touches propias en momentos clave debido a la presión defensiva en el salto.",
+        "rucks": "La UES limpió los rucks con gran velocidad, permitiendo una continuidad que desbordó al CRUC. El equipo local llegó tarde a los apoyos defensivos."
+    },
+    "ensayos": [
+        {
+            "minuto": 2,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo de Graus Barras (13) tras ruptura de línea."
+        },
+        {
+            "minuto": 9,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo de Castaño Valero (19) ampliando ventaja."
+        },
+        {
+            "minuto": 17,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo de delantera de Cordero Rodriguez (1)."
+        },
+        {
+            "minuto": 33,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo de Coradazzi Regaño (14) por el ala."
+        },
+        {
+            "minuto": 36,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo de Graus Barras (13) antes del descanso."
+        },
+        {
+            "minuto": 42,
+            "equipo": "Local",
+            "descripcion": "Ensayo de Milla Ballester (8) de pick and go."
+        },
+        {
+            "minuto": 48,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo de Coradazzi Regaño (14) tras jugada colectiva."
+        },
+        {
+            "minuto": 50,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo de Graus Barras (13) coincidiendo con expulsión."
+        },
+        {
+            "minuto": 53,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo de Coradazzi Regaño (14) aprovechando superioridad."
+        },
+        {
+            "minuto": 57,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo de Coradazzi Regaño (14) en velocidad."
+        },
+        {
+            "minuto": 60,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo de Fontanet Bartolomé (15)."
+        },
+        {
+            "minuto": 64,
+            "equipo": "Visitante",
+            "descripcion": "Ensayo final de Jorba Puig (7)."
+        }
+    ],
+    "disciplina": "El CRUC sufrió una Tarjeta Roja directa (Fourgeaud Tramullas, min 50) por placaje alto peligroso, lo que condicionó el resto del partido.",
+    "estadisticas": {
+        "posesion": {
+            "local": 25,
+            "visitante": 75
+        },
+        "placajes_hechos": {
+            "local": 45,
+            "visitante": 28
+        },
+        "placajes_fallados": {
+            "local": 22,
+            "visitante": 5
+        },
+        "turnovers": {
+            "local": 3,
+            "visitante": 12
+        },
+        "penaltis": {
+            "local": 6,
+            "visitante": 4
+        },
+        "mele": {
+            "local_ganada": 3,
+            "local_perdida": 4,
+            "visitante_ganada": 7,
+            "visitante_perdida": 0
+        },
+        "touch": {
+            "local_ganada": 4,
+            "local_perdida": 5,
+            "visitante_ganada": 8,
+            "visitante_perdida": 1
+        }
+    },
+    "conclusion": "La UES impuso una superioridad física y técnica notable, reflejada en los placajes fallados por el CRUC. La expulsión en el minuto 50 terminó de hundir las opciones locales. Gran actuación de los alas visitantes."
+}

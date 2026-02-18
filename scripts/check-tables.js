@@ -1,20 +1,25 @@
+
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const supabaseUrl = 'https://tyqyixwqoxrrfvoeotax.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5cXlpeHdxb3hycmZ2b2VvdGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4Nzk3NTUsImV4cCI6MjA4MzQ1NTc1NX0.YWUvI8waXDCn6pHLlf1uoKuKUFbVzw8CFFfIsyfau-c';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function checkTables() {
-    const tables = ['eventos', 'partidos', 'entrenamientos', 'equipos', 'rivales'];
-
-    for (const table of tables) {
-        const { data, error } = await supabase.from(table).select('*').limit(1);
-
+    const tables = ['partidos', 'eventos', 'rivales', 'analisis'];
+    for (const t of tables) {
+        const { data, error } = await supabase.from(t).select('*').limit(1);
         if (error) {
-            console.log(`❌ ${table}: ${error.message}`);
+            console.log(`Table ${t} error:`, error.message);
         } else {
-            console.log(`✅ ${table}: OK (${data ? data.length : 0} rows)`);
+            console.log(`Table ${t} exists. Keys:`, data.length > 0 ? Object.keys(data[0]) : 'Empty');
+            if (data.length > 0) console.log(`Sample ${t}:`, data[0]);
         }
     }
 }
