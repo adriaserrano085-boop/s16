@@ -829,7 +829,11 @@ const CalendarPage = () => {
                     <div className="upcoming-section">
                         <div className="upcoming-card">
                             <h3 className="upcoming-title">
-                                <CalendarIcon size={20} color="#FF6600" /> Próximos Eventos
+                                <img
+                                    src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/proximos%20eventos.png"
+                                    alt="Próximos Eventos"
+                                    style={{ width: '28px', height: '28px', objectFit: 'contain' }}
+                                /> Próximos Eventos
                             </h3>
                             <div className="upcoming-list">
                                 {events.length > 0 ? (

@@ -10,6 +10,7 @@ import ActaUploader from '../components/ActaUploader';
 import MatchDetailsModal from '../components/MatchDetailsModal';
 import { MatchAnalysisView } from '../components/MatchAnalysisView';
 import { TeamEvolutionAnalysis } from '../components/TeamEvolutionAnalysis';
+import { HospitaletAnalysis } from '../components/HospitaletAnalysis';
 
 const TeamLogo = ({ url, name, size = 30 }) => {
     if (!url) return <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: '#999', overflow: 'hidden' }}>{name?.substring(0, 2)}</div>;
@@ -944,7 +945,11 @@ const StatsPage = ({ user }) => {
                             gap: '0.5rem',
                             transition: 'all 0.2s'
                         }}>
-                        <Users size={18} /> GLOBAL
+                        <img
+                            src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Global.png"
+                            alt="Logo Global"
+                            style={{ width: '28px', height: '28px', objectFit: 'contain' }}
+                        /> GLOBAL
                     </button>
                 </div>
 
@@ -1459,7 +1464,7 @@ const StatsPage = ({ user }) => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                         {/* HOSPI TABS */}
                                         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                                            {['partidos', 'jugadores'].map((tab) => (
+                                            {['partidos', 'estadisticas', 'analisis', 'jugadores'].map((tab) => (
                                                 <button
                                                     key={tab}
                                                     onClick={() => setHospitaletDetailTab(tab)}
@@ -1482,6 +1487,161 @@ const StatsPage = ({ user }) => {
                                                 </button>
                                             ))}
                                         </div>
+
+                                        {/* TAB: ESTADISTICAS (New) */}
+                                        {hospitaletDetailTab === 'estadisticas' && (
+                                            <div style={{ backgroundColor: 'var(--color-bg-pastel-orange)', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(0, 51, 102, 0.05)', padding: '1.25rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+
+                                                    {/* Evolution Analysis */}
+                                                    <TeamEvolutionAnalysis
+                                                        matches={matchResults.flatMap(g => g.matches).filter(m => m.home === HOSPITALET_NAME || m.away === HOSPITALET_NAME)}
+                                                        analyses={allAnalyses}
+                                                        teamName={HOSPITALET_NAME}
+                                                    />
+
+                                                    {/* League Stats Cards */}
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                                                        {(() => {
+                                                            const team = leagueStats.find(t => t.team === HOSPITALET_NAME) || {};
+                                                            return (
+                                                                <>
+                                                                    <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px solid rgba(255, 102, 0, 0.1)', borderRadius: '12px', background: 'white' }}>
+                                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontWeight: 'bold', marginBottom: '0.5rem' }}>PUNTOS LIGA</div>
+                                                                        <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--color-primary-orange)' }}>{team.puntos || 0}</div>
+                                                                    </div>
+                                                                    <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px solid rgba(255, 102, 0, 0.1)', borderRadius: '12px', background: 'white' }}>
+                                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontWeight: 'bold', marginBottom: '0.5rem' }}>RÉCORD (G-E-P)</div>
+                                                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-primary-blue)' }}>{team.ganados}-{team.empatados}-{team.perdidos}</div>
+                                                                    </div>
+                                                                    <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px solid rgba(255, 102, 0, 0.1)', borderRadius: '12px', background: 'white' }}>
+                                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontWeight: 'bold', marginBottom: '0.5rem' }}>PROM. FAVOR</div>
+                                                                        <div style={{ fontSize: '2rem', fontWeight: '900', color: '#28a745' }}>{team.jugados > 0 ? (team.favor / team.jugados).toFixed(1) : 0}</div>
+                                                                    </div>
+                                                                    <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px solid rgba(255, 102, 0, 0.1)', borderRadius: '12px', background: 'white' }}>
+                                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontWeight: 'bold', marginBottom: '0.5rem' }}>PROM. CONTRA</div>
+                                                                        <div style={{ fontSize: '2rem', fontWeight: '900', color: '#dc3545' }}>{team.jugados > 0 ? (team.contra / team.jugados).toFixed(1) : 0}</div>
+                                                                    </div>
+                                                                    <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px solid rgba(255, 102, 0, 0.1)', borderRadius: '12px', background: 'white' }}>
+                                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontWeight: 'bold', marginBottom: '0.5rem' }}>ENSAYOS / PARTIDO</div>
+                                                                        <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--color-primary-blue)' }}>{team.jugados > 0 ? (team.ensayos / team.jugados).toFixed(1) : 0}</div>
+                                                                    </div>
+                                                                    <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px solid rgba(255, 102, 0, 0.1)', borderRadius: '12px', background: 'white' }}>
+                                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontWeight: 'bold', marginBottom: '0.5rem' }}>DISCIPLINA (A/R)</div>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                                                            <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#ffc107' }}>
+                                                                                {playerStats.filter(p => p.team?.toUpperCase() === 'RC HOSPITALET').reduce((acc, p) => acc + (p.amarillas || 0), 0)}
+                                                                            </span>
+                                                                            <span style={{ fontSize: '1.2rem', color: '#ccc' }}>/</span>
+                                                                            <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#dc3545' }}>
+                                                                                {playerStats.filter(p => p.team?.toUpperCase() === 'RC HOSPITALET').reduce((acc, p) => acc + (p.rojas || 0), 0)}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </div>
+
+                                                    {/* Detailed Game Stats */}
+                                                    {(() => {
+                                                        // Filter matches for Hospitalet
+                                                        const hospiMatches = matchResults
+                                                            .flatMap(g => g.matches)
+                                                            .filter(m => m.home === HOSPITALET_NAME || m.away === HOSPITALET_NAME);
+
+                                                        // Find analysis for these matches
+                                                        const analyzedMatches = hospiMatches.map(match => {
+                                                            let analysis = null;
+                                                            if (match.partido_externo_id) {
+                                                                analysis = allAnalyses.find(a => a.partido_externo_id === match.partido_externo_id);
+                                                            } else if (match.evento_id) {
+                                                                analysis = allAnalyses.find(a => a.evento_id === match.evento_id);
+                                                            }
+                                                            return { ...match, analysis };
+                                                        }).filter(m => m.analysis && m.analysis.raw_json && m.analysis.raw_json.estadisticas);
+
+                                                        const matchCount = analyzedMatches.length;
+
+                                                        if (matchCount === 0) return null;
+
+                                                        const stats = analyzedMatches.reduce((acc, m) => {
+                                                            const isHome = m.home === HOSPITALET_NAME;
+                                                            const teamKey = isHome ? 'local' : 'visitante';
+                                                            const s = m.analysis.raw_json.estadisticas;
+
+                                                            acc.scrumWon += (s.mele?.[`${teamKey}_ganada`] || 0);
+                                                            acc.scrumLost += (s.mele?.[`${teamKey}_perdida`] || 0);
+                                                            acc.lineoutWon += (s.touch?.[`${teamKey}_ganada`] || 0);
+                                                            acc.lineoutLost += (s.touch?.[`${teamKey}_perdida`] || 0);
+                                                            acc.tacklesMade += (s.placajes_hechos?.[teamKey] || 0);
+                                                            acc.tacklesMissed += (s.placajes_fallados?.[teamKey] || 0);
+                                                            return acc;
+                                                        }, { scrumWon: 0, scrumLost: 0, lineoutWon: 0, lineoutLost: 0, tacklesMade: 0, tacklesMissed: 0 });
+
+                                                        const StatCard = ({ title, value1, label1, value2, label2, value3, label3, color }) => (
+                                                            <div style={{ padding: '1.5rem', border: `1px solid ${color}40`, borderRadius: '12px', background: `linear-gradient(to bottom right, white, ${color}05)`, flex: 1, minWidth: '300px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                                                                <div style={{ fontSize: '0.9rem', color: color, fontWeight: 'bold', marginBottom: '1rem', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: color }}></span>
+                                                                    {title}
+                                                                </div>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                                                                    <div style={{ textAlign: 'center' }}>
+                                                                        <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#2c3e50' }}>{value1}</div>
+                                                                        <div style={{ fontSize: '0.7rem', color: '#7f8c8d' }}>{label1}</div>
+                                                                    </div>
+                                                                    <div style={{ width: '1px', backgroundColor: 'rgba(0,0,0,0.1)' }}></div>
+                                                                    <div style={{ textAlign: 'center' }}>
+                                                                        <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#2c3e50' }}>{value2}</div>
+                                                                        <div style={{ fontSize: '0.7rem', color: '#7f8c8d' }}>{label2}</div>
+                                                                    </div>
+                                                                    <div style={{ width: '1px', backgroundColor: 'rgba(0,0,0,0.1)' }}></div>
+                                                                    <div style={{ textAlign: 'center' }}>
+                                                                        <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#2c3e50' }}>{value3}</div>
+                                                                        <div style={{ fontSize: '0.7rem', color: '#7f8c8d' }}>{label3}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+
+                                                        return (
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1rem' }}>
+                                                                <StatCard
+                                                                    title="Melé"
+                                                                    value1={`${stats.scrumWon}/${stats.scrumWon + stats.scrumLost}`}
+                                                                    label1={`Ganadas (${matchCount > 0 ? Math.round((stats.scrumWon / ((stats.scrumWon + stats.scrumLost) || 1)) * 100) : 0}%)`}
+                                                                    value2={(stats.scrumWon / matchCount).toFixed(1)}
+                                                                    label2="Ganadas / Partido"
+                                                                    value3={((stats.scrumWon + stats.scrumLost) / matchCount).toFixed(1)}
+                                                                    label3="Intentos / Partido"
+                                                                    color="#e67e22"
+                                                                />
+                                                                <StatCard
+                                                                    title="Touch"
+                                                                    value1={`${stats.lineoutWon}/${stats.lineoutWon + stats.lineoutLost}`}
+                                                                    label1={`Ganadas (${matchCount > 0 ? Math.round((stats.lineoutWon / ((stats.lineoutWon + stats.lineoutLost) || 1)) * 100) : 0}%)`}
+                                                                    value2={(stats.lineoutWon / matchCount).toFixed(1)}
+                                                                    label2="Ganadas / Partido"
+                                                                    value3={((stats.lineoutWon + stats.lineoutLost) / matchCount).toFixed(1)}
+                                                                    label3="Intentos / Partido"
+                                                                    color="#27ae60"
+                                                                />
+                                                                <StatCard
+                                                                    title="Placajes"
+                                                                    value1={`${stats.tacklesMade}/${stats.tacklesMade + stats.tacklesMissed}`}
+                                                                    label1={`Efx (${matchCount > 0 ? Math.round((stats.tacklesMade / ((stats.tacklesMade + stats.tacklesMissed) || 1)) * 100) : 0}%)`}
+                                                                    value2={(stats.tacklesMade / matchCount).toFixed(1)}
+                                                                    label2="Realizados / Partido"
+                                                                    value3={((stats.tacklesMade + stats.tacklesMissed) / matchCount).toFixed(1)}
+                                                                    label3="Intentos / Partido"
+                                                                    color="#2980b9"
+                                                                />
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* TAB: JUGADORES (Existing Logic) */}
                                         {hospitaletDetailTab === 'jugadores' && (
@@ -1533,12 +1693,7 @@ const StatsPage = ({ user }) => {
                                         {hospitaletDetailTab === 'partidos' && (
                                             <div style={{ backgroundColor: 'var(--color-bg-pastel-orange)', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(0, 51, 102, 0.05)', padding: '1.25rem' }}>
 
-                                                {/* Global Evolution Analysis */}
-                                                <TeamEvolutionAnalysis
-                                                    matches={matchResults.flatMap(g => g.matches).filter(m => m.home === HOSPITALET_NAME || m.away === HOSPITALET_NAME)}
-                                                    analyses={allAnalyses}
-                                                    teamName={HOSPITALET_NAME}
-                                                />
+
 
                                                 {/* Match List Selector */}
                                                 <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
@@ -1581,6 +1736,18 @@ const StatsPage = ({ user }) => {
                                                         />
                                                     </div>
                                                 )}
+                                            </div>
+                                        )}
+
+                                        {/* TAB: ANALISIS (New) */}
+                                        {hospitaletDetailTab === 'analisis' && (
+                                            <div style={{ backgroundColor: 'var(--color-bg-pastel-orange)', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(0, 51, 102, 0.05)', padding: '1.25rem' }}>
+                                                <HospitaletAnalysis
+                                                    matches={matchResults.flatMap(g => g.matches).filter(m => m.home === HOSPITALET_NAME || m.away === HOSPITALET_NAME)}
+                                                    analyses={allAnalyses}
+                                                    playerStats={playerStats}
+                                                    leagueStats={leagueStats}
+                                                />
                                             </div>
                                         )}
                                     </div>

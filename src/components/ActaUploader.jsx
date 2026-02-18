@@ -247,6 +247,7 @@ const ActaUploader = ({ onUploadComplete }) => {
 
         let inScoreboard = false;
         let inChanges = false;
+        let inCards = false;
         let currentTeam = null; // 'LOCAL' or 'VISITOR'
 
         // Helpers to parse row content
@@ -266,8 +267,11 @@ const ActaUploader = ({ onUploadComplete }) => {
             if (text.includes("Cambios")) {
                 inScoreboard = false; inChanges = true; currentTeam = null; continue;
             }
-            if (text.includes("Expulsions") || text.includes("Observacions") || text.includes("Incidències")) {
-                inScoreboard = false; inChanges = false; continue;
+            if (text.includes("Expulsions") || text.includes("Incidències") || text.includes("Targetes")) {
+                inScoreboard = false; inChanges = false; inCards = true; currentTeam = null; continue;
+            }
+            if (text.includes("Observacions")) {
+                inScoreboard = false; inChanges = false; inCards = false; continue;
             }
 
             // Team Detection (Context for the following rows)
@@ -297,6 +301,7 @@ const ActaUploader = ({ onUploadComplete }) => {
                 const minutes = minuteRow.filter(item => !item.text.includes("Minut")).map(i => i.text.trim());
 
                 const count = Math.min(types.length, dorsals.length, minutes.length);
+                console.log("Parsing Scoreboard/Events Row:", { types, dorsals, minutes }); // DEBUG
                 for (let k = 0; k < count; k++) {
                     const dorsal = parseInt(dorsals[k]);
                     const type = types[k];
@@ -307,6 +312,31 @@ const ActaUploader = ({ onUploadComplete }) => {
                             team: currentTeam,
                             type: type,
                             dorsal: isNaN(dorsal) ? null : dorsal,
+                            minute: parseInt(minutes[k])
+                        });
+                    }
+                }
+                typeRow = dorsalRow = minuteRow = null;
+            }
+
+            // Parse Block: Cards
+            if (inCards && typeRow && dorsalRow && minuteRow) {
+                const types = typeRow.filter(item => !item.text.includes("Tipus") && item.text.trim() !== '*').map(i => i.text.trim());
+                const dorsals = dorsalRow.filter(item => !item.text.includes("Dorsal")).map(i => i.text.trim());
+                const minutes = minuteRow.filter(item => !item.text.includes("Minut")).map(i => i.text.trim());
+
+                const count = Math.min(types.length, dorsals.length, minutes.length);
+                console.log("Parsing Cards Row:", { types, dorsals, minutes });
+
+                for (let k = 0; k < count; k++) {
+                    const dorsal = parseInt(dorsals[k]);
+                    const type = types[k]; // Assume TA/TR or similar code
+
+                    if (!isNaN(dorsal)) {
+                        events.push({
+                            team: currentTeam,
+                            type: type,
+                            dorsal: dorsal,
                             minute: parseInt(minutes[k])
                         });
                     }
