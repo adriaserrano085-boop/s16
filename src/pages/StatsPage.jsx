@@ -144,10 +144,13 @@ const RivalAnalysis = ({ rivalName, leagueStats, playerStats, matchResults, allA
         const sections = [];
 
         // 1. Current Form & Context
-        let formText = `El equipo marcha ${team.ranking}º en la clasificación con ${team.puntos} puntos. `;
-        if (winRate > 70) formText += "Llegan con una dinámica ganadora muy fuerte, siendo uno de los rivales a batir. ";
-        else if (winRate < 30) formText += "Han tenido dificultades para cerrar partidos esta temporada. ";
-        else formText += "Es un equipo competitivo que alterna buenos resultados con irregularidad. ";
+        let formText = "Datos de clasificación no disponibles. ";
+        if (team && team.ranking) {
+            formText = `El equipo marcha ${team.ranking}º en la clasificación con ${team.puntos} puntos. `;
+            if (winRate > 70) formText += "Llegan con una dinámica ganadora muy fuerte, siendo uno de los rivales a batir. ";
+            else if (winRate < 30) formText += "Han tenido dificultades para cerrar partidos esta temporada. ";
+            else formText += "Es un equipo competitivo que alterna buenos resultados con irregularidad. ";
+        }
 
         sections.push({
             title: "Contexto Competitivo",
@@ -229,10 +232,9 @@ const RivalAnalysis = ({ rivalName, leagueStats, playerStats, matchResults, allA
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                             <img
-                                src={leagueStats.find(t => t.team === rivalName)?.escudo}
-                                alt={rivalName}
-                                style={{ width: '48px', height: '48px', filter: 'brightness(0) invert(1)' }}
-                                onError={(e) => e.target.style.display = 'none'}
+                                src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Informe%20de%20analista.png"
+                                alt="Analyst Icon"
+                                style={{ width: '64px', height: '64px', objectFit: 'contain', marginRight: '0.5rem' }}
                             />
                             <h3 style={{ margin: 0, fontSize: '2rem', color: 'white', fontWeight: '900', letterSpacing: '-0.5px' }}>Informe de Analista</h3>
                         </div>
