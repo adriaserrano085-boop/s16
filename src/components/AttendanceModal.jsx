@@ -5,7 +5,7 @@ import playerService from '../services/playerService';
 import attendanceService from '../services/attendanceService';
 import './AttendanceModal.css';
 
-const AttendanceModal = ({ onClose, initialEventId }) => {
+const AttendanceModal = ({ onClose, initialEventId, user }) => {
     // initialEventId here is actually treated as trainingId when passed from CalendarPage for a specific training. 
     // The prop name is kept generic but the logic will act on it.
     // If it's a UUID (36 chars), it's likely an Event ID (from the generic picker).
@@ -191,7 +191,14 @@ const AttendanceModal = ({ onClose, initialEventId }) => {
     const fetchPlayers = async () => {
         try {
             const data = await playerService.getAll();
-            setPlayers(data || []);
+
+            // RBAC: If user is a Player, only show themselves
+            if (user?.role === 'JUGADOR' && user.playerId) {
+                const myself = data.find(p => p.id === user.playerId);
+                setPlayers(myself ? [myself] : []);
+            } else {
+                setPlayers(data || []);
+            }
         } catch (err) {
             console.error('Error fetching players:', err);
             alert('Error al cargar jugadores');
@@ -233,14 +240,12 @@ const AttendanceModal = ({ onClose, initialEventId }) => {
     };
 
     const mapStatusToSpanish = (status) => {
-        // If the status is already one of our valid Spanish statuses, return it as is
-        // This handles existing records correctly ('Presente', 'Retraso', etc.)
         if (statusCycle.includes(status)) return status;
 
         const map = {
             'present': 'Presente',
             'late': 'Retraso',
-            'absent': 'Falta', // Map absent to Falta as Ausente is not in DB enum
+            'absent': 'Falta',
             'justified': 'Falta Justificada',
             'injured': 'Lesion',
             'sick': 'Emfermo',
@@ -249,9 +254,10 @@ const AttendanceModal = ({ onClose, initialEventId }) => {
         return map[status] || 'Pendiente';
     };
 
-
-
     const handleAttendanceToggle = (playerId) => {
+        // RBAC: Players cannot edit attendance
+        if (user?.role === 'JUGADOR') return;
+
         setAttendance(prev => {
             const current = prev[playerId] || 'Pendiente';
             const currentIndex = statusCycle.indexOf(current);
@@ -274,9 +280,8 @@ const AttendanceModal = ({ onClose, initialEventId }) => {
 
         setSaving(true);
         try {
-            // Prepare attendance records
             const records = Object.entries(attendance)
-                .filter(([_, status]) => status !== 'Pendiente') // Only save non-pending
+                .filter(([_, status]) => status !== 'Pendiente')
                 .map(([playerId, status]) => ({
                     entrenamiento: selectedEvent.trainingId,
                     jugador: playerId,
@@ -297,20 +302,6 @@ const AttendanceModal = ({ onClose, initialEventId }) => {
             alert('Error al guardar asistencia: ' + err.message);
         } finally {
             setSaving(false);
-        }
-    };
-
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Presente': return '#28a745';
-            case 'Retraso': return '#ffc107';
-            case 'Falta': return '#dc3545';
-            case 'Falta Justificada': return '#3498db';
-            case 'Lesion': return '#e67e22'; // Orange
-            case 'Emfermo': return '#bdc3c7'; // Gray
-            case 'Enfermo': return '#bdc3c7'; // Handle potential typo correction in future or DB inconsistencies
-            case 'Catalana': return '#9b59b6'; // Purple
-            default: return '#6c757d';
         }
     };
 
@@ -394,7 +385,8 @@ const AttendanceModal = ({ onClose, initialEventId }) => {
                                 <div
                                     key={player.id}
                                     onClick={() => handleAttendanceToggle(player.id)}
-                                    className="player-item"
+                                    className={`player-item ${user?.role === 'JUGADOR' ? 'read-only' : ''}`}
+                                    style={{ cursor: user?.role === 'JUGADOR' ? 'default' : 'pointer' }}
                                 >
                                     <div className="player-left">
                                         {player.foto ? (
@@ -431,16 +423,18 @@ const AttendanceModal = ({ onClose, initialEventId }) => {
                         onClick={onClose}
                         className="btn-modal-cancel"
                     >
-                        Cancelar
+                        {user?.role === 'JUGADOR' ? 'Cerrar' : 'Cancelar'}
                     </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={!selectedEventId || saving}
-                        className="btn-modal-save"
-                    >
-                        <Save size={18} />
-                        {saving ? 'Guardando...' : 'Guardar Asistencia'}
-                    </button>
+                    {user?.role !== 'JUGADOR' && (
+                        <button
+                            onClick={handleSave}
+                            disabled={!selectedEventId || saving}
+                            className="btn-modal-save"
+                        >
+                            <Save size={18} />
+                            {saving ? 'Guardando...' : 'Guardar Asistencia'}
+                        </button>
+                    )}
                 </div>
             </div>
         </div >

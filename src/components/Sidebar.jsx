@@ -35,7 +35,7 @@ const NAV_ITEMS = [
     },
 ];
 
-export default function Sidebar({ onLogout }) {
+export default function Sidebar({ user, onLogout }) {
     const navigate = useNavigate();
     const location = useLocation();
     const [open, setOpen] = useState(false);
@@ -44,6 +44,14 @@ export default function Sidebar({ onLogout }) {
         navigate(path);
         setOpen(false);
     };
+
+    const filteredNavItems = NAV_ITEMS.filter(item => {
+        // If user is a Player, ONLY show Dashboard
+        if (user?.role === 'JUGADOR') {
+            return item.path === '/dashboard';
+        }
+        return true;
+    });
 
     return (
         <>
@@ -65,8 +73,13 @@ export default function Sidebar({ onLogout }) {
                     <span>RCLH S16</span>
                 </div>
 
+                <div className="sidebar-user-info" style={{ padding: '0 1rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#ccc' }}>
+                    {user?.nombre && <div style={{ fontWeight: 'bold', color: 'white' }}>{user.nombre}</div>}
+                    <div style={{ textTransform: 'uppercase', fontSize: '0.75rem', opacity: 0.7 }}>{user?.role || 'STAFF'}</div>
+                </div>
+
                 <nav className="sidebar-nav">
-                    {NAV_ITEMS.map((item) => (
+                    {filteredNavItems.map((item) => (
                         <button
                             key={item.path}
                             className={`sidebar-link ${location.pathname === item.path ? 'active' : ''}`}

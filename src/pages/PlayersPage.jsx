@@ -13,8 +13,12 @@ const PlayersPage = ({ user }) => {
     const [selectedPlayer, setSelectedPlayer] = useState(null);
 
     useEffect(() => {
+        if (user?.role === 'JUGADOR') {
+            navigate('/dashboard');
+            return;
+        }
         fetchPlayers();
-    }, []);
+    }, [user, navigate]);
 
     const fetchPlayers = async () => {
         setLoading(true);

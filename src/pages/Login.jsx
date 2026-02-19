@@ -73,13 +73,9 @@ const Login = ({ setUser }) => {
             if (authData?.user) {
                 console.log('Login: Success. Redirection to dashboard...');
 
-                // Explicitly set user to avoid race condition with onAuthStateChange redirect
-                setUser({
-                    ...authData.user,
-                    role: 'STAFF',
-                    full_name: authData.user.user_metadata?.full_name || 'Staff User'
-                });
-
+                // User state will be handled by onAuthStateChange in App.jsx
+                // But we act optimistically here to trigger navigation
+                console.log("Login: Triggering navigation to dashboard.");
                 navigate('/dashboard');
             }
         } catch (err) {

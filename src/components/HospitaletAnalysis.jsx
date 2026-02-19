@@ -144,7 +144,13 @@ export const HospitaletAnalysis = ({ matches, analyses, playerStats, leagueStats
         });
 
         // 3. Perfil Defensivo
+        const hospitaletPlayers = playerStats.filter(p => p.team && (p.team.includes('HOSPITALET') || p.team.includes("L'H")));
+        const totalYellows = hospitaletPlayers.reduce((sum, p) => sum + (p.amarillas || 0), 0);
+        const totalReds = hospitaletPlayers.reduce((sum, p) => sum + (p.rojas || 0), 0);
+
         let defenseText = `Encajando ${pointsConceded} puntos por partido. `;
+        defenseText += `Acumulan ${totalYellows} tarjetas amarillas y ${totalReds} rojas en la temporada. `;
+
         if (analyzedGames > 0) {
             defenseText += `La efectividad en el placaje es del ${tackleSuccess}%. `;
             if (tackleSuccess < 85) {
@@ -154,6 +160,10 @@ export const HospitaletAnalysis = ({ matches, analyses, playerStats, leagueStats
                 defenseText += "Sólida base defensiva. El desafío ahora es la recuperación rápida (jackal) para lanzar contraataques con los backs.";
             }
         }
+
+        // Discipline Check
+        if (totalYellows > 5) defenseText += " La disciplina está siendo un problema reiterado que nos deja en inferioridad numérica con demasiada frecuencia.";
+
         sections.push({
             title: "Fase Defensiva",
             icon: <Shield size={18} />,

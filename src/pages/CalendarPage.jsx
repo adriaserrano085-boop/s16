@@ -55,7 +55,7 @@ const getEventTitle = (e) => {
     return tipo;
 };
 
-const CalendarPage = () => {
+const CalendarPage = ({ user }) => {
     const navigate = useNavigate();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -552,7 +552,14 @@ const CalendarPage = () => {
     const fetchPlayers = async (teamId) => {
         try {
             const data = await playerService.getAllByTeam(teamId);
-            if (data) setPlayers(data);
+            if (data) {
+                if (user?.role === 'JUGADOR' && user.playerId) {
+                    const myself = data.find(p => p.id === user.playerId);
+                    setPlayers(myself ? [myself] : []);
+                } else {
+                    setPlayers(data);
+                }
+            }
         } catch (err) {
             console.error('Error fetching players:', err);
         }
@@ -1294,6 +1301,49 @@ const CalendarPage = () => {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Rival Analysis Button for Players - Only for NEXT match */}
+                                        {user?.role === 'JUGADOR' && (selectedMatch.homeTeamName !== 'RC HOSPITALET' || selectedMatch.awayTeamName !== 'RC HOSPITALET') && (() => {
+                                            const today = new Date();
+                                            today.setHours(0, 0, 0, 0);
+                                            const nextMatch = events
+                                                .filter(e => e.extendedProps.isMatch && new Date(e.start) >= today)
+                                                .sort((a, b) => new Date(a.start) - new Date(b.start))[0];
+                                            const isNextMatch = nextMatch && String(nextMatch.id) === String(selectedMatch.id);
+
+                                            return isNextMatch ? (
+                                                <div style={{ marginTop: '1.5rem' }}>
+                                                    <button
+                                                        onClick={() => {
+                                                            const rival = selectedMatch.homeTeamName === 'RC HOSPITALET' ? selectedMatch.awayTeamName : selectedMatch.homeTeamName;
+                                                            if (rival) {
+                                                                setShowMatchModal(false);
+                                                                navigate(`/analysis/rival/${encodeURIComponent(rival)}`);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '0.75rem',
+                                                            borderRadius: '12px',
+                                                            border: 'none',
+                                                            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                                            color: 'white',
+                                                            fontSize: '1rem',
+                                                            fontWeight: 'bold',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '0.5rem',
+                                                            boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.5)'
+                                                        }}
+                                                    >
+                                                        <Activity size={18} />
+                                                        Ver Análisis del Rival
+                                                    </button>
+                                                </div>
+                                            ) : null;
+                                        })()}
                                     </>
                                 ) : (
                                     <div className="attendance-tab">
@@ -1482,8 +1532,9 @@ const CalendarPage = () => {
             {
                 showAttendanceModal && (
                     <AttendanceModal
-                        onClose={() => setShowAttendanceModal(false)}
                         initialEventId={attendanceEventId}
+                        onClose={() => setShowAttendanceModal(false)}
+                        user={user}
                     />
                 )
             }

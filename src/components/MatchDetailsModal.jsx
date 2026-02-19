@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, MapPin, Activity, Info, Users, Save, ClipboardList, Video, FileJson } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, Calendar, Clock, MapPin, Activity, Info, Users, Save, ClipboardList, Video, FileJson, TrendingUp } from 'lucide-react';
 import { convocatoriaService } from '../services/convocatoriaService';
 import { analysisService } from '../services/analysisService';
 import { analyzePdf } from '../utils/pdfAnalysis';
@@ -8,16 +9,22 @@ import './MatchDetailsModal.css';
 
 const MAX_SQUAD = 23;
 
-const MatchDetailsModal = ({ match, onClose }) => {
+const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
     if (!match) return null;
 
     const props = match.extendedProps || {};
+    const navigate = useNavigate();
     const isFinished = props.isFinished;
-    const isFutureMatch = !isFinished && match.start && new Date(match.start) >= new Date();
+    const isFutureMatch = (() => {
+        if (isFinished) return false;
+        if (!match.start) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return new Date(match.start) >= today;
+    })();
     const matchId = props.match_id; // Keep for match-specific logic (e.g. stats)
     const externalId = props.partido_externo_id; // UUID for External Matches
     const eventId = props.evento_id || props.publicId || match.id; // UUID for Analysis (Calendar Events)
-    console.log("MatchDetailsModal Debug:", { eventId, "props.evento_id": props.evento_id, "props.publicId": props.publicId, "match.id": match.id, externalId });
 
     const dateStr = match.start ? new Date(match.start).toLocaleDateString('es-ES', {
         weekday: 'long',
@@ -286,16 +293,24 @@ const MatchDetailsModal = ({ match, onClose }) => {
             try {
                 const existingSquad = await convocatoriaService.getByMatchId(matchId);
                 console.log('Existing squad loaded:', existingSquad?.length);
+
+                const newSquad = Array.from({ length: MAX_SQUAD }, (_, i) => {
+                    const existing = existingSquad?.find(e => e.numero === i + 1);
+                    return { numero: i + 1, jugador: existing?.jugador || '' };
+                });
+
+                setSquad(newSquad);
                 if (existingSquad && existingSquad.length > 0) {
-                    const newSquad = Array.from({ length: MAX_SQUAD }, (_, i) => {
-                        const existing = existingSquad.find(e => e.numero === i + 1);
-                        return { numero: i + 1, jugador: existing?.jugador || '' };
-                    });
-                    setSquad(newSquad);
                     setShowConvocatoria(true);
                 }
             } catch (err) {
                 console.error('Error loading existing squad:', err);
+                // Fallback: Initialize empty slots
+                const emptySquad = Array.from({ length: MAX_SQUAD }, (_, i) => ({
+                    numero: i + 1,
+                    jugador: ''
+                }));
+                setSquad(emptySquad);
             }
         } finally {
             setLoadingSquad(false);
@@ -359,7 +374,7 @@ const MatchDetailsModal = ({ match, onClose }) => {
                         </div>
 
                         <div className="score-center">
-                            {isFinished ? (
+                            {isFinished || (props.homeScore !== null && props.awayScore !== null && props.homeScore !== undefined && props.awayScore !== undefined) ? (
                                 <div className="large-score">
                                     <span>{props.homeScore}</span>
                                     <span className="score-separator">-</span>
@@ -421,6 +436,77 @@ const MatchDetailsModal = ({ match, onClose }) => {
                         </div>
                     )}
 
+                    {/* Report Button for Past Matches */}
+                    {isFinished && (
+                        <div style={{ marginTop: '1rem' }}>
+                            <button
+                                onClick={() => {
+                                    onClose();
+                                    const targetId = props.match_id || props.partido_externo_id;
+                                    const targetType = props.match_id ? 'internal' : (props.partido_externo_id ? 'external' : 'any');
+
+                                    // Use new dedicated page
+                                    if (targetId) {
+                                        navigate(`/analysis/match/${targetType}/${targetId}`);
+                                    }
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                    color: 'white',
+                                    fontSize: '1rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    boxShadow: '0 4px 6px -1px rgba(245, 158, 11, 0.5)'
+                                }}
+                            >
+                                <FileJson size={18} />
+                                Ver Informe del Partido
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Rival Analysis Button for Players - Only for NEXT match */}
+                    {currentUser?.role === 'JUGADOR' && isNextMatch && (props.homeTeamName !== 'RC HOSPITALET' || props.awayTeamName !== 'RC HOSPITALET') && (
+                        <div style={{ marginTop: '1rem' }}>
+                            <button
+                                onClick={() => {
+                                    const rival = props.homeTeamName === 'RC HOSPITALET' ? props.awayTeamName : props.homeTeamName;
+                                    if (rival) {
+                                        onClose();
+                                        navigate(`/analysis/rival/${encodeURIComponent(rival)}`);
+                                    }
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                    color: 'white',
+                                    fontSize: '1rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.5)'
+                                }}
+                            >
+                                <TrendingUp size={18} />
+                                Ver Análisis del Rival
+                            </button>
+                        </div>
+                    )}
+
                     {/* Convocatoria Section */}
                     {matchId && (
                         <div className="convocatoria-section">
@@ -438,50 +524,100 @@ const MatchDetailsModal = ({ match, onClose }) => {
 
                             {showConvocatoria && (
                                 <div className="convocatoria-body">
-                                    {loadingSquad ? (
-                                        <p className="convocatoria-loading">Cargando plantilla...</p>
-                                    ) : (
-                                        <>
-                                            <div className="squad-list">
-                                                {squad.map((slot, idx) => (
-                                                    <div key={idx} className={`squad-slot ${slot.jugador ? 'squad-slot--filled' : ''}`}>
-                                                        <span className="squad-number">{slot.numero}</span>
-                                                        {isFutureMatch ? (
-                                                            <select
-                                                                className="squad-select"
-                                                                value={slot.jugador || ''}
-                                                                onChange={(e) => handlePlayerChange(idx, e.target.value)}
-                                                            >
-                                                                <option value="">— Vacante —</option>
-                                                                {getAvailablePlayers(slot.jugador).map(p => (
-                                                                    <option key={p.id} value={p.id}>
-                                                                        {p.apellidos}, {p.nombre}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                        ) : (
-                                                            <span className="squad-player-name">
-                                                                {slot.jugador ? getPlayerName(slot.jugador) : '—'}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
+                                    {/* Player Personal Status */}
+                                    {currentUser?.role === 'JUGADOR' && !loadingSquad && (
+                                        <div className="player-convocatoria-status" style={{ marginBottom: '1rem' }}>
+                                            {(() => {
+                                                const mySpot = squad.find(s => s.jugador === currentUser.playerId);
+                                                return mySpot ? (
+                                                    <div className="status-card-large badge-presente" style={{ padding: '0.5rem 1rem 0 1rem', borderRadius: '12px', textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                                                        <span className="status-large-text" style={{ fontSize: '1.1rem', fontWeight: '800', display: 'block', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                                                            {isFinished || (props.homeScore !== null && props.awayScore !== null) ? '¡Estuviste Convocado!' : '¡Estás Convocado!'}
+                                                        </span>
 
-                                            {isFutureMatch && (
-                                                <div className="convocatoria-actions">
-                                                    <button
-                                                        className="btn-save-squad"
-                                                        onClick={handleSaveSquad}
-                                                        disabled={savingSquad}
-                                                    >
-                                                        <Save size={16} />
-                                                        {savingSquad ? 'Guardando...' : 'Guardar Convocatoria'}
-                                                    </button>
-                                                    {squadMessage && (
-                                                        <span className="squad-message">{squadMessage}</span>
+                                                        {/* Jersey Container */}
+                                                        <div style={{ position: 'relative', width: '450px', height: '450px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '-60px', marginBottom: '-100px' }}>
+                                                            <img
+                                                                src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/camiseta.png"
+                                                                alt="Camiseta"
+                                                                style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.25))' }}
+                                                            />
+                                                            <span style={{
+                                                                position: 'absolute',
+                                                                top: '42%',
+                                                                left: '50%',
+                                                                transform: 'translate(-50%, -50%)',
+                                                                fontSize: '5rem',
+                                                                fontWeight: '900',
+                                                                color: 'var(--color-primary-blue)',
+                                                                zIndex: 10,
+                                                                fontFamily: 'var(--font-main)',
+                                                                textAlign: 'center',
+                                                                width: '100%'
+                                                            }}>
+                                                                {mySpot.numero}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="status-card-large badge-ausente" style={{ padding: '1rem', borderRadius: '8px', textAlign: 'center', backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}>
+                                                        <span className="status-large-text" style={{ fontSize: '1.2rem', fontWeight: 'bold', display: 'block' }}>NO CONVOCADO</span>
+                                                        <span style={{ fontSize: '0.9rem' }}>No estás en la lista para este partido.</span>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
+
+                                    {/* Full Squad List - Only for Staff/Non-Players */}
+                                    {currentUser?.role !== 'JUGADOR' && (
+                                        <>
+                                            {loadingSquad ? (
+                                                <p className="convocatoria-loading">Cargando plantilla...</p>
+                                            ) : (
+                                                <>
+                                                    <div className="squad-list">
+                                                        {squad.map((slot, idx) => (
+                                                            <div key={idx} className={`squad-slot ${slot.jugador ? 'squad-slot--filled' : ''}`}>
+                                                                <span className="squad-number">{slot.numero}</span>
+                                                                {isFutureMatch ? (
+                                                                    <select
+                                                                        className="squad-select"
+                                                                        value={slot.jugador || ''}
+                                                                        onChange={(e) => handlePlayerChange(idx, e.target.value)}
+                                                                    >
+                                                                        <option value="">— Vacante —</option>
+                                                                        {getAvailablePlayers(slot.jugador).map(p => (
+                                                                            <option key={p.id} value={p.id}>
+                                                                                {p.apellidos}, {p.nombre}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                ) : (
+                                                                    <span className="squad-player-name">
+                                                                        {slot.jugador ? getPlayerName(slot.jugador) : '—'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {isFutureMatch && (
+                                                        <div className="convocatoria-actions">
+                                                            <button
+                                                                className="btn-save-squad"
+                                                                onClick={handleSaveSquad}
+                                                                disabled={savingSquad}
+                                                            >
+                                                                <Save size={16} />
+                                                                {savingSquad ? 'Guardando...' : 'Guardar Convocatoria'}
+                                                            </button>
+                                                            {squadMessage && (
+                                                                <span className="squad-message">{squadMessage}</span>
+                                                            )}
+                                                        </div>
                                                     )}
-                                                </div>
+                                                </>
                                             )}
                                         </>
                                     )}
@@ -490,8 +626,8 @@ const MatchDetailsModal = ({ match, onClose }) => {
                         </div>
                     )}
 
-                    {/* Video Analysis Section - Available for ALL events */}
-                    {(eventId || externalId) && (
+                    {/* Video Analysis Section - Available for ALL events BUT ONLY STAFF sees it */}
+                    {(eventId || externalId) && currentUser?.role !== 'JUGADOR' && (
                         <div className="convocatoria-section" style={{ marginTop: '12px' }}>
                             <div
                                 className="convocatoria-header"

@@ -20,10 +20,10 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function inspectSchema() {
-    console.log('Inspecting estadisticas_partido...');
-    const { data: ep, error: epError } = await supabase.from('estadisticas_partido').select('*').limit(1);
-    if (epError) console.error(epError);
-    else console.log('estadisticas_partido columns:', ep.length > 0 ? Object.keys(ep[0]) : 'Empty table');
+    console.log('Inspecting analisis_partido...');
+    const { data: ap, error: apError } = await supabase.from('analisis_partido').select('*').limit(1);
+    if (apError) console.error('Error fetching analisis_partido:', apError.message);
+    else console.log('analisis_partido columns:', ap.length > 0 ? Object.keys(ap[0]) : 'Empty table analisis_partido');
 }
 
 inspectSchema();

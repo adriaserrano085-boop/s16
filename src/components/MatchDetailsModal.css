@@ -345,22 +345,24 @@
     background: rgba(76, 175, 80, 0.05);
 }
 
-.squad-number {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #4CAF50;
-    color: white;
-    font-weight: 800;
-    font-size: 0.75rem;
-    border-radius: 50%;
+/* Squad Styling Updates */
+.squad-slot {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.player-avatar {
+    margin-right: 1rem;
     flex-shrink: 0;
 }
 
-.squad-slot:not(.squad-slot--filled) .squad-number {
-    background: #ccc;
+.player-name {
+    font-weight: 700;
+    color: var(--color-primary-blue);
+    font-size: 1rem;
 }
 
 .squad-select {

@@ -26,7 +26,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--color-bg-pastel-orange);
     backdrop-filter: blur(5px);
     padding: 1rem;
     border-radius: 12px;
@@ -41,6 +41,13 @@
 
 .header-logo {
     height: 60px;
+}
+
+.header-logo--player {
+    width: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--color-primary-orange, #FF6600);
 }
 
 .header-title h1 {
@@ -946,4 +953,166 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
+}
+
+/* Player Attendance Radial Chart Styles */
+.month-tabs-container {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.5rem;
+    padding: 1rem 0;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.month-tabs-container::-webkit-scrollbar {
+    display: none;
+    /* Chrome/Safari */
+}
+
+.month-tab {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #666;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.month-tab:hover {
+    border-color: var(--color-primary-orange, #FF6600);
+    color: var(--color-primary-orange, #FF6600);
+}
+
+.month-tab.active {
+    background-color: var(--color-primary-orange, #FF6600);
+    color: white;
+    border-color: var(--color-primary-orange, #FF6600);
+    box-shadow: 0 2px 5px rgba(255, 102, 0, 0.2);
+}
+
+.chart-container-radial {
+    min-height: 300px;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    position: relative;
+    padding: 1rem;
+}
+
+/* Attendance Event List Styles */
+.attendance-player-view {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.attendance-events-list {
+    background-color: #f8fafc;
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+}
+
+.attendance-list-title {
+    margin: 0 0 1rem 0;
+    color: #003366;
+    font-size: 1.1rem;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.5rem;
+}
+
+.attendance-event-item {
+    display: flex;
+    align-items: center;
+    background: white;
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid #f0f0f0;
+}
+
+.event-date-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #003366;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    min-width: 50px;
+    margin-right: 1rem;
+}
+
+.event-day {
+    font-size: 1.2rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.event-month {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+}
+
+.event-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.event-title {
+    font-weight: bold;
+    color: #333;
+    font-size: 0.95rem;
+}
+
+.event-time {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.attendance-status-badge {
+    font-size: 0.8rem;
+    font-weight: bold;
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    text-transform: uppercase;
+}
+
+.status-present {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-late {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-justified {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+.status-absent {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.status-pending {
+    background-color: #e2e3e5;
+    color: #383d41;
 }

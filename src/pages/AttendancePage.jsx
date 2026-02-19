@@ -67,7 +67,15 @@ const AttendancePage = ({ user }) => {
                 playerService.getAll(),
                 attendanceService.getAll()
             ]);
-            setAllPlayers(players);
+
+            // RBAC: If user is a Player, only show themselves
+            if (user?.role === 'JUGADOR' && user.playerId) {
+                const myself = players.find(p => p.id === user.playerId);
+                setAllPlayers(myself ? [myself] : []);
+            } else {
+                setAllPlayers(players);
+            }
+
             setAllAttendance(attendance || []);
             // calculateStats will be triggered by useEffect
         } catch (err) {

@@ -5,7 +5,7 @@ import attendanceService from '../services/attendanceService';
 import { supabase } from '../lib/supabaseClient';
 import './TrainingDetailsModal.css';
 
-const TrainingDetailsModal = ({ event, onClose, systemPlayers = [] }) => {
+const TrainingDetailsModal = ({ event, onClose, systemPlayers = [], currentUser }) => {
     const [loading, setLoading] = useState(true);
     const [attendanceList, setAttendanceList] = useState([]);
     const [stats, setStats] = useState({ presente: 0, retraso: 0, justificada: 0, ausente: 0 });
@@ -169,76 +169,113 @@ const TrainingDetailsModal = ({ event, onClose, systemPlayers = [] }) => {
                         </div>
                     </div>
 
-                    {/* Attendance Stats */}
-                    <div>
-                        <h4 className="attendance-list-header">Resumen de Asistencia</h4>
-                        <div className="attendance-summary">
-                            <div className="stat-card stat-presente">
-                                <span className="stat-value">{stats.presente}</span>
-                                <span className="stat-label">Presente</span>
-                            </div>
-                            <div className="stat-card stat-retraso">
-                                <span className="stat-value">{stats.retraso}</span>
-                                <span className="stat-label">Retraso</span>
-                            </div>
-                            <div className="stat-card stat-justificada">
-                                <span className="stat-value">{stats.justificada}</span>
-                                <span className="stat-label">Justificada</span>
-                            </div>
-                            <div className="stat-card stat-ausente">
-                                <span className="stat-value">{stats.ausente}</span>
-                                <span className="stat-label">Ausente</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Attendance List */}
-                    <div className="attendance-list-section">
-                        <div className="attendance-list-header">
-                            <span>Listado de Jugadores</span>
-                            <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'normal' }}>
-                                {loading ? 'Cargando...' : ''}
-                            </span>
-                        </div>
-
-                        <div className="attendance-list">
+                    {/* Player View: Personal Attendance Only */}
+                    {currentUser?.role === 'JUGADOR' ? (
+                        <div className="player-attendance-view">
+                            <h4 className="attendance-list-header">Tu Asistencia</h4>
                             {loading ? (
-                                <div style={{ textAlign: 'center', padding: '1rem', color: '#666' }}>Cargando asistencia...</div>
-                            ) : attendanceList.length > 0 ? (
-                                attendanceList.map((player) => {
-                                    let statusClass = `badge-${player.statusLower.replace(/\s+/g, '-')}`; // Handle spaces like 'falta justificada' -> 'falta-justificada'
+                                <p className="loading-text">Cargando tu estado...</p>
+                            ) : (
+                                (() => {
+                                    const myStatus = attendanceList.find(p => p.id === currentUser.playerId);
+                                    const status = myStatus?.status || 'No registrado';
+                                    const statusLower = myStatus?.statusLower || 'no-registrado';
+                                    let statusClass = `badge-${statusLower.replace(/\s+/g, '-')}`;
 
                                     // Fallback for unknown status classes
                                     const validClasses = [
-                                        'badge-presente',
-                                        'badge-retraso',
-                                        'badge-falta-justificada',
-                                        'badge-lesion',
-                                        'badge-emfermo',
-                                        'badge-catalana',
-                                        'badge-falta',
-                                        'badge-ausente',
-                                        'badge-no-registrado'
+                                        'badge-presente', 'badge-retraso', 'badge-falta-justificada',
+                                        'badge-lesion', 'badge-emfermo', 'badge-catalana',
+                                        'badge-falta', 'badge-ausente', 'badge-no-registrado'
                                     ];
-
-                                    if (!validClasses.includes(statusClass)) {
-                                        statusClass = 'badge-unknown';
-                                    }
+                                    if (!validClasses.includes(statusClass)) statusClass = 'badge-unknown';
 
                                     return (
-                                        <div key={player.id} className="attendance-item">
-                                            <span className="player-name">{player.name}</span>
-                                            <span className={`attendance-badge ${statusClass}`}>
-                                                {player.status}
-                                            </span>
+                                        <div className={`status-card-large ${statusClass}`}>
+                                            <span className="status-large-text">{status}</span>
+                                            {status === 'Presente' && <span className="status-icon">✅</span>}
+                                            {status === 'Retraso' && <span className="status-icon">⏱️</span>}
+                                            {(status === 'Lesion' || status === 'Enfermo') && <span className="status-icon">🏥</span>}
+                                            {(status === 'Falta' || status === 'Ausente') && <span className="status-icon">❌</span>}
                                         </div>
                                     );
-                                })
-                            ) : (
-                                <div style={{ textAlign: 'center', padding: '1rem', color: '#666' }}>No hay datos de asistencia disponibles.</div>
+                                })()
                             )}
                         </div>
-                    </div>
+                    ) : (
+                        /* Staff View: Stats + List */
+                        <>
+                            <div>
+                                <h4 className="attendance-list-header">Resumen de Asistencia</h4>
+                                <div className="attendance-summary">
+                                    <div className="stat-card stat-presente">
+                                        <span className="stat-value">{stats.presente}</span>
+                                        <span className="stat-label">Presente</span>
+                                    </div>
+                                    <div className="stat-card stat-retraso">
+                                        <span className="stat-value">{stats.retraso}</span>
+                                        <span className="stat-label">Retraso</span>
+                                    </div>
+                                    <div className="stat-card stat-justificada">
+                                        <span className="stat-value">{stats.justificada}</span>
+                                        <span className="stat-label">Justificada</span>
+                                    </div>
+                                    <div className="stat-card stat-ausente">
+                                        <span className="stat-value">{stats.ausente}</span>
+                                        <span className="stat-label">Ausente</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Attendance List */}
+                            <div className="attendance-list-section">
+                                <div className="attendance-list-header">
+                                    <span>Listado de Jugadores</span>
+                                    <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'normal' }}>
+                                        {loading ? 'Cargando...' : ''}
+                                    </span>
+                                </div>
+
+                                <div className="attendance-list">
+                                    {loading ? (
+                                        <div style={{ textAlign: 'center', padding: '1rem', color: '#666' }}>Cargando asistencia...</div>
+                                    ) : attendanceList.length > 0 ? (
+                                        attendanceList.map((player) => {
+                                            let statusClass = `badge-${player.statusLower.replace(/\s+/g, '-')}`; // Handle spaces like 'falta justificada' -> 'falta-justificada'
+
+                                            // Fallback for unknown status classes
+                                            const validClasses = [
+                                                'badge-presente',
+                                                'badge-retraso',
+                                                'badge-falta-justificada',
+                                                'badge-lesion',
+                                                'badge-emfermo',
+                                                'badge-catalana',
+                                                'badge-falta',
+                                                'badge-ausente',
+                                                'badge-no-registrado'
+                                            ];
+
+                                            if (!validClasses.includes(statusClass)) {
+                                                statusClass = 'badge-unknown';
+                                            }
+
+                                            return (
+                                                <div key={player.id} className="attendance-item">
+                                                    <span className="player-name">{player.name}</span>
+                                                    <span className={`attendance-badge ${statusClass}`}>
+                                                        {player.status}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div style={{ textAlign: 'center', padding: '1rem', color: '#666' }}>No hay datos de asistencia disponibles.</div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 <div className="training-details-footer">

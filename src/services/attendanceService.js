@@ -9,7 +9,8 @@ const getAll = async () => {
     // Step 1: Fetch attendance with related training and player info
     const { data: attendanceData, error: attendanceError } = await supabase
         .from(TABLE_NAME)
-        .select('*, entrenamientos(*)');
+        .select('*, entrenamientos(*)')
+        .limit(5000);
 
     if (attendanceError) throw attendanceError;
 

@@ -52,6 +52,8 @@ export const leagueService = {
                 puntos: 0,
                 ranking: 0,
                 victorias: 0,
+                amarillas: 0,
+                rojas: 0,
                 escudo: teamShields[name] || null
             });
 
@@ -107,6 +109,28 @@ export const leagueService = {
 
                     updateStats(homeName, stat.marcador_local || 0, stat.marcador_visitante || 0, stat.ensayos_local || 0, stat.ensayos_visitante || 0);
                     updateStats(awayName, stat.marcador_visitante || 0, stat.marcador_local || 0, stat.ensayos_visitante || 0, stat.ensayos_local || 0);
+                });
+            }
+
+            // 2. Fetch Player Stats for Card Aggregation
+            const { data: playerStats, error: pError } = await supabase
+                .from('estadisticas_jugador')
+                .select('equipo, tarjetas_amarillas, tarjetas_rojas');
+
+            if (pError) console.error("Error fetching player stats for cards:", pError);
+
+            if (playerStats) {
+                playerStats.forEach(stat => {
+                    let team = stat.equipo;
+                    // Normalize Hospitalet Name
+                    if (team && (team.toUpperCase() === "RC L'HOSPITALET" || team.toUpperCase().includes("L'H"))) {
+                        team = HOSPITALET_NAME;
+                    }
+
+                    if (team && standingsMap[team]) {
+                        standingsMap[team].amarillas = (standingsMap[team].amarillas || 0) + (stat.tarjetas_amarillas || 0);
+                        standingsMap[team].rojas = (standingsMap[team].rojas || 0) + (stat.tarjetas_rojas || 0);
+                    }
                 });
             }
 

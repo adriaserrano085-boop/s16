@@ -10,12 +10,13 @@ import {
     Settings, LogOut, Search, Filter, Plus, User, Activity, Clock,
     MapPin, Info, CheckCircle, XCircle
 } from 'lucide-react';
-import { Bar } from 'react-chartjs-2';
+import { Bar, Doughnut } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
     CategoryScale,
     LinearScale,
     BarElement,
+    ArcElement,
     Title,
     Tooltip,
     Legend,
@@ -41,6 +42,7 @@ ChartJS.register(
     CategoryScale,
     LinearScale,
     BarElement,
+    ArcElement,
     Title,
     Tooltip,
     Legend
@@ -86,6 +88,9 @@ const Dashboard = ({ user: propUser }) => {
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+    // New State for Player Attendance Tabs
+    const [selectedAttendanceMonth, setSelectedAttendanceMonth] = useState(new Date().getMonth());
+
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener('resize', handleResize);
@@ -95,13 +100,15 @@ const Dashboard = ({ user: propUser }) => {
     useEffect(() => {
         const resolveUser = async () => {
             if (propUser) {
-                setCurrentUser({ ...propUser, role: 'STAFF' });
-                fetchDashboardData();
+                // Respect the role passed from App.jsx
+                setCurrentUser(propUser);
+                fetchDashboardData(propUser);
             } else {
                 const { data: { user: authUser } } = await supabase.auth.getUser();
                 if (authUser) {
-                    setCurrentUser({ ...authUser, role: 'STAFF', email: authUser.email });
-                    fetchDashboardData();
+                    const staffUser = { ...authUser, role: 'STAFF', email: authUser.email };
+                    setCurrentUser(staffUser);
+                    fetchDashboardData(staffUser);
                 } else {
                     navigate('/login');
                 }
@@ -110,17 +117,23 @@ const Dashboard = ({ user: propUser }) => {
         resolveUser();
     }, [navigate, propUser]);
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = async (user = currentUser) => {
         setLoading(true);
         try {
             console.log('Fetching dashboard data from standardized services...');
+
+            // Optimization: Fetch only relevant attendance for players
+            const attendancePromise = (user?.role === 'JUGADOR' && user.playerId)
+                ? attendanceService.getByPlayerId(user.playerId)
+                : attendanceService.getAll();
+
             const [eventData, matchData, rivalData, trainingData, playersData, attData, leagueData] = await Promise.all([
                 eventService.getAll(),
                 matchService.getAll(),
                 rivalService.getAll(),
                 trainingService.getAll(),
                 playerService.getAll(),
-                attendanceService.getAll(),
+                attendancePromise,
                 leagueService.getStandings()
             ]);
 
@@ -161,6 +174,9 @@ const Dashboard = ({ user: propUser }) => {
                                 homeTeamShield: isHospitaletLocal ? HOSPITALET_SHIELD : rivalShield,
                                 awayTeamName: isHospitaletLocal ? rivalName : 'RC HOSPITALET',
                                 awayTeamShield: isHospitaletLocal ? rivalShield : HOSPITALET_SHIELD,
+                                homeScore: matchRecord.marcador_local,
+                                awayScore: matchRecord.marcador_visitante,
+                                isFinished: e.estado === 'Finalizado',
                                 scoreDisplay: (matchRecord.marcador_local !== null && matchRecord.marcador_visitante !== null)
                                     ? `${matchRecord.marcador_local} - ${matchRecord.marcador_visitante}`
                                     : null,
@@ -290,24 +306,34 @@ const Dashboard = ({ user: propUser }) => {
         };
     })();
 
+    // Find current player details if user is a player
+    const currentPlayer = currentUser?.role === 'JUGADOR' && currentUser.playerId
+        ? hospitaletPlayers.find(p => p.id === currentUser.playerId)
+        : null;
+
     return (
         <div className="dashboard-container">
             <header className="dashboard-header">
                 <div className="header-left">
-                    <img src={HOSPITALET_SHIELD} alt="Logo" className="header-logo" />
+                    {currentUser?.role === 'JUGADOR' && currentPlayer?.foto ? (
+                        <img src={currentPlayer.foto} alt="Player" className="header-logo header-logo--player" />
+                    ) : (
+                        <img src={HOSPITALET_SHIELD} alt="Logo" className="header-logo" />
+                    )}
                     <div className="header-title">
-                        <h1 className="dashboard-title">Dashboard</h1>
+                        <h1 className="dashboard-title">
+                            {currentUser?.role === 'JUGADOR' && currentPlayer
+                                ? `${currentPlayer.nombre} ${currentPlayer.apellidos || ''}`.toUpperCase()
+                                : 'Dashboard'}
+                        </h1>
                         <div className="header-user-info">
-                            <p className="user-email">{currentUser?.email}</p>
+                            {currentUser?.role !== 'JUGADOR' && <p className="user-email">{currentUser?.email}</p>}
                             <span className="user-role-badge user-role-badge--orange">{currentUser?.role || 'STAFF'}</span>
                         </div>
                     </div>
                 </div>
                 <div className="header-right">
                     <button onClick={() => navigate('/login')} className="btn btn-logout">Cerrar Sesión</button>
-                    <div className="connection-status">
-                        Conexión Establecida con Base de Datos
-                    </div>
                 </div>
             </header>
 
@@ -399,13 +425,15 @@ const Dashboard = ({ user: propUser }) => {
                         </table>
                     </div>
                     <div className="card-actions-footer">
-                        <button
-                            onClick={() => navigate('/statistics')}
-                            className="btn btn-light-green"
-                        >
-                            <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Centro%20de%20estadisticas%20ICON.png" alt="Stats" className="btn-icon-custom" />
-                            VER ESTADÍSTICAS
-                        </button>
+                        {currentUser?.role !== 'JUGADOR' && (
+                            <button
+                                onClick={() => navigate('/statistics')}
+                                className="btn btn-light-green"
+                            >
+                                <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Centro%20de%20estadisticas%20ICON.png" alt="Stats" className="btn-icon-custom" />
+                                VER ESTADÍSTICAS
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -473,126 +501,286 @@ const Dashboard = ({ user: propUser }) => {
                             />
                         </div>
                         <div className="card-actions-footer card-actions-footer--padded">
-                            <button
-                                onClick={() => navigate('/calendario')}
-                                className="btn btn-light-green"
-                            >
-                                <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Calendario.png" alt="Cal" className="btn-icon-custom" />
-                                CALENDARIO
-                            </button>
+                            {currentUser?.role !== 'JUGADOR' && (
+                                <button
+                                    onClick={() => navigate('/calendario')}
+                                    className="btn btn-light-green"
+                                >
+                                    <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Calendario.png" alt="Cal" className="btn-icon-custom" />
+                                    CALENDARIO
+                                </button>
+                            )}
                         </div>
                     </div>
 
-                    <div className="tallas-grid-wrapper">
-                        {/* Tallas Section */}
-                        <div className="dashboard-card">
-                            <div className="card-header card-header--bordered">
-                                <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Tallas.png" alt="Tallas" className="section-icon section-icon--lg" />
-                                <h2 className="card-title card-title--section">TALLAS ({hospitaletPlayers.length})</h2>
-                            </div>
-                            <div className="size-cards-container size-cards-container--padded">
-                                {(() => {
-                                    const grouped = hospitaletPlayers.reduce((acc, p) => {
-                                        const s = (p.talla || 'N/A').toString().trim().toUpperCase();
-                                        if (!acc[s]) acc[s] = [];
-                                        acc[s].push(p);
-                                        return acc;
-                                    }, {});
-                                    const order = ['S', 'M', 'L', 'XL', 'XXL', '3XL', 'N/A'];
-                                    return Object.keys(grouped).sort((a, b) => (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b))).map(size => (
-                                        <div key={size} className="size-card" onClick={() => setSelectedSize(size)}>
-                                            <div className="size-card-header"><span>{size}</span></div>
-                                            <div className="size-card-body">
-                                                <span className="size-card-count">{grouped[size].length}</span>
+                    {currentUser?.role !== 'JUGADOR' && (
+                        <div className="tallas-grid-wrapper">
+                            {/* Tallas Section */}
+                            <div className="dashboard-card">
+                                <div className="card-header card-header--bordered">
+                                    <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Tallas.png" alt="Tallas" className="section-icon section-icon--lg" />
+                                    <h2 className="card-title card-title--section">TALLAS ({hospitaletPlayers.length})</h2>
+                                </div>
+                                <div className="size-cards-container size-cards-container--padded">
+                                    {(() => {
+                                        const grouped = hospitaletPlayers.reduce((acc, p) => {
+                                            const s = (p.talla || 'N/A').toString().trim().toUpperCase();
+                                            if (!acc[s]) acc[s] = [];
+                                            acc[s].push(p);
+                                            return acc;
+                                        }, {});
+                                        const order = ['S', 'M', 'L', 'XL', 'XXL', '3XL', 'N/A'];
+                                        return Object.keys(grouped).sort((a, b) => (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b))).map(size => (
+                                            <div key={size} className="size-card" onClick={() => setSelectedSize(size)}>
+                                                <div className="size-card-header"><span>{size}</span></div>
+                                                <div className="size-card-body">
+                                                    <span className="size-card-count">{grouped[size].length}</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ));
-                                })()}
-                            </div>
-                            <div className="card-actions-footer">
-                                <button
-                                    onClick={() => navigate('/jugadores')}
-                                    className="btn btn-light-green"
-                                >
-                                    <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Plantilla.png" alt="Plantilla" className="btn-icon-custom" />
-                                    PLANTILLA
-                                </button>
+                                        ));
+                                    })()}
+                                </div>
+                                <div className="card-actions-footer">
+                                    <button
+                                        onClick={() => navigate('/jugadores')}
+                                        className="btn btn-light-green"
+                                    >
+                                        <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Plantilla.png" alt="Plantilla" className="btn-icon-custom" />
+                                        PLANTILLA
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
 
                 {/* Asistencia Chart Section - Full Width at Bottom */}
                 {staffAttendanceChartData ? (
-                    <div className="dashboard-card dashboard-card--attendance">
-                        <div className="card-header card-header--bordered">
-                            <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Asistencia%20ultimos%20eventos.png" alt="Asistencia" className="section-icon" />
-                            <h2 className="card-title card-title--section">ASISTENCIA ÚLTIMOS EVENTOS</h2>
+                    currentUser?.role === 'JUGADOR' ? (
+                        <div className="dashboard-card dashboard-card--attendance">
+                            <div className="card-header card-header--bordered">
+                                <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Asistencia.png" alt="Asistencia" className="section-icon" />
+                                <h2 className="card-title card-title--section">ASISTENCIA</h2>
+                            </div>
+
+                            {/* Month Tabs - Season Order (Aug - Jun) */}
+                            <div className="month-tabs-container">
+                                {(() => {
+                                    // Season order: Aug (7) to Jun (5)
+                                    const seasonMonths = [7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5];
+
+                                    return seasonMonths.map((monthIndex) => {
+                                        const monthName = new Date(2024, monthIndex).toLocaleString('es-ES', { month: 'short' }).toUpperCase();
+                                        // Handle year display if needed, but for now just month name is fine.
+                                        // Maybe add year for clarity if cross-year? e.g. ENE '25. 
+                                        // Let's stick to simple 3-letter months as per request.
+
+                                        return (
+                                            <button
+                                                key={monthIndex}
+                                                className={`month-tab ${monthIndex === selectedAttendanceMonth ? 'active' : ''}`}
+                                                onClick={() => setSelectedAttendanceMonth(monthIndex)}
+                                            >
+                                                {monthName}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+                            </div>
+
+                            <div className="chart-container-radial">
+                                {(() => {
+                                    // Calculate stats for CURRENT PLAYER and SELECTED MONTH
+                                    if (!hospitaletPlayers.length || !allAttendance.length || !currentUser?.playerId) return <p>Cargando datos...</p>;
+
+                                    // Filter events in the selected month
+                                    const eventsInMonth = events.filter(e => {
+                                        const d = new Date(e.start);
+                                        // Filter out matches: check for 'partido', 'match' or isMatch property
+                                        const isMatch = e.extendedProps?.isMatch || e.title.toLowerCase().includes('partido') || e.title.toLowerCase().includes('match');
+                                        return d.getMonth() === selectedAttendanceMonth && !isMatch;
+                                    }).map(e => e.id);
+
+                                    if (eventsInMonth.length === 0) return <p className="empty-state-text">No hubo eventos de entrenamiento en este mes.</p>;
+
+                                    // Filter attendance for this player in these events
+                                    const playerAtt = allAttendance.filter(a =>
+                                        a.jugador === currentUser.playerId &&
+                                        eventsInMonth.includes(a.entrenamientos?.evento || a.evento || a.eventId)
+                                    );
+
+                                    const presente = playerAtt.filter(a => a.asistencia === 'Presente').length;
+                                    const retraso = playerAtt.filter(a => a.asistencia === 'Retraso').length;
+                                    const justificada = playerAtt.filter(a => ['Falta Justificada', 'Lesión', 'Lesion', 'Enfermo', 'Emfermo', 'Catalana'].includes(a.asistencia)).length;
+                                    const falta = playerAtt.filter(a => ['Falta', 'Falta Injustificada'].includes(a.asistencia)).length;
+
+                                    // Total events in month (that have passed)
+                                    // We might want to count total past events to see "absences" if record is missing? 
+                                    // For now, relying on explicit attendance records.
+
+                                    const data = {
+                                        labels: ['Presente', 'Retraso', 'Justificada', 'Falta'],
+                                        datasets: [
+                                            {
+                                                data: [presente, retraso, justificada, falta],
+                                                backgroundColor: [
+                                                    '#28a745', // Green
+                                                    '#ffc107', // Yellow
+                                                    '#17a2b8', // Cyan
+                                                    '#dc3545', // Red
+                                                ],
+                                                borderWidth: 1,
+                                            },
+                                        ],
+                                    };
+
+                                    return (
+                                        <div className="attendance-player-view">
+                                            <div style={{ height: '250px', display: 'flex', justifyContent: 'center' }}>
+                                                <Doughnut data={data} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }} />
+                                            </div>
+
+                                            {/* Event List */}
+                                            <div className="attendance-events-list">
+                                                <h4 className="attendance-list-title">Eventos del Mes</h4>
+                                                {events.filter(e => {
+                                                    const d = new Date(e.start);
+                                                    const isMatch = e.extendedProps?.isMatch || e.title.toLowerCase().includes('partido') || e.title.toLowerCase().includes('match');
+                                                    return d.getMonth() === selectedAttendanceMonth && !isMatch;
+                                                }).sort((a, b) => new Date(a.start) - new Date(b.start)).map(event => {
+                                                    const attRecord = allAttendance.find(a =>
+                                                        a.jugador === currentUser.playerId &&
+                                                        (a.entrenamientos?.evento === event.id || a.evento === event.id || a.eventId === event.id)
+                                                    );
+
+                                                    const status = attRecord?.asistencia || 'Pendiente';
+                                                    let statusClass = 'status-pending';
+                                                    if (status === 'Presente') statusClass = 'status-present';
+                                                    else if (status === 'Retraso') statusClass = 'status-late';
+                                                    else if (['Falta Justificada', 'Lesión', 'Enfermo', 'Catalana'].includes(status)) statusClass = 'status-justified';
+                                                    else if (status === 'Falta Injustificada') statusClass = 'status-absent';
+
+                                                    return (
+                                                        <div key={event.id} className="attendance-event-item">
+                                                            <div className="event-date-badge">
+                                                                <span className="event-day">{new Date(event.start).getDate()}</span>
+                                                                <span className="event-month">{new Date(event.start).toLocaleString('es-ES', { month: 'short' }).toUpperCase()}</span>
+                                                            </div>
+                                                            <div className="event-info">
+                                                                <span className="event-title">{event.title}</span>
+                                                                <span className="event-time">{new Date(event.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                            </div>
+                                                            <div className={`attendance-status-badge ${statusClass}`}>
+                                                                {status}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
                         </div>
-                        <div className={`chart-container ${isMobile ? 'chart-container--mobile' : 'chart-container--desktop'}`}>
-                            <Bar
-                                data={staffAttendanceChartData}
-                                options={{
-                                    indexAxis: isMobile ? 'y' : 'x', // 'x' for vertical (PC), 'y' for horizontal (Mobile)
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    plugins: {
-                                        legend: {
-                                            display: true,
-                                            position: 'top'
+                    ) : (
+                        <div className="dashboard-card dashboard-card--attendance">
+                            <div className="card-header card-header--bordered">
+                                <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Asistencia%20ultimos%20eventos.png" alt="Asistencia" className="section-icon" />
+                                <h2 className="card-title card-title--section">ASISTENCIA ÚLTIMOS EVENTOS</h2>
+                            </div>
+                            <div className={`chart-container ${isMobile ? 'chart-container--mobile' : 'chart-container--desktop'}`}>
+                                <Bar
+                                    data={staffAttendanceChartData}
+                                    options={{
+                                        indexAxis: isMobile ? 'y' : 'x', // 'x' for vertical (PC), 'y' for horizontal (Mobile)
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        plugins: {
+                                            legend: {
+                                                display: true,
+                                                position: 'top'
+                                            },
+                                            tooltip: {
+                                                mode: 'index',
+                                                intersect: false
+                                            }
                                         },
-                                        tooltip: {
-                                            mode: 'index',
-                                            intersect: false
+                                        scales: {
+                                            x: {
+                                                stacked: true,
+                                                title: { display: true, text: isMobile ? 'Nº Eventos' : 'Jugadores' }
+                                            },
+                                            y: {
+                                                stacked: true,
+                                                title: { display: true, text: isMobile ? 'Jugadores' : 'Nº Eventos' }
+                                            }
                                         }
-                                    },
-                                    scales: {
-                                        x: {
-                                            stacked: true,
-                                            title: { display: true, text: isMobile ? 'Nº Eventos' : 'Jugadores' }
-                                        },
-                                        y: {
-                                            stacked: true,
-                                            title: { display: true, text: isMobile ? 'Jugadores' : 'Nº Eventos' }
-                                        }
-                                    }
-                                }}
-                            />
+                                    }}
+                                />
+                            </div>
+                            <div className="card-actions-footer">
+                                {currentUser?.role !== 'JUGADOR' && (
+                                    <>
+                                        <button
+                                            onClick={() => setShowAttendanceModal(true)}
+                                            className="btn btn-light-green"
+                                        >
+                                            <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Pasar%20lista.png" alt="Lista" className="btn-icon-custom" />
+                                            LISTA
+                                        </button>
+                                        <button
+                                            onClick={() => navigate('/asistencia')}
+                                            className="btn btn-light-green"
+                                        >
+                                            <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Asistencia.png" alt="Asistencia" className="btn-icon-custom" />
+                                            ASISTENCIA
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
-                        <div className="card-actions-footer">
-                            <button
-                                onClick={() => setShowAttendanceModal(true)}
-                                className="btn btn-light-green"
-                            >
-                                <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Pasar%20lista.png" alt="Lista" className="btn-icon-custom" />
-                                LISTA
-                            </button>
-                            <button
-                                onClick={() => navigate('/asistencia')}
-                                className="btn btn-light-green"
-                            >
-                                <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Asistencia.png" alt="Asistencia" className="btn-icon-custom" />
-                                ASISTENCIA
-                            </button>
-                        </div>
-                    </div>
+                    )
                 ) : (
                     <div className="dashboard-card dashboard-card--empty">
                         <p className="empty-state-hint">No hay datos de asistencia disponibles para los últimos eventos.</p>
                         <div className="card-actions-footer card-actions-footer--centered">
-                            <button onClick={() => setShowAttendanceModal(true)} className="btn btn-light-green">
-                                <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Pasar%20lista.png" alt="Lista" className="btn-icon-custom" />
-                                EMPEZAR A PASAR LISTA
-                            </button>
+                            {currentUser?.role !== 'JUGADOR' && (
+                                <button onClick={() => setShowAttendanceModal(true)} className="btn btn-light-green">
+                                    <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Pasar%20lista.png" alt="Lista" className="btn-icon-custom" />
+                                    EMPEZAR A PASAR LISTA
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
             </div>
 
             {/* Modals */}
-            {selectedMatch && <MatchDetailsModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />}
-            {selectedTraining && <TrainingDetailsModal event={selectedTraining} onClose={() => setSelectedTraining(null)} systemPlayers={hospitaletPlayers} />}
+            {selectedMatch && (
+                <MatchDetailsModal
+                    match={selectedMatch}
+                    currentUser={currentUser}
+                    onClose={() => setSelectedMatch(null)}
+                    // Calculate if this is the next match by date
+                    isNextMatch={(() => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const nextMatch = events
+                            .filter(e => e.extendedProps.isMatch && new Date(e.start) >= today)
+                            .sort((a, b) => new Date(a.start) - new Date(b.start))[0];
+
+                        if (!nextMatch || !selectedMatch) return false;
+
+                        // Robust ID comparison
+                        const nextId = String(nextMatch.id || nextMatch.extendedProps?.id || '');
+                        const selectedId = String(selectedMatch.id || selectedMatch.extendedProps?.id || '');
+
+                        return nextId === selectedId && nextId !== '';
+                    })()}
+                />
+            )}
+            {selectedTraining && <TrainingDetailsModal event={selectedTraining} currentUser={currentUser} onClose={() => setSelectedTraining(null)} systemPlayers={hospitaletPlayers} />}
             {selectedSize && <SizeDetailsModal size={selectedSize} players={hospitaletPlayers.filter(p => (p.talla || 'N/A').toString().trim().toUpperCase() === selectedSize)} onClose={() => setSelectedSize(null)} />}
             {showAttendanceModal && <AttendanceModal onClose={() => setShowAttendanceModal(false)} />}
         </div>

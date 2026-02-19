@@ -23,6 +23,31 @@ const ActaUploader = ({ onUploadComplete }) => {
         setError(null);
 
         try {
+            // 1. Upload File to Supabase Storage 'Actas' bucket
+            setStatus('Subiendo archivo PDF...');
+            const timestamp = Date.now();
+            // Sanitize filename
+            const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+            const filePath = `${timestamp}_${cleanName}`;
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('Actas')
+                .upload(filePath, file);
+
+            if (uploadError) {
+                console.error("Upload Error:", uploadError);
+                throw new Error("Error al subir el archivo: " + uploadError.message);
+            }
+
+            // Get Public URL
+            const { data: publicUrlData } = supabase.storage
+                .from('Actas')
+                .getPublicUrl(filePath);
+
+            const publicUrl = publicUrlData.publicUrl;
+            console.log("File uploaded to:", publicUrl);
+
+            setStatus('Leyendo PDF...');
             const arrayBuffer = await file.arrayBuffer();
             const doc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
@@ -60,7 +85,7 @@ const ActaUploader = ({ onUploadComplete }) => {
 
             setStatus('Guardando en base de datos...');
             setStatus('Guardando en base de datos...');
-            await saveStats(matchInfo, aggregatedStats, metadata);
+            await saveStats(matchInfo, aggregatedStats, metadata, publicUrl);
 
             setStatus('¡Completado!');
             if (onUploadComplete) onUploadComplete();
@@ -321,23 +346,35 @@ const ActaUploader = ({ onUploadComplete }) => {
 
             // Parse Block: Cards
             if (inCards && typeRow && dorsalRow && minuteRow) {
-                const types = typeRow.filter(item => !item.text.includes("Tipus") && item.text.trim() !== '*').map(i => i.text.trim());
-                const dorsals = dorsalRow.filter(item => !item.text.includes("Dorsal")).map(i => i.text.trim());
-                const minutes = minuteRow.filter(item => !item.text.includes("Minut")).map(i => i.text.trim());
+                // Filter items while keeping objects to access 'x' coordinates
+                const typeItems = typeRow.filter(item => !item.text.includes("Tipus") && item.text.trim() !== '*');
+                const dorsalItems = dorsalRow.filter(item => !item.text.includes("Dorsal"));
+                const minuteItems = minuteRow.filter(item => !item.text.includes("Minut"));
 
-                const count = Math.min(types.length, dorsals.length, minutes.length);
-                console.log("Parsing Cards Row:", { types, dorsals, minutes });
+                const count = Math.min(typeItems.length, dorsalItems.length, minuteItems.length);
+                console.log("Parsing Cards Row:", { count, typeItems, dorsalItems });
 
                 for (let k = 0; k < count; k++) {
-                    const dorsal = parseInt(dorsals[k]);
-                    const type = types[k]; // Assume TA/TR or similar code
+                    const dorsalItem = dorsalItems[k];
+                    const dorsal = parseInt(dorsalItem.text.trim());
+                    const typeCode = typeItems[k].text.trim(); // D, B, A, etc.
+
+                    // Determine Type based on X coordinate
+                    // Page width ~600. Split ~300.
+                    // Left Column (< 350) = Yellow Card (TA) - "Expulsions temporals"
+                    // Right Column (>= 350) = Red Card (TR) - "Expulsions definitives"
+                    let actualType = 'TA';
+                    if (dorsalItem.x > 350) {
+                        actualType = 'TR';
+                    }
 
                     if (!isNaN(dorsal)) {
                         events.push({
                             team: currentTeam,
-                            type: type,
+                            type: actualType, // Force TA or TR
+                            originalCode: typeCode, // Keep original code for reference
                             dorsal: dorsal,
-                            minute: parseInt(minutes[k])
+                            minute: parseInt(minuteItems[k].text.trim())
                         });
                     }
                 }
@@ -399,7 +436,20 @@ const ActaUploader = ({ onUploadComplete }) => {
             }
         }
 
-        // 2. If not found, create in 'partidos_externos'
+        // 2. If not found, check if already exists in 'partidos_externos'
+        const { data: existingExternal } = await supabase
+            .from('partidos_externos')
+            .select('id')
+            .eq('fecha', formattedDate)
+            .ilike('equipo_local', metadata.localTeam)
+            .ilike('equipo_visitante', metadata.visitorTeam)
+            .maybeSingle();
+
+        if (existingExternal) {
+            console.log("Existing External Match found:", existingExternal.id);
+            return { id: existingExternal.id, type: 'external' };
+        }
+
         console.log("Match not found in calendar. Creating External Match...");
         const { data: newMatch, error: createError } = await supabase
             .from('partidos_externos')
@@ -611,7 +661,7 @@ const ActaUploader = ({ onUploadComplete }) => {
         return playerMap;
     }
 
-    async function saveStats(matchInfo, playerStatsMap, metadata) {
+    async function saveStats(matchInfo, playerStatsMap, metadata, actaUrl) {
         const { id, type } = matchInfo;
         const isExternal = (type === 'external');
 
@@ -621,7 +671,22 @@ const ActaUploader = ({ onUploadComplete }) => {
 
         const matchStatsPayload = { acta_procesada: true };
         if (isExternal) matchStatsPayload.partido_externo = id;
-        else matchStatsPayload.partido = id;
+        else {
+            matchStatsPayload.partido = id;
+            // Also update 'acta_url' in 'partidos' table if available
+            if (actaUrl) {
+                const { error: updateError } = await supabase
+                    .from('partidos')
+                    .update({ acta_url: actaUrl })
+                    .eq('id', id);
+
+                if (updateError) {
+                    console.error("Error updating acta_url in partidos:", updateError);
+                } else {
+                    console.log("Updated acta_url for match:", id);
+                }
+            }
+        }
 
         // On Conflict: 'partido' is unique? 'partido_externo' should also be unique or handled.
         // Supabase upsert requires a unique constraint. 

@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { playerStats as mockPlayerStats, leagueStats as mockLeagueStats } from '../lib/mockData';
 import { ArrowLeft, Users, Trophy, Activity, Calendar, Shield, Trash2, Clock, ClipboardList, Swords, ArrowRightLeft, Target } from 'lucide-react';
@@ -11,6 +11,7 @@ import MatchDetailsModal from '../components/MatchDetailsModal';
 import { MatchAnalysisView } from '../components/MatchAnalysisView';
 import { TeamEvolutionAnalysis } from '../components/TeamEvolutionAnalysis';
 import { HospitaletAnalysis } from '../components/HospitaletAnalysis';
+import RivalAnalysis from '../components/RivalAnalysis';
 
 const TeamLogo = ({ url, name, size = 30 }) => {
     if (!url) return <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: '#999', overflow: 'hidden' }}>{name?.substring(0, 2)}</div>;
@@ -77,257 +78,10 @@ const MarkdownRenderer = ({ content }) => {
     );
 };
 
-const RivalAnalysis = ({ rivalName, leagueStats, playerStats, matchResults, allAnalyses }) => {
-    const team = leagueStats.find(t => t.team === rivalName) || {};
-    const rivalPlayers = playerStats.filter(p => p.team === rivalName);
-    const matches = matchResults.flatMap(g => g.matches).filter(m => m.home === rivalName || m.away === rivalName);
 
-    // Calculate Video Analysis Stats - ENHANCED
-    const analysisStats = React.useMemo(() => {
-        if (!matches.length || !allAnalyses.length) return null;
-
-        let totalPossession = 0;
-        let totalTacklesMade = 0;
-        let totalTacklesMissed = 0;
-        let totalScrumWon = 0;
-        let totalScrumLost = 0;
-        let totalLineoutWon = 0;
-        let totalLineoutLost = 0;
-        let matchesCount = 0;
-
-        matches.forEach(m => {
-            const analysis = m.partido_externo_id
-                ? allAnalyses.find(a => a.partido_externo_id === m.partido_externo_id)
-                : allAnalyses.find(a => a.evento_id === m.evento_id);
-
-            if (analysis?.raw_json?.estadisticas) {
-                const stats = analysis.raw_json.estadisticas;
-                const isHome = m.home === rivalName;
-                const teamKey = isHome ? 'local' : 'visitante';
-
-                totalPossession += (stats.posesion?.[teamKey] || 50);
-                totalTacklesMade += (stats.placajes_hechos?.[teamKey] || 0);
-                totalTacklesMissed += (stats.placajes_fallados?.[teamKey] || 0);
-                totalScrumWon += (stats.mele?.[`${teamKey}_ganada`] || 0);
-                totalScrumLost += (stats.mele?.[`${teamKey}_perdida`] || 0);
-                totalLineoutWon += (stats.touch?.[`${teamKey}_ganada`] || 0);
-                totalLineoutLost += (stats.touch?.[`${teamKey}_perdida`] || 0);
-                matchesCount++;
-            }
-        });
-
-        if (matchesCount === 0) return null;
-
-        return {
-            avgPossession: Math.round(totalPossession / matchesCount),
-            tackleSuccess: Math.round((totalTacklesMade / ((totalTacklesMade + totalTacklesMissed) || 1)) * 100),
-            scrumSuccess: Math.round((totalScrumWon / ((totalScrumWon + totalScrumLost) || 1)) * 100),
-            lineoutSuccess: Math.round((totalLineoutWon / ((totalLineoutWon + totalLineoutLost) || 1)) * 100),
-            analyzedGames: matchesCount
-        };
-    }, [matches, allAnalyses, rivalName]);
-
-    const topScorer = [...rivalPlayers].sort((a, b) => b.puntos - a.puntos)[0];
-    const topTryScorer = [...rivalPlayers].sort((a, b) => b.ensayos - a.ensayos)[0];
-
-    // Core Metrics
-    const winRate = team.jugados > 0 ? Math.round((team.ganados / team.jugados) * 100) : 0;
-    const triesPerGame = team.jugados > 0 ? (team.ensayos / team.jugados).toFixed(1) : 0;
-    const pointsPerGame = team.jugados > 0 ? (team.favor / team.jugados).toFixed(0) : 0;
-    const pointsConcededPerGame = team.jugados > 0 ? (team.contra / team.jugados).toFixed(0) : 0;
-    const totalYellows = rivalPlayers.reduce((sum, p) => sum + (p.amarillas || 0), 0);
-    const totalReds = rivalPlayers.reduce((sum, p) => sum + (p.rojas || 0), 0);
-    const cardsPerGame = team.jugados > 0 ? ((totalYellows + totalReds) / team.jugados).toFixed(2) : 0;
-
-
-    // Dynamic Report Generation
-    const generateReport = () => {
-        const sections = [];
-
-        // 1. Current Form & Context
-        let formText = "Datos de clasificación no disponibles. ";
-        if (team && team.ranking) {
-            formText = `El equipo marcha ${team.ranking}º en la clasificación con ${team.puntos} puntos. `;
-            if (winRate > 70) formText += "Llegan con una dinámica ganadora muy fuerte, siendo uno de los rivales a batir. ";
-            else if (winRate < 30) formText += "Han tenido dificultades para cerrar partidos esta temporada. ";
-            else formText += "Es un equipo competitivo que alterna buenos resultados con irregularidad. ";
-        }
-
-        sections.push({
-            title: "Contexto Competitivo",
-            icon: <Trophy size={18} />,
-            content: formText,
-            color: "#3b82f6"
-        });
-
-        // 2. Offensive Profile
-        let attackText = `Promedian ${pointsPerGame} puntos y ${triesPerGame} ensayos por partido. `;
-        if (analysisStats) {
-            if (analysisStats.avgPossession > 55) attackText += "Su juego se basa en el control de la posesión, construyendo fases largas. ";
-            else if (analysisStats.avgPossession < 45) attackText += "Son peligrosos al contraataque, no necesitan mucha posesión para anotar. ";
-        }
-        if (topTryScorer) attackText += `Su mayor amenaza individual es ${topTryScorer.name}, quien ha anotado ${topTryScorer.ensayos} ensayos. `;
-
-        sections.push({
-            title: "Fase Ofensiva",
-            icon: <Swords size={18} />,
-            content: attackText,
-            color: "#ef4444"
-        });
-
-        // 3. Defensive Profile
-        let defenseText = `Encajan una media de ${pointsConcededPerGame} puntos por encuentro. `;
-        if (analysisStats) {
-            defenseText += `Su efectividad en el placaje es del ${analysisStats.tackleSuccess}%. `;
-            if (analysisStats.tackleSuccess < 80) defenseText += "Muestran vulnerabilidad en el uno contra uno, lo que puede ser explotado con corredores fuertes. ";
-            else defenseText += "Son una defensa muy organizada y difícil de romper en el contacto. ";
-        }
-
-        sections.push({
-            title: "Fase Defensiva",
-            icon: <Shield size={18} />,
-            content: defenseText,
-            color: "#10b981"
-        });
-
-        // 4. Set Pieces (if video stats available)
-        if (analysisStats) {
-            let setPieceText = "";
-            setPieceText += `Melé: ${analysisStats.scrumSuccess}% de éxito. `;
-            setPieceText += `Touch: ${analysisStats.lineoutSuccess}% de retención. `;
-
-            if (analysisStats.scrumSuccess < 80) setPieceText += "La melé parece ser un punto débil que podemos atacar para generar golpes de castigo. ";
-            if (analysisStats.lineoutSuccess < 75) setPieceText += "Tienen problemas en la obtención de touch, lo que sugiere oportunidades para disputar sus lanzamientos. ";
-
-            sections.push({
-                title: "Fases Estáticas",
-                icon: <ArrowRightLeft size={18} />,
-                content: setPieceText,
-                color: "#f59e0b"
-            });
-        }
-
-        // 5. Tactical Recommendations
-        let tacticsText = "Jugar con disciplina territorial es clave. ";
-        if (analysisStats && analysisStats.tackleSuccess < 85) tacticsText += "Buscar el contacto directo y mantener el balón vivo en el placaje. ";
-        if (analysisStats && analysisStats.avgPossession > 60) tacticsText += "Presionar su salida de balón y disputar el breakdown para negarles ritmo. ";
-        if (pointsConcededPerGame > 25) tacticsText += "Ser agresivos en ataque desde el inicio, ya que tienden a encajar puntos. ";
-
-        sections.push({
-            title: "Claves Tácticas",
-            icon: <Target size={18} />,
-            content: tacticsText,
-            color: "#8b5cf6" // Violet
-        });
-
-        return sections;
-    };
-
-    const reportSections = generateReport();
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Header / Summary Card */}
-            <div style={{ background: 'linear-gradient(135deg, var(--color-primary-blue) 0%, #1e40af 100%)', padding: '2rem', borderRadius: '16px', color: 'white', boxShadow: '0 10px 25px -5px rgba(0, 51, 102, 0.4)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                            <img
-                                src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Informe%20de%20analista.png"
-                                alt="Analyst Icon"
-                                style={{ width: '64px', height: '64px', objectFit: 'contain', marginRight: '0.5rem' }}
-                            />
-                            <h3 style={{ margin: 0, fontSize: '2rem', color: 'white', fontWeight: '900', letterSpacing: '-0.5px' }}>Informe de Analista</h3>
-                        </div>
-                        <p style={{ margin: 0, opacity: 0.9, fontSize: '1.1rem', maxWidth: '600px', lineHeight: '1.5' }}>
-                            Análisis técnico basado en {team.jugados} partidos de liga{analysisStats ? ' y ' + analysisStats.analyzedGames + ' partidos videoanalizados' : ''}.
-                        </p>
-                    </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', padding: '1rem', borderRadius: '12px' }}>
-                        <div style={{ fontSize: '0.75rem', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ranking</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>#{team.ranking}</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', padding: '1rem', borderRadius: '12px' }}>
-                        <div style={{ fontSize: '0.75rem', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Forma (Win%)</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{winRate}%</div>
-                    </div>
-                    {analysisStats && (
-                        <>
-                            <div style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', padding: '1rem', borderRadius: '12px' }}>
-                                <div style={{ fontSize: '0.75rem', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>PosesiÃ³n</div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{analysisStats.avgPossession}%</div>
-                            </div>
-                            <div style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', padding: '1rem', borderRadius: '12px' }}>
-                                <div style={{ fontSize: '0.75rem', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Placaje</div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{analysisStats.tackleSuccess}%</div>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
-
-            {/* Detailed Analysis Sections */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                {reportSections.map((section, idx) => (
-                    <div key={idx} style={{
-                        background: 'white',
-                        borderRadius: '16px',
-                        padding: '1.5rem',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-                        borderTop: '4px solid ' + section.color,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '1rem'
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: section.color }}>
-                            {section.icon}
-                            <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', color: '#1e293b' }}>{section.title}</h4>
-                        </div>
-                        <p style={{ margin: 0, color: '#475569', lineHeight: '1.6', fontSize: '0.95rem' }}>
-                            {section.content}
-                        </p>
-                    </div>
-                ))}
-            </div>
-
-            {/* Key Players Spotlight */}
-            <div style={{ marginTop: '1rem' }}>
-                <h4 style={{ fontSize: '1.25rem', color: '#1e293b', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Users size={20} /> Jugadores Clave
-                </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-                    {topScorer && (
-                        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#ffedd5', color: '#c2410c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                                {topScorer.name.substring(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{topScorer.name}</div>
-                                <div style={{ fontSize: '0.875rem', color: '#64748b' }}>MÃ¡ximo Anotador ({topScorer.puntos} pts)</div>
-                            </div>
-                        </div>
-                    )}
-                    {topTryScorer && topTryScorer.name !== topScorer?.name && (
-                        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                                {topTryScorer.name.substring(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{topTryScorer.name}</div>
-                                <div style={{ fontSize: '0.875rem', color: '#64748b' }}>Amenaza de Ensayo ({topTryScorer.ensayos} tries)</div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
 const StatsPage = ({ user }) => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState('clasificacion'); // 'clasificacion', 'rivales', 'jugadores'
     const [subTab, setSubTab] = useState('todos'); // for players filter
     const [selectedRival, setSelectedRival] = useState(null);
@@ -733,8 +487,33 @@ const StatsPage = ({ user }) => {
     }, [selectedRivalMatch]);
 
     // Effect for Hospitalet Match Selection
+    // Effect for Hospitalet Match Selection & Deep Linking
     useEffect(() => {
-        if (activeTab === 'hospitalet' && hospitaletDetailTab === 'partidos') {
+        // Deep Linking Check
+        if (location.state?.targetMatchId && matchResults.length > 0) {
+            const targetId = location.state.targetMatchId;
+            const targetType = location.state.targetType || 'any'; // 'internal' | 'external' | 'any'
+
+            const allMatches = matchResults.flatMap(g => g.matches);
+
+            const foundMatch = allMatches.find(m => {
+                if (targetType === 'internal') return m.partido_id === targetId;
+                if (targetType === 'external') return m.partido_externo_id === targetId;
+                return m.partido_id === targetId || m.partido_externo_id === targetId;
+            });
+
+            if (foundMatch) {
+                // Ensure we are on the right tabs
+                setActiveTab('hospitalet');
+                setHospitaletDetailTab('partidos');
+                setSelectedHospitaletMatch(foundMatch);
+
+                // Clear state to prevent stuck selection on re-renders (optional but good practice)
+                // navigate(location.pathname, { replace: true, state: {} });
+            }
+        }
+        // Default Selection Logic (Only if no specific selection exists or we are switching tabs naturally)
+        else if (activeTab === 'hospitalet' && hospitaletDetailTab === 'partidos') {
             const hospiMatches = matchResults.flatMap(g => g.matches)
                 .filter(m => m.home === HOSPITALET_NAME || m.away === HOSPITALET_NAME)
                 .sort((a, b) => new Date(b.date) - new Date(a.date)); // Newest first
@@ -743,7 +522,7 @@ const StatsPage = ({ user }) => {
                 setSelectedHospitaletMatch(hospiMatches[0]);
             }
         }
-    }, [activeTab, hospitaletDetailTab, matchResults]);
+    }, [activeTab, hospitaletDetailTab, matchResults, location.state]);
 
     // Effect for Hospitalet Analysis Loading
     useEffect(() => {
@@ -827,29 +606,31 @@ const StatsPage = ({ user }) => {
                             ESTADISTICAS
                         </h1>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                            onClick={() => setShowUploader(!showUploader)}
-                            style={{
-                                padding: '0.6rem 1.2rem',
-                                backgroundColor: '#90EE90',
-                                color: 'var(--color-primary-blue)',
-                                border: 'none',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontWeight: 'bold',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                                transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#77DD77'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#90EE90'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                        >
-                            <Activity size={18} /> Subir Acta
-                        </button>
-                    </div>
+                    {user?.role !== 'JUGADOR' && (
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                                onClick={() => setShowUploader(!showUploader)}
+                                style={{
+                                    padding: '0.6rem 1.2rem',
+                                    backgroundColor: '#90EE90',
+                                    color: 'var(--color-primary-blue)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#77DD77'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#90EE90'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                            >
+                                <Activity size={18} /> Subir Acta
+                            </button>
+                        </div>
+                    )}
                 </header>
 
                 {showUploader && (
@@ -989,6 +770,8 @@ const StatsPage = ({ user }) => {
                                                         <th onClick={() => handleSort('ensayos')} style={{ padding: '1rem', fontWeight: 'bold', cursor: 'pointer', textAlign: 'center' }}>Ens. {renderSortIcon('ensayos')}</th>
                                                         <th onClick={() => handleSort('bo')} style={{ padding: '1rem', fontWeight: 'bold', cursor: 'pointer', textAlign: 'center' }}>BO {renderSortIcon('bo')}</th>
                                                         <th onClick={() => handleSort('bd')} style={{ padding: '1rem', fontWeight: 'bold', cursor: 'pointer', textAlign: 'center' }}>BD {renderSortIcon('bd')}</th>
+                                                        <th onClick={() => handleSort('amarillas')} style={{ padding: '1rem', fontWeight: 'bold', cursor: 'pointer', textAlign: 'center', color: '#daa520' }}>TA {renderSortIcon('amarillas')}</th>
+                                                        <th onClick={() => handleSort('rojas')} style={{ padding: '1rem', fontWeight: 'bold', cursor: 'pointer', textAlign: 'center', color: '#dc3545' }}>TR {renderSortIcon('rojas')}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1012,6 +795,8 @@ const StatsPage = ({ user }) => {
                                                             <td style={{ padding: '1rem', textAlign: 'center' }}>{team.ensayos}</td>
                                                             <td style={{ padding: '1rem', textAlign: 'center' }}>{team.bo}</td>
                                                             <td style={{ padding: '1rem', textAlign: 'center' }}>{team.bd}</td>
+                                                            <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 'bold', color: '#daa520' }}>{team.amarillas}</td>
+                                                            <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 'bold', color: '#dc3545' }}>{team.rojas}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -1275,12 +1060,12 @@ const StatsPage = ({ user }) => {
                                                                             <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px solid rgba(255, 102, 0, 0.1)', borderRadius: '12px', background: 'white' }}>
                                                                                 <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontWeight: 'bold', marginBottom: '0.5rem' }}>DISCIPLINA (A/R)</div>
                                                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                                                                    <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#ffc107' }}>
-                                                                                        {playerStats.filter(p => p.team === selectedRival).reduce((acc, p) => acc + (p.amarillas || 0), 0)}
+                                                                                    <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#daa520' }}>
+                                                                                        {team.amarillas || 0}
                                                                                     </span>
                                                                                     <span style={{ fontSize: '1.2rem', color: '#ccc' }}>/</span>
                                                                                     <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#dc3545' }}>
-                                                                                        {playerStats.filter(p => p.team === selectedRival).reduce((acc, p) => acc + (p.rojas || 0), 0)}
+                                                                                        {team.rojas || 0}
                                                                                     </span>
                                                                                 </div>
                                                                             </div>
@@ -1529,12 +1314,12 @@ const StatsPage = ({ user }) => {
                                                                     <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px solid rgba(255, 102, 0, 0.1)', borderRadius: '12px', background: 'white' }}>
                                                                         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontWeight: 'bold', marginBottom: '0.5rem' }}>DISCIPLINA (A/R)</div>
                                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                                                            <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#ffc107' }}>
-                                                                                {playerStats.filter(p => p.team?.toUpperCase() === 'RC HOSPITALET').reduce((acc, p) => acc + (p.amarillas || 0), 0)}
+                                                                            <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#daa520' }}>
+                                                                                {team.amarillas || 0}
                                                                             </span>
                                                                             <span style={{ fontSize: '1.2rem', color: '#ccc' }}>/</span>
                                                                             <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#dc3545' }}>
-                                                                                {playerStats.filter(p => p.team?.toUpperCase() === 'RC HOSPITALET').reduce((acc, p) => acc + (p.rojas || 0), 0)}
+                                                                                {team.rojas || 0}
                                                                             </span>
                                                                         </div>
                                                                     </div>
@@ -1668,7 +1453,7 @@ const StatsPage = ({ user }) => {
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {sortData(playerStats.filter(p => p.team?.toUpperCase().includes('HOSPITALET'))).map((p, i) => (
+                                                        {sortData(playerStats.filter(p => p.team?.toUpperCase().includes('HOSPITALET')).filter(p => user?.role !== 'JUGADOR' || p.player_id === user.playerId)).map((p, i) => (
                                                             <tr key={i} style={{ borderBottom: '1px solid rgba(0, 51, 102, 0.05)', backgroundColor: 'rgba(255, 102, 0, 0.02)' }}>
                                                                 <td style={{ padding: '0.5rem', fontWeight: 'bold', color: 'var(--color-primary-blue)' }}>{p.name}</td>
                                                                 <td style={{ padding: '0.5rem', textAlign: 'center' }}>{p.jugados}</td>
@@ -1774,7 +1559,7 @@ const StatsPage = ({ user }) => {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {sortData(playerStats).map((p, i) => (
+                                                    {sortData(playerStats.filter(p => user?.role !== 'JUGADOR' || p.player_id === user.playerId)).map((p, i) => (
                                                         <tr key={i} style={{ borderBottom: '1px solid rgba(0, 51, 102, 0.05)', backgroundColor: p.team?.toUpperCase().includes('HOSPITALET') ? 'rgba(255, 102, 0, 0.05)' : 'transparent' }}>
                                                             <td style={{ padding: '0.5rem', fontWeight: 'bold', color: 'var(--color-primary-blue)' }}>{p.name}</td>
                                                             <td style={{ padding: '0.5rem', color: 'var(--color-text-light)' }}>{p.team}</td>
