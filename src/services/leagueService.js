@@ -65,19 +65,22 @@ export const leagueService = {
                 if (pointsFor > pointsAgainst) {
                     t.ganados += 1;
                     t.puntos += 4;
-                    if ((pointsFor > pointsAgainst) && (triesFor >= 4)) {
-                        t.puntos += 1;
-                        t.bo += 1;
-                    }
                 } else if (pointsFor === pointsAgainst) {
                     t.empatados += 1;
                     t.puntos += 2;
                 } else {
                     t.perdidos += 1;
+                    // Defensive bonus: lose by 7 points or less
                     if ((pointsAgainst - pointsFor) <= 7) {
                         t.puntos += 1;
                         t.bd += 1;
                     }
+                }
+
+                // Offensive bonus: score 3 or more TRIES than the opponent (can apply in any result)
+                if ((triesFor - triesAgainst) >= 3) {
+                    t.puntos += 1;
+                    t.bo += 1;
                 }
             };
 
@@ -95,6 +98,11 @@ export const leagueService = {
 
             if (statsData) {
                 statsData.forEach(stat => {
+                    // CRITICAL: Skip unplayed matches (null scores)
+                    if (stat.marcador_local === null || stat.marcador_visitante === null) {
+                        return; // Do not count unplayed matches
+                    }
+
                     let homeName = "Desconocido Local";
                     let awayName = "Desconocido Visitante";
 
@@ -114,8 +122,8 @@ export const leagueService = {
                         awayName = pe.equipo_visitante;
                     }
 
-                    updateStats(homeName, stat.marcador_local || 0, stat.marcador_visitante || 0, stat.ensayos_local || 0, stat.ensayos_visitante || 0);
-                    updateStats(awayName, stat.marcador_visitante || 0, stat.marcador_local || 0, stat.ensayos_visitante || 0, stat.ensayos_local || 0);
+                    updateStats(homeName, stat.marcador_local, stat.marcador_visitante, stat.ensayos_local || 0, stat.ensayos_visitante || 0);
+                    updateStats(awayName, stat.marcador_visitante, stat.marcador_local, stat.ensayos_visitante || 0, stat.ensayos_local || 0);
                 });
             }
 

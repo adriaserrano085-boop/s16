@@ -31,29 +31,37 @@ const getAll = async () => {
 
     if (eventsError) throw eventsError;
 
-    // Step 4: Map event details back to attendance records
+    // Step 4: Map event details back to attendance records, and DEDUPLICATE
+    // If an event has multiple training entries (duplicates in entrenamientos table),
+    // we de-duplicate by keeping one record per (jugador, eventDate) pair.
     const eventsMap = {};
     eventsData.forEach(event => {
         eventsMap[event.id] = event;
     });
 
-    const enrichedData = attendanceData.map(record => {
+    const seen = new Set(); // Track unique (jugador, eventDate) combinations
+    const enrichedData = [];
+
+    for (const record of attendanceData) {
         const eventId = record.entrenamientos?.evento;
         const eventDetail = eventsMap[eventId];
-
-        // Normalize date field (check 'fecha' or 'date')
         const eventDate = eventDetail?.fecha || eventDetail?.date;
 
-        return {
+        const dedupeKey = `${record.jugador}_${eventDate}`;
+        if (seen.has(dedupeKey)) {
+            continue; // Skip duplicate entries for the same player on the same day
+        }
+        seen.add(dedupeKey);
+
+        enrichedData.push({
             ...record,
-            // Simulate the structure expected by the frontend
             eventos: eventDetail ? {
                 ...eventDetail,
-                date: eventDate, // Ensure 'date' property exists
+                date: eventDate,
                 Tipo: eventDetail.tipo
             } : null
-        };
-    });
+        });
+    }
 
     return enrichedData;
 };
@@ -80,27 +88,21 @@ const getByTrainingId = async (trainingId) => {
 };
 
 const getByEventId = async (eventId) => {
-    // Step 1: Directly find the training session linked to this event UUID
-    // The 'evento' column in 'entrenamientos' stores the Event UUID.
-
+    // Step 1: Find ALL training sessions linked to this event UUID
+    // (there may be duplicates in the entrenamientos table)
     const { data: trainingData, error: trainingError } = await supabase
         .from('entrenamientos')
-        .select('id_entrenamiento') // Select the correct PK
-        .eq('evento', eventId)
-        .single();
+        .select('id_entrenamiento')
+        .eq('evento', eventId);
 
-    if (trainingError) {
-        // It's possible no training exists for this event yet
+    if (trainingError || !trainingData || trainingData.length === 0) {
         console.log('No training found for event:', eventId);
         return [];
     }
 
-    if (trainingData) {
-        // Step 3: Fetch attendance
-        // Now safely call getByTrainingId directly
-        return getByTrainingId(trainingData.id_entrenamiento);
-    }
-    return [];
+    // Use the first (canonical) training ID to avoid duplicate attendance records
+    const trainingId = trainingData[0].id_entrenamiento;
+    return getByTrainingId(trainingId);
 };
 
 const getByEventIds = async (eventIds) => {

@@ -14,6 +14,7 @@ import { TeamEvolutionAnalysis } from '../components/TeamEvolutionAnalysis';
 import { HospitaletAnalysis } from '../components/HospitaletAnalysis';
 import RivalAnalysis from '../components/RivalAnalysis';
 import MarkdownRenderer from '../components/MarkdownRenderer';
+import { SeasonStatsPanel } from '../components/SeasonStatsPanel';
 import './StatsPage.css';
 
 const TeamLogo = ({ url, name, size = 30 }) => {
@@ -540,11 +541,12 @@ const StatsPage = ({ user }) => {
                         {activeTab === 'hospitalet' && (
                             <div className="flex-column gap-1">
                                 <div className="rival-subtabs">
-                                    {['partidos', 'estadisticas', 'analisis', 'jugadores'].map(t => (
+                                    {['temporada', 'partidos', 'estadisticas', 'analisis', 'jugadores'].map(t => (
                                         <button key={t} onClick={() => setHospitaletDetailTab(t)} className={`rival-subtab-btn ${hospitaletDetailTab === t ? 'rival-subtab-btn--active' : ''}`}>{t}</button>
                                     ))}
                                 </div>
                                 <div className="rival-detail-container">
+                                    {hospitaletDetailTab === 'temporada' && <SeasonStatsPanel isStaff={user?.role !== 'JUGADOR'} />}
                                     {hospitaletDetailTab === 'partidos' && (
                                         <div className="flex-column gap-1">
                                             <div className="rival-match-subtabs">
