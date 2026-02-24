@@ -7,7 +7,7 @@ export const rivalService = {
     getAll: async () => {
         const { data, error } = await supabase
             .from(TABLE_NAME)
-            .select('*');
+            .select('id_equipo, nombre_equipo, escudo');
 
         if (error) {
             console.error('Error in rivalService.getAll:', error);

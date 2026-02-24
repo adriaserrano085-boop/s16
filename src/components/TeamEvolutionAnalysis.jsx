@@ -15,7 +15,11 @@ export const TeamEvolutionAnalysis = ({ matches, analyses, teamName = "RC HOSPIT
                 analysis = analyses.find(a => a.evento_id === match.evento_id);
             }
             return { ...match, analysis };
-        }).filter(m => m.analysis && m.analysis.raw_json && m.analysis.raw_json.estadisticas);
+        }).filter(m => {
+            if (!m.analysis?.raw_json) return false;
+            const r = m.analysis.raw_json;
+            return r.estadisticas || r.match_report?.key_stats;
+        });
 
         if (analyzedMatches.length === 0) return null;
 
@@ -51,22 +55,27 @@ export const TeamEvolutionAnalysis = ({ matches, analyses, teamName = "RC HOSPIT
             matchSet.forEach(m => {
                 const isHome = m.home === teamName;
                 const teamKey = isHome ? 'local' : 'visitante';
-                const statsObj = m.analysis.raw_json.estadisticas;
+                const teamKeyAlt = isHome ? 'local' : 'visitor';
+                const raw = m.analysis.raw_json;
+
+                // DATA EXTRACTION (Support both formats)
+                const report = raw.match_report?.key_stats;
+                const legacy = raw.estadisticas;
 
                 // Possession
-                total.possession += (statsObj.posesion?.[teamKey] || 0);
+                total.possession += (report?.posesion?.[teamKeyAlt] ?? legacy?.posesion?.[teamKey] ?? 0);
 
                 // Tackles
-                total.tacklesMade += (statsObj.placajes_hechos?.[teamKey] || 0);
-                total.tacklesMissed += (statsObj.placajes_fallados?.[teamKey] || 0);
+                total.tacklesMade += (report?.placajes_exito?.[teamKeyAlt] ?? legacy?.placajes_hechos?.[teamKey] ?? 0);
+                total.tacklesMissed += (report?.placajes_fallados?.[teamKeyAlt] ?? legacy?.placajes_fallados?.[teamKey] ?? 0);
 
                 // Scrum
-                total.scrumWon += (statsObj.mele?.[`${teamKey}_ganada`] || 0);
-                total.scrumLost += (statsObj.mele?.[`${teamKey}_perdida`] || 0);
+                total.scrumWon += (report?.meles_ganadas?.[teamKeyAlt] ?? legacy?.mele?.[`${teamKey}_ganada`] ?? 0);
+                total.scrumLost += (report?.meles_perdidas?.[teamKeyAlt] ?? legacy?.mele?.[`${teamKey}_perdida`] ?? 0);
 
                 // Lineout
-                total.lineoutWon += (statsObj.touch?.[`${teamKey}_ganada`] || 0);
-                total.lineoutLost += (statsObj.touch?.[`${teamKey}_perdida`] || 0);
+                total.lineoutWon += (report?.touches_ganadas?.[teamKeyAlt] ?? legacy?.touch?.[`${teamKey}_ganada`] ?? 0);
+                total.lineoutLost += (report?.touches_perdidas?.[teamKeyAlt] ?? legacy?.touch?.[`${teamKey}_perdida`] ?? 0);
 
                 total.count++;
             });

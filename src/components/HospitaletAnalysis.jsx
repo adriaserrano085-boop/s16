@@ -66,29 +66,35 @@ export const HospitaletAnalysis = ({ matches, analyses, playerStats, leagueStats
 
         matches.forEach(m => {
             const analysis = getAnalysis(m);
-            if (analysis?.raw_json?.estadisticas) {
-                const s = analysis.raw_json.estadisticas;
+            if (analysis?.raw_json) {
+                const raw = analysis.raw_json;
                 const isHome = m.home === 'RC HOSPITALET';
+                const teamKey = isHome ? 'local' : 'visitante';
+                const teamKeyAlt = isHome ? 'local' : 'visitor';
 
-                // Safe access with defaults
-                const pVal = s.posesion?.[isHome ? 'local' : 'visitante'];
+                const report = raw.match_report?.key_stats;
+                const legacy = raw.estadisticas;
+
+                // Possession
+                const pVal = report?.posesion?.[teamKeyAlt] ?? legacy?.posesion?.[teamKey];
                 if (pVal !== undefined) {
                     totalPossession += pVal;
                     possessionCount++;
                 }
 
-                const tMissed = s.placajes_fallados?.[isHome ? 'local' : 'visitante'] || 0;
-                const tMade = s.placajes_hechos?.[isHome ? 'local' : 'visitante'] || 0;
-                totalTacklesMissed += tMissed;
-                totalTacklesMade += tMade;
+                // Tackles
+                totalTacklesMade += (report?.placajes_exito?.[teamKeyAlt] ?? legacy?.placajes_hechos?.[teamKey] ?? 0);
+                totalTacklesMissed += (report?.placajes_fallados?.[teamKeyAlt] ?? legacy?.placajes_fallados?.[teamKey] ?? 0);
 
-                const scWon = s.mele?.[isHome ? 'local_ganada' : 'visitante_ganada'] || 0;
-                const scLost = s.mele?.[isHome ? 'local_perdida' : 'visitante_perdida'] || 0;
+                // Scrum
+                const scWon = report?.meles_ganadas?.[teamKeyAlt] ?? legacy?.mele?.[isHome ? 'local_ganada' : 'visitante_ganada'] ?? 0;
+                const scLost = report?.meles_perdidas?.[teamKeyAlt] ?? legacy?.mele?.[isHome ? 'local_perdida' : 'visitante_perdida'] ?? 0;
                 totalScrumWon += scWon;
                 totalScrumTotal += (scWon + scLost);
 
-                const lWon = s.touch?.[isHome ? 'local_ganada' : 'visitante_ganada'] || 0;
-                const lLost = s.touch?.[isHome ? 'local_perdida' : 'visitante_perdida'] || 0;
+                // Lineout
+                const lWon = report?.touches_ganadas?.[teamKeyAlt] ?? legacy?.touch?.[isHome ? 'local_ganada' : 'visitante_ganada'] ?? 0;
+                const lLost = report?.touches_perdidas?.[teamKeyAlt] ?? legacy?.touch?.[isHome ? 'local_perdida' : 'visitante_perdida'] ?? 0;
                 totalLineoutWon += lWon;
                 totalLineoutTotal += (lWon + lLost);
 

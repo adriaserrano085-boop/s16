@@ -7,7 +7,7 @@ const playerService = {
     getAll: async () => {
         const { data, error } = await supabase
             .from(TABLE_NAME)
-            .select('*')
+            .select('id, nombre, apellidos, foto, talla, posiciones')
             .order('apellidos', { ascending: true });
 
         if (error) throw error;
@@ -17,7 +17,7 @@ const playerService = {
     getById: async (id) => {
         const { data, error } = await supabase
             .from(TABLE_NAME)
-            .select('*')
+            .select('id, nombre, apellidos, foto, talla, posiciones')
             .eq('id', id)
             .single();
 

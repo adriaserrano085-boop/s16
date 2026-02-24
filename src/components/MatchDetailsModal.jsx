@@ -56,6 +56,8 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
     const [rawJson, setRawJson] = useState(null); // New state for raw JSON
     const [savingAnalysis, setSavingAnalysis] = useState(false);
     const [analysisMessage, setAnalysisMessage] = useState('');
+    const [showJsonInput, setShowJsonInput] = useState(false);
+    const [pastedJson, setPastedJson] = useState('');
 
     // Advanced Stats State
     const [possessionHome, setPossessionHome] = useState(50);
@@ -182,47 +184,20 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
         }
     };
 
+    /* 
     const handleGenerateAIReport = async () => {
-        if (!apiKey) {
-            alert("Por favor, introduce tu Google Gemini API Key para usar esta función.");
-            setShowApiKey(true);
-            return;
-        }
-
-        setGeneratingAI(true);
-        setAnalysisMessage('🤖 La IA está analizando el partido...');
-
-        try {
-            // Prepare match data
-            const matchData = {
-                home: props.homeTeamName || 'Local',
-                away: props.awayTeamName || 'Visitante',
-                scoreHome: props.homeScore || 0,
-                scoreAway: props.awayScore || 0,
-                date: dateStr,
-                videoUrl: videoUrl,
-                videoOffset: videoOffset
-            };
-
-            const report = await aiService.generateMatchReport(matchData, timeline, apiKey);
-            setAnalystReport(report);
-            setAnalysisMessage('✅ Informe generado por IA.');
-            // Save key for future use
-            localStorage.setItem('openai_api_key', apiKey);
-        } catch (err) {
-            console.error("AI Generation Error:", err);
-            setAnalysisMessage('❌ Error IA: ' + err.message);
-        } finally {
-            setGeneratingAI(false);
-        }
+        // AI Report generation is currently disabled due to missing service
+        setAnalysisMessage('Función de IA temporalmente desactivada.');
     };
+    */
 
     const handleSaveAnalysis = async () => {
         setSavingAnalysis(true);
         setAnalysisMessage('');
         try {
             // Bundle all current state into the standardized JSON structure
-            const analysisData = {
+            // If we have a rawJson from a previous import, we use it as base to preserve Master Schema
+            const analysisData = rawJson ? { ...rawJson } : {
                 updated_at: new Date().toISOString(),
                 timeline: timeline || [],
                 report: analystReport || '',
@@ -254,6 +229,76 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
                 }
             };
 
+            // ALWAYS sync component states back into the JSON structure before saving
+            // This ensures edits made in the UI tabs (Timeline, Estadisticas) are preserved
+            if (analysisData.match_report) {
+                // Sync Timeline back
+                analysisData.match_report.actions_timeline = timeline.map(ev => ({
+                    minute: ev.minuto,
+                    team: ev.equipo?.toLowerCase() === 'visitante' ? 'visitor' : 'local',
+                    event_type: ev.type,
+                    player: ev.player,
+                    dorsal: ev.dorsal,
+                    // PRESERVE SUBSTITUTION FIELDS
+                    player_in: ev.player_in,
+                    player_out: ev.player_out,
+                    dorsal_in: ev.dorsal_in,
+                    dorsal_out: ev.dorsal_out,
+                    points: ev.points,
+                    reason: ev.reason
+                }));
+                analysisData.match_report.report_summary = analystReport;
+
+                // Sync Key Stats back (if they exist)
+                if (analysisData.match_report.key_stats) {
+                    analysisData.match_report.key_stats.posesion = {
+                        local: parseInt(possessionHome) || 50,
+                        visitor: parseInt(possessionAway) || 50
+                    };
+                    analysisData.match_report.key_stats.placajes_exito = {
+                        local: parseInt(tacklesHomeMade) || 0,
+                        visitor: parseInt(tacklesAwayMade) || 0
+                    };
+                    analysisData.match_report.key_stats.placajes_fallados = {
+                        local: parseInt(tacklesHomeMissed) || 0,
+                        visitor: parseInt(tacklesAwayMissed) || 0
+                    };
+                    analysisData.match_report.key_stats.meles_ganadas = {
+                        local: parseInt(scrumsHomeWon) || 0,
+                        visitor: parseInt(scrumsAwayWon) || 0
+                    };
+                    analysisData.match_report.key_stats.meles_perdidas = {
+                        local: parseInt(scrumsHomeLost) || 0,
+                        visitor: parseInt(scrumsAwayLost) || 0
+                    };
+                    analysisData.match_report.key_stats.touches_ganadas = {
+                        local: parseInt(lineoutsHomeWon) || 0,
+                        visitor: parseInt(lineoutsAwayWon) || 0
+                    };
+                    analysisData.match_report.key_stats.touches_perdidas = {
+                        local: parseInt(lineoutsHomeLost) || 0,
+                        visitor: parseInt(lineoutsAwayLost) || 0
+                    };
+                }
+            } else {
+                // Legacy fallback
+                analysisData.timeline = timeline;
+                analysisData.report = analystReport;
+                analysisData.estadisticas = {
+                    posesion: { local: parseInt(possessionHome), visitante: parseInt(possessionAway) },
+                    placajes_hechos: { local: parseInt(tacklesHomeMade), visitante: parseInt(tacklesAwayMade) },
+                    placajes_fallados: { local: parseInt(tacklesHomeMissed), visitante: parseInt(tacklesAwayMissed) },
+                    mele: {
+                        local_ganada: parseInt(scrumsHomeWon), local_perdida: parseInt(scrumsHomeLost),
+                        visitante_ganada: parseInt(scrumsAwayWon), visitante_perdida: parseInt(scrumsAwayLost)
+                    },
+                    touch: {
+                        local_ganada: parseInt(lineoutsHomeWon), local_perdida: parseInt(lineoutsHomeLost),
+                        visitante_ganada: parseInt(lineoutsAwayWon), visitante_perdida: parseInt(lineoutsAwayLost)
+                    }
+                };
+            }
+
             const payload = {
                 evento_id: externalId ? null : eventId,
                 partido_externo_id: externalId || null,
@@ -266,6 +311,7 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
 
             const saved = await analysisService.upsert(payload);
             setAnalysis(saved);
+            setRawJson(saved.raw_json);
             setAnalysisMessage('✅ Guardado');
             setTimeout(() => setAnalysisMessage(''), 3000);
         } catch (err) {
@@ -626,26 +672,241 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
                         </div>
                     )}
 
-                    {/* Video Analysis Section - Available for ALL events BUT ONLY STAFF sees it */}
+                    {/* Match Analysis Section - Available for ALL events BUT ONLY STAFF sees it */}
                     {(eventId || externalId) && currentUser?.role !== 'JUGADOR' && (
                         <div className="convocatoria-section" style={{ marginTop: '12px' }}>
                             <div
                                 className="convocatoria-header"
                                 onClick={() => setShowAnalysis(!showAnalysis)}
+                                style={{ background: 'linear-gradient(to right, #f8fafc, #eff6ff)', borderLeft: '4px solid #3b82f6' }}
                             >
                                 <div className="convocatoria-title">
-                                    <Video size={20} />
-                                    <span>VIDEO ANÁLISIS</span>
+                                    <FileJson size={20} color="#3b82f6" />
+                                    <span style={{ color: '#1e3a8a', fontWeight: '800' }}>ANÁLISIS E INFORMES</span>
                                     {analysis && <span className="status-dot-green" title="Configurado"></span>}
                                 </div>
-                                <span className={`convocatoria-toggle ${showAnalysis ? 'open' : ''}`}>▾</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>
+                                        {analysis?.raw_json?.match_report ? 'FORMATO AVANZADO' : (analysis ? 'FORMATO SIMPLE' : 'SIN DATOS')}
+                                    </span>
+                                    <span className={`convocatoria-toggle ${showAnalysis ? 'open' : ''}`}>▾</span>
+                                </div>
                             </div>
 
                             {showAnalysis && (
-                                <div className="convocatoria-body">
+                                <div className="convocatoria-body" style={{ padding: '1.5rem' }}>
+                                    {/* Main Importer Action */}
+                                    <div className="analysis-importer-box" style={{
+                                        background: '#f0f9ff',
+                                        border: '2px dashed #bae6fd',
+                                        borderRadius: '12px',
+                                        padding: '1.5rem',
+                                        marginBottom: '1.5rem',
+                                        textAlign: 'center'
+                                    }}>
+                                        <h4 style={{ margin: '0 0 0.5rem 0', color: '#0369a1' }}>Importador Masivo de Datos (JSON)</h4>
+                                        <p style={{ fontSize: '0.85rem', color: '#0c4a6e', marginBottom: '1rem' }}>
+                                            Pega el JSON generado por la IA para cargar automáticamente alineaciones, estadísticas, flujo del partido y recomendaciones.
+                                        </p>
+                                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                                            <button
+                                                onClick={() => setShowJsonInput(!showJsonInput)}
+                                                style={{
+                                                    backgroundColor: showJsonInput ? '#64748b' : '#0284c7',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    padding: '10px 20px',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '700',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.4)'
+                                                }}
+                                            >
+                                                <FileJson size={18} /> {showJsonInput ? 'Cerrar Importador' : 'Cargar JSON de Análisis'}
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    import('../services/reportService').then(({ reportService }) => {
+                                                        const template = JSON.stringify(reportService.getTemplate(), null, 2);
+                                                        navigator.clipboard.writeText(template);
+                                                        alert("📋 Plantilla copiada.");
+                                                    });
+                                                }}
+                                                style={{
+                                                    backgroundColor: 'white',
+                                                    color: '#475569',
+                                                    border: '1px solid #e2e8f0',
+                                                    padding: '10px 15px',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '600'
+                                                }}
+                                            >
+                                                Copiar Plantilla
+                                            </button>
+                                        </div>
+
+                                        {showJsonInput && (
+                                            <div style={{ marginTop: '1.5rem', textAlign: 'left' }}>
+                                                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.5rem', display: 'block' }}>
+                                                    Pega el contenido JSON aquí:
+                                                </label>
+                                                <textarea
+                                                    className="json-import-textarea"
+                                                    value={pastedJson}
+                                                    onChange={(e) => setPastedJson(e.target.value)}
+                                                    placeholder='{ "match_report": { ... } }'
+                                                    rows={8}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '12px',
+                                                        borderRadius: '8px',
+                                                        border: '2px solid #bae6fd',
+                                                        fontSize: '0.85rem',
+                                                        fontFamily: 'monospace',
+                                                        marginBottom: '1rem',
+                                                        resize: 'vertical'
+                                                    }}
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        const jsonString = pastedJson;
+                                                        if (jsonString) {
+                                                            const cleanJsonInput = (input) => {
+                                                                if (!input) return "";
+                                                                let cleaned = input.replace(/```json/g, "").replace(/```/g, "");
+                                                                cleaned = cleaned.replace(/\[cite_start\]/g, "");
+                                                                cleaned = cleaned.replace(/\[cite:[^\]]*\]/g, "");
+                                                                return cleaned.trim();
+                                                            };
+
+                                                            try {
+                                                                const cleanedString = cleanJsonInput(jsonString);
+                                                                const jsonData = JSON.parse(cleanedString);
+                                                                setRawJson(jsonData);
+
+                                                                import('../services/reportService').then(({ reportService }) => {
+                                                                    // 1. Update markdown report
+                                                                    const markdown = reportService.jsonToMarkdown(jsonData);
+                                                                    setAnalystReport(markdown);
+
+                                                                    // 2. Sync specialized states (Timeline, Stats)
+                                                                    const syncData = reportService.syncAnalysisToState(jsonData);
+                                                                    if (syncData) {
+                                                                        if (syncData.timeline) setTimeline(syncData.timeline);
+                                                                        if (syncData.stats) {
+                                                                            const { possession, tackles, mele } = syncData.stats;
+                                                                            setPossessionHome(possession.local);
+                                                                            setPossessionAway(possession.visitor);
+                                                                            setTacklesHomeMade(tackles.homeMade);
+                                                                            setTacklesAwayMade(tackles.awayMade);
+                                                                            setTacklesHomeMissed(tackles.homeMissed);
+                                                                            setTacklesAwayMissed(tackles.awayMissed);
+                                                                            setScrumsHomeWon(mele.local_ganada);
+                                                                            setScrumsHomeLost(mele.local_perdida);
+                                                                            setScrumsAwayWon(mele.visitante_ganada);
+                                                                            setScrumsAwayLost(mele.visitante_perdida);
+                                                                        }
+                                                                    }
+                                                                });
+
+                                                                alert("✅ Datos importados y sincronizados correctamente. ¡No olvides Guardar el Análisis!");
+                                                                setShowJsonInput(false);
+                                                                setPastedJson('');
+                                                            } catch (e) {
+                                                                console.error(e);
+                                                                alert("❌ Error: Formato JSON inválido.");
+                                                            }
+                                                        }
+                                                    }}
+                                                    disabled={!pastedJson.trim()}
+                                                    style={{
+                                                        width: '100%',
+                                                        backgroundColor: '#0ea5e9',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        padding: '12px',
+                                                        borderRadius: '8px',
+                                                        cursor: pastedJson.trim() ? 'pointer' : 'not-allowed',
+                                                        fontWeight: 'bold',
+                                                        opacity: pastedJson.trim() ? 1 : 0.6
+                                                    }}
+                                                >
+                                                    Procesar e Importar Datos
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* AI Roster Sync Section */}
+                                        {rawJson?.match_report?.rosters_and_stats?.local && (
+                                            <div style={{
+                                                marginTop: '1.5rem',
+                                                padding: '1rem',
+                                                background: 'white',
+                                                borderRadius: '8px',
+                                                border: '1px solid #e0f2fe',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: '12px'
+                                            }}>
+                                                <div style={{ textAlign: 'left' }}>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#0369a1', display: 'block' }}>
+                                                        Alineación AI disponible ({rawJson.match_report.rosters_and_stats.local.length} jugadores)
+                                                    </span>
+                                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                        Puedes sincronizar estos nombres con la convocatoria oficial del club.
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        const aiRoster = rawJson.match_report.rosters_and_stats.local;
+                                                        const newSquad = [...squad];
+                                                        let matchedCount = 0;
+
+                                                        aiRoster.forEach(aiPlayer => {
+                                                            const dorsal = aiPlayer.dorsal;
+                                                            if (dorsal >= 1 && dorsal <= MAX_SQUAD) {
+                                                                // Try fuzzy match by name
+                                                                const matchedPlayer = allPlayers.find(p => {
+                                                                    const fullName = `${p.nombre} ${p.apellidos}`.toLowerCase();
+                                                                    const aiName = aiPlayer.name.toLowerCase();
+                                                                    return fullName.includes(aiName) || aiName.includes(p.nombre.toLowerCase());
+                                                                });
+
+                                                                if (matchedPlayer) {
+                                                                    newSquad[dorsal - 1] = { numero: dorsal, jugador: matchedPlayer.id };
+                                                                    matchedCount++;
+                                                                }
+                                                            }
+                                                        });
+
+                                                        setSquad(newSquad);
+                                                        alert(`✅ Sincronización completada: ${matchedCount} jugadores emparejados automáticamente.`);
+                                                    }}
+                                                    style={{
+                                                        backgroundColor: '#f0f9ff',
+                                                        color: '#0369a1',
+                                                        border: '1px solid #bae6fd',
+                                                        padding: '8px 16px',
+                                                        borderRadius: '6px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 'bold',
+                                                        fontSize: '0.85rem'
+                                                    }}
+                                                >
+                                                    Sincronizar Plantilla
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="details-info-grid">
                                         <div className="info-item full-width">
-                                            <label>URL del Video (YouTube)</label>
+                                            <label>URL del Video de Referencia (YouTube)</label>
                                             <input
                                                 type="text"
                                                 className="squad-select"
@@ -655,7 +916,7 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
                                             />
                                         </div>
                                         <div className="info-item">
-                                            <label>Offset (segundos)</label>
+                                            <label>Sincronización (Offset seg.)</label>
                                             <input
                                                 type="number"
                                                 className="squad-select"
@@ -663,19 +924,16 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
                                                 value={videoOffset}
                                                 onChange={(e) => setVideoOffset(e.target.value)}
                                             />
-                                            <small style={{ color: '#666', fontSize: '10px' }}>
-                                                Segundos desde el inicio del video hasta el pitido inicial (00:00).
-                                            </small>
                                         </div>
                                         <div className="info-item" style={{ display: 'flex', alignItems: 'flex-end' }}>
                                             <button
                                                 className="btn-save-squad"
                                                 onClick={handleSaveAnalysis}
                                                 disabled={savingAnalysis}
-                                                style={{ width: '100%' }}
+                                                style={{ width: '100%', background: '#0ea5e9' }}
                                             >
                                                 <Save size={16} />
-                                                {savingAnalysis ? '...' : 'Guardar Config'}
+                                                {savingAnalysis ? 'Guardando...' : 'Guardar Análisis'}
                                             </button>
                                         </div>
                                     </div>
@@ -746,111 +1004,9 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
 
                                         {/* Analyst Report */}
                                         <div style={{ marginBottom: '1rem' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '8px' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><ClipboardList size={14} /> Resumen del Partido e Informe</label>
-
-                                                <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button
-                                                        onClick={() => {
-                                                            const jsonString = prompt("Pega aquí el JSON de análisis:");
-                                                            if (jsonString) {
-                                                                const cleanJsonInput = (input) => {
-                                                                    if (!input) return "";
-                                                                    // 1. Remove Markdown code blocks
-                                                                    let cleaned = input.replace(/```json/g, "").replace(/```/g, "");
-                                                                    // 2. Remove Citation tags [cite_start], [cite: constants]
-                                                                    cleaned = cleaned.replace(/\[cite_start\]/g, "");
-                                                                    cleaned = cleaned.replace(/\[cite:[^\]]*\]/g, "");
-                                                                    return cleaned.trim();
-                                                                };
-
-                                                                try {
-                                                                    const cleanedString = cleanJsonInput(jsonString);
-                                                                    const jsonData = JSON.parse(cleanedString);
-                                                                    setRawJson(jsonData); // Store raw JSON for saving
-
-                                                                    // 1. Generate Text Report
-                                                                    import('../services/reportService').then(({ reportService }) => {
-                                                                        const markdown = reportService.jsonToMarkdown(jsonData);
-                                                                        setAnalystReport(markdown);
-                                                                    });
-
-                                                                    // 2. Populate Advanced Stats State (Legacy/Display support)
-                                                                    // We still populate these so the UI inputs update immediately
-                                                                    if (jsonData.estadisticas) {
-                                                                        const stats = jsonData.estadisticas;
-                                                                        if (stats.posesion) {
-                                                                            setPossessionHome(stats.posesion.local || 50);
-                                                                            setPossessionAway(stats.posesion.visitante || 50);
-                                                                        }
-                                                                        // Tackles
-                                                                        if (stats.placajes_hechos) {
-                                                                            setTacklesHomeMade(stats.placajes_hechos.local || 0);
-                                                                            setTacklesAwayMade(stats.placajes_hechos.visitante || 0);
-                                                                        }
-                                                                        if (stats.placajes_fallados) {
-                                                                            setTacklesHomeMissed(stats.placajes_fallados.local || 0);
-                                                                            setTacklesAwayMissed(stats.placajes_fallados.visitante || 0);
-                                                                        }
-                                                                        // Set Pieces
-                                                                        if (stats.mele) {
-                                                                            setScrumsHomeWon(stats.mele.local_ganada || 0);
-                                                                            setScrumsHomeLost(stats.mele.local_perdida || 0);
-                                                                            setScrumsAwayWon(stats.mele.visitante_ganada || 0);
-                                                                            setScrumsAwayLost(stats.mele.visitante_perdida || 0);
-                                                                        }
-                                                                        if (stats.touch) {
-                                                                            setLineoutsHomeWon(stats.touch.local_ganada || 0);
-                                                                            setLineoutsHomeLost(stats.touch.local_perdida || 0);
-                                                                            setLineoutsAwayWon(stats.touch.visitante_ganada || 0);
-                                                                            setLineoutsAwayLost(stats.touch.visitante_perdida || 0);
-                                                                        }
-                                                                    }
-
-                                                                    alert("✅ Datos importados correctamente al formulario.");
-                                                                } catch (e) {
-                                                                    console.error(e);
-                                                                    alert("Error: JSON inválido o formato incorrecto.");
-                                                                }
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            backgroundColor: '#10B981',
-                                                            color: 'white',
-                                                            border: 'none',
-                                                            padding: '4px 8px',
-                                                            borderRadius: '4px',
-                                                            cursor: 'pointer',
-                                                            fontSize: '0.75rem',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '4px'
-                                                        }}
-                                                    >
-                                                        <FileJson size={12} /> Importar JSON
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            import('../services/reportService').then(({ reportService }) => {
-                                                                const template = JSON.stringify(reportService.getTemplate(), null, 2);
-                                                                navigator.clipboard.writeText(template);
-                                                                alert("📋 Plantilla JSON copiada al portapapeles.");
-                                                            });
-                                                        }}
-                                                        style={{
-                                                            backgroundColor: '#6B7280',
-                                                            color: 'white',
-                                                            border: 'none',
-                                                            padding: '4px 8px',
-                                                            borderRadius: '4px',
-                                                            cursor: 'pointer',
-                                                            fontSize: '0.75rem'
-                                                        }}
-                                                    >
-                                                        📋 Copiar Plantilla
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                                <ClipboardList size={14} /> Vista Previa del Informe (Markdown)
+                                            </label>
 
                                             <textarea
                                                 className="squad-select"
@@ -889,35 +1045,69 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
                                         {timeline && timeline.length > 0 && (
                                             <div className="analysis-timeline" style={{ marginTop: '15px' }}>
                                                 <h4 style={{ fontSize: '12px', marginBottom: '5px' }}>Línea de Tiempo (Sincronizada)</h4>
-                                                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #eee', borderRadius: '4px', fontSize: '11px' }}>
-                                                    {timeline.map((item, idx) => (
-                                                        <div key={idx} style={{
-                                                            padding: '4px 8px',
-                                                            borderBottom: '1px solid #f5f5f5',
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            backgroundColor: item.videoSeconds < 0 ? '#ffebee' : 'transparent'
-                                                        }}>
-                                                            <span style={{ fontWeight: 'bold', width: '40px' }}>{item.min}'</span>
-                                                            <span style={{ flex: 1, margin: '0 5px' }}>
+                                                <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.75rem', background: '#f8fafc' }}>
+                                                    {timeline.map((item, idx) => {
+                                                        const getIcon = (type) => {
+                                                            const t = type?.toLowerCase();
+                                                            if (t?.includes('try') || t?.includes('ensayo')) return '🏉';
+                                                            if (t?.includes('conversion') || t?.includes('transform')) return '🎯';
+                                                            if (t?.includes('penalty') || t?.includes('puntapi')) return '👟';
+                                                            if (t?.includes('yellow') || t?.includes('amarilla')) return '🟨';
+                                                            if (t?.includes('red') || t?.includes('roja')) return '🟥';
+                                                            if (t?.includes('sub')) return '🔄';
+                                                            return '•';
+                                                        };
+
+                                                        return (
+                                                            <div key={idx} style={{
+                                                                padding: '8px 12px',
+                                                                borderBottom: '1px solid #edf2f7',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '10px',
+                                                                backgroundColor: item.videoSeconds < 0 ? '#fff5f5' : 'white'
+                                                            }}>
+                                                                <span style={{ fontWeight: '800', color: '#64748b', minWidth: '30px' }}>{item.minuto || item.min}'</span>
                                                                 <span style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    width: '24px',
+                                                                    height: '24px',
+                                                                    background: item.team_label === 'L' ? '#dcfce7' : '#fee2e2',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '0.7rem',
                                                                     fontWeight: 'bold',
-                                                                    color: item.team_label === 'L' ? '#2e7d32' : '#c62828',
-                                                                    marginRight: '4px'
-                                                                }}>{item.team_label}</span>
-                                                                {item.description} #{item.dorsal}
-                                                            </span>
-                                                            <a
-                                                                href={videoUrl && videoUrl.includes('youtube') ?
-                                                                    `${videoUrl.split('&')[0]}&t=${Math.max(0, item.videoSeconds - 10)}` : '#'}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                style={{ color: '#1976d2', textDecoration: 'none' }}
-                                                            >
-                                                                {item.videoTime}
-                                                            </a>
-                                                        </div>
-                                                    ))}
+                                                                    color: item.team_label === 'L' ? '#166534' : '#991b1b'
+                                                                }}>
+                                                                    {item.team_label}
+                                                                </span>
+                                                                <span style={{ fontSize: '1rem' }}>{getIcon(item.type || item.description)}</span>
+                                                                <span style={{ flex: 1, color: '#1e293b' }}>
+                                                                    {item.player ? (
+                                                                        <>
+                                                                            <strong>{item.player}</strong>
+                                                                            {item.dorsal && <span style={{ color: '#64748b', marginLeft: '4px' }}>(#{item.dorsal})</span>}
+                                                                            <span style={{ display: 'block', fontSize: '0.7rem', color: '#64748b' }}>{item.type || item.description}</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <span>{item.description}</span>
+                                                                    )}
+                                                                </span>
+                                                                {item.videoTime || item.videoSeconds ? (
+                                                                    <a
+                                                                        href={videoUrl && videoUrl.includes('youtube') ?
+                                                                            `${videoUrl.split('&')[0]}&t=${Math.max(0, (item.videoSeconds || 0) - 10)}` : '#'}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '600', fontSize: '0.7rem' }}
+                                                                    >
+                                                                        {item.videoTime || '🎬'}
+                                                                    </a>
+                                                                ) : null}
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         )}
@@ -932,7 +1122,7 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
                     <button className="btn-close-modal" onClick={onClose}>Cerrar</button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

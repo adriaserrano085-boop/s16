@@ -7,7 +7,7 @@ export const matchService = {
     getAll: async () => {
         const { data, error } = await supabase
             .from(TABLE_NAME)
-            .select('*');
+            .select('id, Evento, Rival, es_local, lugar, marcador_local, marcador_visitante, ensayos_local, ensayos_visitante');
 
         if (error) {
             console.error('Error in matchService.getAll:', error);

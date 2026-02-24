@@ -118,7 +118,9 @@ function App() {
             console.log("Auth State: Keeping cached role despite timeout.");
             return;
           }
-          setUser({ ...session.user, role: 'INVITADO', nombre: session.user.email });
+          console.error("Auth State: No cached role and query timed out. Redirecting to login.");
+          await supabase.auth.signOut();
+          setUser(null);
           return;
         }
 
@@ -158,14 +160,11 @@ function App() {
             setUser({ ...session.user, ...userData });
             localStorage.setItem('s16_cached_role', JSON.stringify(userData));
           } else {
-            console.warn("Auth State: User not found in Players OR Staff.");
-            const userData = {
-              role: 'INVITADO',
-              nombre: session.user.email,
-              userId: session.user.id
-            };
-            setUser({ ...session.user, ...userData });
-            localStorage.setItem('s16_cached_role', JSON.stringify(userData));
+            console.warn("Auth State: User not found in Players OR Staff. Access Denied.");
+            // If not found in any authorized table, sign them out and clear everything
+            await supabase.auth.signOut();
+            setUser(null);
+            localStorage.removeItem('s16_cached_role');
           }
         }
       } catch (err) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -8,7 +8,7 @@ import esLocale from '@fullcalendar/core/locales/es';
 import {
     ChevronLeft, ChevronRight, LayoutDashboard, Calendar, Users, Trophy,
     Settings, LogOut, Search, Filter, Plus, User, Activity, Clock,
-    MapPin, Info, CheckCircle, XCircle
+    MapPin, Info, CheckCircle, XCircle, Zap, Target
 } from 'lucide-react';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import {
@@ -83,6 +83,7 @@ const Dashboard = ({ user: propUser }) => {
     const [selectedTraining, setSelectedTraining] = useState(null);
     const [selectedSize, setSelectedSize] = useState(null);
     const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+    const [averageStats, setAverageStats] = useState(null);
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [loading, setLoading] = useState(true);
@@ -150,6 +151,35 @@ const Dashboard = ({ user: propUser }) => {
             setHospitaletPlayers(playersData || []);
             setAllAttendance(attData || []);
             setStandings(leagueData || []);
+
+            // Fetch average stats for players
+            if (user?.role === 'JUGADOR' && user.playerId) {
+                const { data: playerStatsData } = await supabase
+                    .from('estadisticas_jugador')
+                    .select('*')
+                    .eq('jugador', user.playerId);
+
+                if (playerStatsData && playerStatsData.length > 0) {
+                    const playedMatches = playerStatsData.filter(s => (s.minutos_jugados || 0) > 0 || s.es_titular);
+                    const totalMatches = playedMatches.length;
+
+                    if (totalMatches > 0) {
+                        const totals = playerStatsData.reduce((acc, s) => {
+                            acc.minutos += (s.minutos_jugados || (s.es_titular ? 70 : 20));
+                            acc.ensayos += (s.ensayos || 0);
+                            acc.puntos += (s.ensayos || 0) * 5 + (s.transformaciones || 0) * 2 + (s.penales || 0) * 3;
+                            return acc;
+                        }, { minutos: 0, ensayos: 0, puntos: 0 });
+
+                        setAverageStats({
+                            minutos: (totals.minutos / totalMatches).toFixed(1),
+                            ensayos: (totals.ensayos / totalMatches).toFixed(1),
+                            puntos: (totals.puntos / totalMatches).toFixed(1),
+                            partidos: totalMatches
+                        });
+                    }
+                }
+            }
 
             if (eventData) {
                 const mappedEvents = eventData.map(e => {
@@ -237,11 +267,10 @@ const Dashboard = ({ user: propUser }) => {
         }
     };
 
-    const staffAttendanceChartData = (() => {
+    const staffAttendanceChartData = useMemo(() => {
         if (!events.length || !allAttendance.length) return null;
 
         // Find last 10 past events that actually HAVE attendance data recorded
-        // First, get all unique event IDs that have attendance
         const eventsWithAttendance = [...new Set(allAttendance.map(a => a.entrenamientos?.evento || a.evento))].filter(Boolean);
 
         const now = new Date();
@@ -266,10 +295,7 @@ const Dashboard = ({ user: propUser }) => {
 
             const presente = pAtt.filter(a => a.asistencia === 'Presente').length;
             const retraso = pAtt.filter(a => a.asistencia === 'Retraso').length;
-
-            // Justified includes: Falta Justificada, Lesion, Enfermo/Emfermo, Catalana
-            const justifiedTypes = ['Falta Justificada', 'Lesión', 'Lesion', 'Enfermo', 'Emfermo', 'Catalana'];
-            const justificada = pAtt.filter(a => justifiedTypes.includes(a.asistencia)).length;
+            const justificada = pAtt.filter(a => ['Falta Justificada', 'Lesión', 'Lesion', 'Enfermo', 'Emfermo', 'Catalana'].includes(a.asistencia)).length;
 
             return { name: p.nombre, presente, retraso, justificada };
         });
@@ -304,7 +330,51 @@ const Dashboard = ({ user: propUser }) => {
                 }
             ]
         };
-    })();
+    }, [events, allAttendance, hospitaletPlayers]);
+
+    // Memoize matches list
+    const dashboardMatches = useMemo(() => {
+        const now = new Date();
+        const allMatches = events.filter(e => e.extendedProps.isMatch);
+        const pastMatches = allMatches.filter(e => new Date(e.start) < now).sort((a, b) => new Date(b.start) - new Date(a.start)).slice(0, 4);
+        const nextMatch = allMatches.filter(e => new Date(e.start) >= now).sort((a, b) => new Date(a.start) - new Date(b.start)).slice(0, 1);
+        return [...nextMatch, ...pastMatches];
+    }, [events]);
+
+    const playerAttendanceData = useMemo(() => {
+        if (!currentUser?.playerId || !hospitaletPlayers.length || !allAttendance.length) return null;
+
+        const eventsInMonth = events.filter(e => {
+            const d = new Date(e.start);
+            const isMatch = e.extendedProps?.isMatch || e.title.toLowerCase().includes('partido') || e.title.toLowerCase().includes('match');
+            return d.getMonth() === selectedAttendanceMonth && !isMatch;
+        }).map(e => e.id);
+
+        if (eventsInMonth.length === 0) return null;
+
+        const playerAtt = allAttendance.filter(a =>
+            a.jugador === currentUser.playerId &&
+            eventsInMonth.includes(a.entrenamientos?.evento || a.evento || a.eventId)
+        );
+
+        const presente = playerAtt.filter(a => a.asistencia === 'Presente').length;
+        const retraso = playerAtt.filter(a => a.asistencia === 'Retraso').length;
+        const justificada = playerAtt.filter(a => ['Falta Justificada', 'Lesión', 'Lesion', 'Enfermo', 'Emfermo', 'Catalana'].includes(a.asistencia)).length;
+        const falta = playerAtt.filter(a => ['Falta', 'Falta Injustificada'].includes(a.asistencia)).length;
+
+        return {
+            chartData: {
+                labels: [`Presente (${presente})`, `Retraso (${retraso})`, `Justificada (${justificada})`, `Falta (${falta})`],
+                datasets: [{
+                    data: [presente, retraso, justificada, falta],
+                    backgroundColor: ['#28a745', '#ffc107', '#17a2b8', '#dc3545'],
+                    borderWidth: 1,
+                }],
+            },
+            counts: { presente, retraso, justificada, falta },
+            eventsInMonthCount: eventsInMonth.length
+        };
+    }, [currentUser?.playerId, hospitaletPlayers, allAttendance, events, selectedAttendanceMonth]);
 
     // Find current player details if user is a player
     const currentPlayer = currentUser?.role === 'JUGADOR' && currentUser.playerId
@@ -345,18 +415,12 @@ const Dashboard = ({ user: propUser }) => {
                         <h2 className="card-title card-title--section">PARTIDOS</h2>
                     </div>
                     <div className="matches-grid">
-                        {(() => {
-                            const now = new Date();
-                            const allMatches = events.filter(e => e.extendedProps.isMatch);
-                            const pastMatches = allMatches.filter(e => new Date(e.start) < now).sort((a, b) => new Date(b.start) - new Date(a.start)).slice(0, 4);
-                            const nextMatch = allMatches.filter(e => new Date(e.start) >= now).sort((a, b) => new Date(a.start) - new Date(b.start)).slice(0, 1);
-                            const displayMatches = [...nextMatch, ...pastMatches];
-
-                            if (displayMatches.length === 0) return <p className="empty-state-text">No hay partidos registrados.</p>;
-
-                            return displayMatches.map((match, idx) => {
+                        {dashboardMatches.length === 0 ? (
+                            <p className="empty-state-text">No hay partidos registrados.</p>
+                        ) : (
+                            dashboardMatches.map((match, idx) => {
                                 const props = match.extendedProps;
-                                const isNext = new Date(match.start) >= now;
+                                const isNext = new Date(match.start) >= new Date();
                                 return (
                                     <div key={match.id || idx} className={`match-card ${isNext ? 'next-match' : ''}`} onClick={() => setSelectedMatch(match)}>
                                         {isNext && <div className="next-match-badge">PRÓXIMO</div>}
@@ -381,10 +445,68 @@ const Dashboard = ({ user: propUser }) => {
                                         </div>
                                     </div>
                                 );
-                            });
-                        })()}
+                            })
+                        )}
                     </div>
                 </div>
+
+                {/* NEW: Average Stats Section for Players */}
+                {currentUser?.role === 'JUGADOR' && averageStats && (
+                    <div className="dashboard-card dashboard-card--average-stats">
+                        <div className="card-header card-header--bordered">
+                            <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Centro%20de%20estadisticas%20ICON.png" alt="Stats" className="section-icon section-icon--lg" />
+                            <div className="stats-header-info">
+                                <h2 className="card-title card-title--section">ESTADÍSTICAS PROMEDIO</h2>
+                                <p className="stats-subtitle">Tu rendimiento por partido esta temporada</p>
+                            </div>
+                            <div className="total-matches-badge">
+                                <span className="matches-number">{averageStats.partidos}</span>
+                                <span className="matches-label">PARTIDOS</span>
+                            </div>
+                        </div>
+                        <div className="average-stats-visual-grid">
+                            <div className="visual-stat-card stat-card--minutes">
+                                <div className="stat-icon-wrapper">
+                                    <Clock size={24} />
+                                </div>
+                                <div className="stat-content">
+                                    <span className="stat-value">{averageStats.minutos}</span>
+                                    <span className="stat-label">Minutos / PJ</span>
+                                </div>
+                                <div className="stat-progress-bar">
+                                    <div className="progress-fill" style={{ width: `${Math.min((averageStats.minutos / 70) * 100, 100)}%` }}></div>
+                                </div>
+                            </div>
+
+                            <div className="visual-stat-card stat-card--tries">
+                                <div className="stat-icon-wrapper">
+                                    <Target size={24} />
+                                </div>
+                                <div className="stat-content">
+                                    <span className="stat-value">{averageStats.ensayos}</span>
+                                    <span className="stat-label">Ensayos / PJ</span>
+                                </div>
+                                <div className="stat-trend">
+                                    <Trophy size={14} className="trend-icon" />
+                                    <span>Max: 3</span>
+                                </div>
+                            </div>
+
+                            <div className="visual-stat-card stat-card--points">
+                                <div className="stat-icon-wrapper">
+                                    <Zap size={24} />
+                                </div>
+                                <div className="stat-content">
+                                    <span className="stat-value">{averageStats.puntos}</span>
+                                    <span className="stat-label">Puntos / PJ</span>
+                                </div>
+                                <div className="stat-bg-decorator">
+                                    <Activity size={48} opacity={0.05} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Classification Section */}
                 <div className="dashboard-card dashboard-card--standings">
@@ -403,7 +525,7 @@ const Dashboard = ({ user: propUser }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {standings.slice(0, 6).map((team, idx) => (
+                                {standings.map((team, idx) => (
                                     <tr key={idx} className={team.team === 'RC HOSPITALET' ? 'row-highlight' : ''}>
                                         <td className="td-rank">{team.ranking}</td>
                                         <td className="td-team">
@@ -590,97 +712,86 @@ const Dashboard = ({ user: propUser }) => {
                             </div>
 
                             <div className="chart-container-radial">
-                                {(() => {
-                                    // Calculate stats for CURRENT PLAYER and SELECTED MONTH
-                                    if (!hospitaletPlayers.length || !allAttendance.length || !currentUser?.playerId) return <p>Cargando datos...</p>;
+                                {!playerAttendanceData ? (
+                                    <p className="empty-state-text">No hubo eventos de entrenamiento en este mes.</p>
+                                ) : (
+                                    <div className="attendance-player-view">
+                                        <div className="chart-wrapper-radial">
+                                            <Doughnut
+                                                data={playerAttendanceData.chartData}
+                                                plugins={[
+                                                    {
+                                                        id: 'datalabels',
+                                                        afterDatasetsDraw(chart) {
+                                                            const { ctx, data } = chart;
+                                                            ctx.save();
+                                                            data.datasets.forEach((dataset, i) => {
+                                                                const meta = chart.getDatasetMeta(i);
+                                                                meta.data.forEach((element, index) => {
+                                                                    const value = dataset.data[index];
+                                                                    if (value > 0) {
+                                                                        const { x, y, innerRadius, outerRadius, startAngle, endAngle } = element.getProps(['x', 'y', 'innerRadius', 'outerRadius', 'startAngle', 'endAngle'], true);
+                                                                        const midAngle = (startAngle + endAngle) / 2;
+                                                                        const midRadius = (innerRadius + outerRadius) / 2;
 
-                                    // Filter events in the selected month
-                                    const eventsInMonth = events.filter(e => {
-                                        const d = new Date(e.start);
-                                        // Filter out matches: check for 'partido', 'match' or isMatch property
-                                        const isMatch = e.extendedProps?.isMatch || e.title.toLowerCase().includes('partido') || e.title.toLowerCase().includes('match');
-                                        return d.getMonth() === selectedAttendanceMonth && !isMatch;
-                                    }).map(e => e.id);
+                                                                        const cx = x + Math.cos(midAngle) * midRadius;
+                                                                        const cy = y + Math.sin(midAngle) * midRadius;
 
-                                    if (eventsInMonth.length === 0) return <p className="empty-state-text">No hubo eventos de entrenamiento en este mes.</p>;
-
-                                    // Filter attendance for this player in these events
-                                    const playerAtt = allAttendance.filter(a =>
-                                        a.jugador === currentUser.playerId &&
-                                        eventsInMonth.includes(a.entrenamientos?.evento || a.evento || a.eventId)
-                                    );
-
-                                    const presente = playerAtt.filter(a => a.asistencia === 'Presente').length;
-                                    const retraso = playerAtt.filter(a => a.asistencia === 'Retraso').length;
-                                    const justificada = playerAtt.filter(a => ['Falta Justificada', 'Lesión', 'Lesion', 'Enfermo', 'Emfermo', 'Catalana'].includes(a.asistencia)).length;
-                                    const falta = playerAtt.filter(a => ['Falta', 'Falta Injustificada'].includes(a.asistencia)).length;
-
-                                    // Total events in month (that have passed)
-                                    // We might want to count total past events to see "absences" if record is missing? 
-                                    // For now, relying on explicit attendance records.
-
-                                    const data = {
-                                        labels: ['Presente', 'Retraso', 'Justificada', 'Falta'],
-                                        datasets: [
-                                            {
-                                                data: [presente, retraso, justificada, falta],
-                                                backgroundColor: [
-                                                    '#28a745', // Green
-                                                    '#ffc107', // Yellow
-                                                    '#17a2b8', // Cyan
-                                                    '#dc3545', // Red
-                                                ],
-                                                borderWidth: 1,
-                                            },
-                                        ],
-                                    };
-
-                                    return (
-                                        <div className="attendance-player-view">
-                                            <div style={{ height: '250px', display: 'flex', justifyContent: 'center' }}>
-                                                <Doughnut data={data} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }} />
-                                            </div>
-
-                                            {/* Event List */}
-                                            <div className="attendance-events-list">
-                                                <h4 className="attendance-list-title">Eventos del Mes</h4>
-                                                {events.filter(e => {
-                                                    const d = new Date(e.start);
-                                                    const isMatch = e.extendedProps?.isMatch || e.title.toLowerCase().includes('partido') || e.title.toLowerCase().includes('match');
-                                                    return d.getMonth() === selectedAttendanceMonth && !isMatch;
-                                                }).sort((a, b) => new Date(a.start) - new Date(b.start)).map(event => {
-                                                    const attRecord = allAttendance.find(a =>
-                                                        a.jugador === currentUser.playerId &&
-                                                        (a.entrenamientos?.evento === event.id || a.evento === event.id || a.eventId === event.id)
-                                                    );
-
-                                                    const status = attRecord?.asistencia || 'Pendiente';
-                                                    let statusClass = 'status-pending';
-                                                    if (status === 'Presente') statusClass = 'status-present';
-                                                    else if (status === 'Retraso') statusClass = 'status-late';
-                                                    else if (['Falta Justificada', 'Lesión', 'Enfermo', 'Catalana'].includes(status)) statusClass = 'status-justified';
-                                                    else if (status === 'Falta Injustificada') statusClass = 'status-absent';
-
-                                                    return (
-                                                        <div key={event.id} className="attendance-event-item">
-                                                            <div className="event-date-badge">
-                                                                <span className="event-day">{new Date(event.start).getDate()}</span>
-                                                                <span className="event-month">{new Date(event.start).toLocaleString('es-ES', { month: 'short' }).toUpperCase()}</span>
-                                                            </div>
-                                                            <div className="event-info">
-                                                                <span className="event-title">{event.title}</span>
-                                                                <span className="event-time">{new Date(event.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
-                                                            </div>
-                                                            <div className={`attendance-status-badge ${statusClass}`}>
-                                                                {status}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
+                                                                        ctx.fillStyle = '#FFFFFF';
+                                                                        ctx.font = 'bold 12px sans-serif';
+                                                                        ctx.textAlign = 'center';
+                                                                        ctx.textBaseline = 'middle';
+                                                                        ctx.fillText(value, cx, cy);
+                                                                    }
+                                                                });
+                                                            });
+                                                            ctx.restore();
+                                                        }
+                                                    }
+                                                ]}
+                                                options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }}
+                                            />
                                         </div>
-                                    );
-                                })()}
+
+                                        {/* Event List */}
+                                        <div className="attendance-events-list">
+                                            <h4 className="attendance-list-title">Eventos del Mes</h4>
+                                            {events.filter(e => {
+                                                const d = new Date(e.start);
+                                                const isMatch = e.extendedProps?.isMatch || e.title.toLowerCase().includes('partido') || e.title.toLowerCase().includes('match');
+                                                return d.getMonth() === selectedAttendanceMonth && !isMatch;
+                                            }).sort((a, b) => new Date(a.start) - new Date(b.start)).map(event => {
+                                                const attRecord = allAttendance.find(a =>
+                                                    a.jugador === currentUser.playerId &&
+                                                    (a.entrenamientos?.evento === event.id || a.evento === event.id || a.eventId === event.id)
+                                                );
+
+                                                const status = attRecord?.asistencia || 'Pendiente';
+                                                let statusClass = 'status-pending';
+                                                if (status === 'Presente') statusClass = 'status-present';
+                                                else if (status === 'Retraso') statusClass = 'status-late';
+                                                else if (['Falta Justificada', 'Lesión', 'Enfermo', 'Catalana'].includes(status)) statusClass = 'status-justified';
+                                                else if (status === 'Falta Injustificada') statusClass = 'status-absent';
+
+                                                return (
+                                                    <div key={event.id} className="attendance-event-item">
+                                                        <div className="event-date-badge">
+                                                            <span className="event-day">{new Date(event.start).getDate()}</span>
+                                                            <span className="event-month">{new Date(event.start).toLocaleString('es-ES', { month: 'short' }).toUpperCase()}</span>
+                                                        </div>
+                                                        <div className="event-info">
+                                                            <span className="event-title">{event.title}</span>
+                                                            <span className="event-time">{new Date(event.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        </div>
+                                                        <div className={`attendance-status-badge ${statusClass}`}>
+                                                            {status}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -692,6 +803,42 @@ const Dashboard = ({ user: propUser }) => {
                             <div className={`chart-container ${isMobile ? 'chart-container--mobile' : 'chart-container--desktop'}`}>
                                 <Bar
                                     data={staffAttendanceChartData}
+                                    plugins={[
+                                        {
+                                            id: 'datalabels',
+                                            afterDatasetsDraw(chart) {
+                                                const { ctx, data } = chart;
+                                                ctx.save();
+                                                data.datasets.forEach((dataset, i) => {
+                                                    const meta = chart.getDatasetMeta(i);
+                                                    meta.data.forEach((element, index) => {
+                                                        const value = dataset.data[index];
+                                                        if (value > 0) {
+                                                            const { x, y, base, horizontal } = element.getProps(['x', 'y', 'base', 'horizontal'], true);
+                                                            ctx.fillStyle = '#FFFFFF'; // White color
+                                                            ctx.font = 'bold 11px sans-serif';
+                                                            ctx.textAlign = 'center';
+                                                            ctx.textBaseline = 'middle';
+
+                                                            let centerX, centerY;
+                                                            if (horizontal) {
+                                                                // Mobile: Horizontal bars
+                                                                centerX = (x + base) / 2;
+                                                                centerY = y;
+                                                            } else {
+                                                                // Desktop: Vertical bars
+                                                                centerX = x;
+                                                                centerY = (y + base) / 2;
+                                                            }
+
+                                                            ctx.fillText(value, centerX, centerY);
+                                                        }
+                                                    });
+                                                });
+                                                ctx.restore();
+                                            }
+                                        }
+                                    ]}
                                     options={{
                                         indexAxis: isMobile ? 'y' : 'x', // 'x' for vertical (PC), 'y' for horizontal (Mobile)
                                         responsive: true,

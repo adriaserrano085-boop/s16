@@ -51,7 +51,7 @@ const AttendanceList = ({ players, attendance, onToggle }) => {
                             )}
                             <div>
                                 <div style={{ fontWeight: 'bold', color: '#333' }}>{player.nombre} {player.apellidos}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#868e96' }}>{player.posicion || 'Jugador'}</div>
+                                <div style={{ fontSize: '0.8rem', color: '#868e96' }}>{player.posiciones || 'Jugador'}</div>
                             </div>
                         </div>
 

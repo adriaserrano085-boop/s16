@@ -14,11 +14,6 @@ export const leagueService = {
 
             const teamShields = {};
             teamShields[HOSPITALET_NAME] = HOSPITALET_SHIELD;
-            if (rivalsData) {
-                rivalsData.forEach(r => {
-                    if (r.escudo) teamShields[r.nombre_equipo] = r.escudo;
-                });
-            }
 
             // 1. Fetch Centralized Match Stats
             const { data: statsData, error: sError } = await supabase
@@ -70,7 +65,7 @@ export const leagueService = {
                 if (pointsFor > pointsAgainst) {
                     t.ganados += 1;
                     t.puntos += 4;
-                    if ((triesFor - triesAgainst) >= 3) {
+                    if ((pointsFor > pointsAgainst) && (triesFor >= 4)) {
                         t.puntos += 1;
                         t.bo += 1;
                     }
@@ -85,6 +80,18 @@ export const leagueService = {
                     }
                 }
             };
+
+            // Initialize teams from rivals Data FIRST to ensure all 7 are present
+            if (rivalsData) {
+                rivalsData.forEach(r => {
+                    const name = r.nombre_equipo;
+                    if (!standingsMap[name]) standingsMap[name] = initTeam(name);
+                    if (r.escudo) teamShields[name] = r.escudo;
+                    // Re-assign shield if it was missing initially
+                    if (standingsMap[name]) standingsMap[name].escudo = r.escudo;
+                });
+            }
+            if (!standingsMap[HOSPITALET_NAME]) standingsMap[HOSPITALET_NAME] = initTeam(HOSPITALET_NAME);
 
             if (statsData) {
                 statsData.forEach(stat => {

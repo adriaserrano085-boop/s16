@@ -102,7 +102,7 @@ const AttendanceTable = ({ players, attendance, onStatusChange }) => {
                                                 )}
                                                 <div>
                                                     <div style={{ fontWeight: 'bold', color: '#333', fontSize: '0.95rem' }}>{player.nombre} {player.apellidos}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#868e96' }}>{player.posicion || 'Jugador'}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#868e96' }}>{player.posiciones || 'Jugador'}</div>
                                                 </div>
                                             </div>
                                         </td>

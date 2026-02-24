@@ -13,6 +13,7 @@ const MatchReportPage = ({ user }) => {
     const [loading, setLoading] = useState(true);
     const [match, setMatch] = useState(null);
     const [analysis, setAnalysis] = useState(null);
+    const [personalStats, setPersonalStats] = useState(null);
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -101,6 +102,25 @@ const MatchReportPage = ({ user }) => {
                 setMatch(matchData);
                 setAnalysis(analysisData);
 
+                // 2. Fetch Personal Stats if User is a Player
+                if (user?.role === 'JUGADOR' && user.playerId) {
+                    let statsQuery = supabase
+                        .from('estadisticas_jugador')
+                        .select('*')
+                        .eq('jugador', user.playerId);
+
+                    if (type === 'internal') {
+                        statsQuery = statsQuery.eq('partido', id);
+                    } else {
+                        statsQuery = statsQuery.eq('partido_externo', id);
+                    }
+
+                    const { data: pStats, error: pError } = await statsQuery.maybeSingle();
+                    if (!pError && pStats) {
+                        setPersonalStats(pStats);
+                    }
+                }
+
             } catch (err) {
                 console.error("Error fetching match report:", err);
                 setError("No se pudo cargar el informe del partido.");
@@ -170,6 +190,8 @@ const MatchReportPage = ({ user }) => {
                     match={match}
                     analysis={analysis}
                     MarkdownRenderer={MarkdownRenderer}
+                    personalStats={personalStats}
+                    user={user}
                 />
             </div>
         </div>

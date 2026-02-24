@@ -24,18 +24,25 @@ const RivalAnalysis = ({ rivalName, leagueStats, playerStats, matchResults, allA
                 ? allAnalyses.find(a => a.partido_externo_id === m.partido_externo_id)
                 : allAnalyses.find(a => a.evento_id === m.evento_id);
 
-            if (analysis?.raw_json?.estadisticas) {
-                const stats = analysis.raw_json.estadisticas;
+            if (analysis?.raw_json) {
+                const raw = analysis.raw_json;
                 const isHome = m.home === rivalName;
                 const teamKey = isHome ? 'local' : 'visitante';
+                const teamKeyAlt = isHome ? 'local' : 'visitor';
 
-                totalPossession += (stats.posesion?.[teamKey] || 50);
-                totalTacklesMade += (stats.placajes_hechos?.[teamKey] || 0);
-                totalTacklesMissed += (stats.placajes_fallados?.[teamKey] || 0);
-                totalScrumWon += (stats.mele?.[`${teamKey}_ganada`] || 0);
-                totalScrumLost += (stats.mele?.[`${teamKey}_perdida`] || 0);
-                totalLineoutWon += (stats.touch?.[`${teamKey}_ganada`] || 0);
-                totalLineoutLost += (stats.touch?.[`${teamKey}_perdida`] || 0);
+                const report = raw.match_report?.key_stats;
+                const legacy = raw.estadisticas;
+
+                totalPossession += (report?.posesion?.[teamKeyAlt] ?? legacy?.posesion?.[teamKey] ?? 50);
+                totalTacklesMade += (report?.placajes_exito?.[teamKeyAlt] ?? legacy?.placajes_hechos?.[teamKey] ?? 0);
+                totalTacklesMissed += (report?.placajes_fallados?.[teamKeyAlt] ?? legacy?.placajes_fallados?.[teamKey] ?? 0);
+
+                totalScrumWon += (report?.meles_ganadas?.[teamKeyAlt] ?? legacy?.mele?.[`${teamKey}_ganada`] ?? 0);
+                totalScrumLost += (report?.meles_perdidas?.[teamKeyAlt] ?? legacy?.mele?.[`${teamKey}_perdida`] ?? 0);
+
+                totalLineoutWon += (report?.touches_ganadas?.[teamKeyAlt] ?? legacy?.touch?.[`${teamKey}_ganada`] ?? 0);
+                totalLineoutLost += (report?.touches_perdidas?.[teamKeyAlt] ?? legacy?.touch?.[`${teamKey}_perdida`] ?? 0);
+
                 matchesCount++;
             }
         });

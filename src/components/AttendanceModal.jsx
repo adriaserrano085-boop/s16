@@ -400,9 +400,9 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
                                             <div className="player-info-name">
                                                 {player.nombre} {player.apellidos}
                                             </div>
-                                            {player.posicion && (
+                                            {player.posiciones && (
                                                 <div className="player-info-pos">
-                                                    {player.posicion}
+                                                    {player.posiciones}
                                                 </div>
                                             )}
                                         </div>

@@ -7,7 +7,7 @@ export const eventService = {
     getAll: async () => {
         const { data, error } = await supabase
             .from(TABLE_NAME)
-            .select('*')
+            .select('id, tipo, fecha, hora, estado')
             .order('fecha', { ascending: false });
 
         if (error) {
