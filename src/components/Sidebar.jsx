@@ -28,7 +28,7 @@ const NAV_ITEMS = [
     {
         path: '/statistics',
         label: 'ESTADÍSTICAS',
-        icon: 'https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Estadisticas.png', // Fallback handled by <img> alt if url broken? No, just broken image. 
+        icon: 'https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Centro%20de%20estadisticas%20ICON.png',
         // Ideally should use a Lucide icon if image fails, but for now assuming user will upload one or it exists.
         // Or I can use a placeholder URL from a public icon set if I'm unsure. 
         // Let's stick to the pattern.

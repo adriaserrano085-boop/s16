@@ -269,10 +269,13 @@ const StatsPage = ({ user }) => {
     };
 
     const sortedLeagueStats = useMemo(() => {
+        if (!Array.isArray(leagueStats)) return [];
         if (!sortConfig.key) return leagueStats;
         return [...leagueStats].sort((a, b) => {
-            if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+            const valA = a[sortConfig.key];
+            const valB = b[sortConfig.key];
+            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
         });
     }, [leagueStats, sortConfig]);
@@ -371,7 +374,7 @@ const StatsPage = ({ user }) => {
                     <div className="header-title-box">
                         <button onClick={() => navigate('/dashboard')} className="back-btn"><ArrowLeft size={24} /></button>
                         <div className="flex-items-center gap-1">
-                            <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Centro_de_estadisticas_ICON.png" alt="" className="header-logo" />
+                            <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Centro%20de%20estadisticas%20ICON.png" alt="" className="header-logo" />
                             <h1 className="header-text">ESTADISTICAS</h1>
                         </div>
                     </div>
@@ -389,13 +392,13 @@ const StatsPage = ({ user }) => {
 
                 <div className="stats-tabs">
                     {[
-                        { id: 'clasificacion', label: 'Clasificación', icon: 'Clasificacion.png' },
-                        { id: 'rivales', label: 'Rivales', icon: 'Rivales.png' },
-                        { id: 'hospitalet', label: 'RC HOSPITALET', icon: 'HOSPITALET%20STATS.png' },
-                        { id: 'jugadores', label: 'Jugadores', icon: 'Jugadores.png' }
+                        { id: 'clasificacion', label: 'Clasificación', url: 'https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Clasificacion.png' },
+                        { id: 'rivales', label: 'Rivales', url: 'https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Rivales.png' },
+                        { id: 'hospitalet', label: 'RC HOSPITALET', url: 'https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png' },
+                        { id: 'jugadores', label: 'Jugadores', url: 'https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Plantilla.png' }
                     ].map(t => (
                         <button key={t.id} onClick={() => setActiveTab(t.id)} className={`tab-btn ${activeTab === t.id ? 'tab-btn--active' : ''}`}>
-                            <img src={`https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/${t.icon}`} alt="" className="tab-icon-small" /> {t.label}
+                            <img src={t.url} alt="" className="tab-icon-small" /> {t.label}
                         </button>
                     ))}
                 </div>
@@ -409,7 +412,7 @@ const StatsPage = ({ user }) => {
                                 <div className="stats-table-card">
                                     <div className="table-card-header">
                                         <h2 className="table-header-title">
-                                            <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Clasificacion.png" alt="" className="tab-icon-small" /> Tabla de Clasificación
+                                            <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Clasificacion.png" alt="" className="tab-icon-small" /> Tabla de Clasificación
                                         </h2>
                                     </div>
                                     <div className="table-wrapper">
