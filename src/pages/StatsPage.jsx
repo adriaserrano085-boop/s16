@@ -46,16 +46,16 @@ const StatsPage = ({ user }) => {
     const [allPlayers, setAllPlayers] = useState([]);
     const HOSPITALET_NAME = "RC HOSPITALET";
 
-    useEffect(() => {
-        const fetchAllAnalyses = async () => {
-            try {
-                const data = await analysisService.getAll();
-                if (data) setAllAnalyses(data);
-            } catch (err) {
-                console.error("Error fetching all analyses:", err);
-            }
-        };
+    const fetchAllAnalyses = async () => {
+        try {
+            const data = await analysisService.getAll();
+            if (data) setAllAnalyses(data);
+        } catch (err) {
+            console.error("Error fetching all analyses:", err);
+        }
+    };
 
+    useEffect(() => {
         fetchData();
         fetchAllAnalyses();
     }, []);

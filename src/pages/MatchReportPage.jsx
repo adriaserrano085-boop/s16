@@ -186,13 +186,15 @@ const MatchReportPage = ({ user }) => {
                     </h1>
                 </header>
 
-                <MatchAnalysisView
-                    match={match}
-                    analysis={analysis}
-                    MarkdownRenderer={MarkdownRenderer}
-                    personalStats={personalStats}
-                    user={user}
-                />
+                <div className="rival-detail-container flex-column gap-1">
+                    <MatchAnalysisView
+                        match={match}
+                        analysis={analysis}
+                        MarkdownRenderer={MarkdownRenderer}
+                        personalStats={personalStats}
+                        user={user}
+                    />
+                </div>
             </div>
         </div>
     );
