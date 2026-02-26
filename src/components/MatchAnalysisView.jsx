@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import VideoAnalysisDashboard from './VideoAnalysisDashboard';
 import VideoAnalysisManager from './VideoAnalysisManager';
+import PlayerAnalysisManager from './PlayerAnalysisManager';
 import './MatchAnalysisView.css';
 import {
     TrendingUp,
@@ -270,9 +271,227 @@ export const MatchAnalysisView = ({ match, analysis, onMatchClick, MarkdownRende
                     <Video size={18} /> VIDEOANÁLISIS (NAC SPORT)
                     {root.analisis_video_nac_sport && <span className="tab-status-dot" />}
                 </button>
+                <button
+                    className={`analysis-tab-btn ${activeTab === 'players' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('players')}
+                >
+                    <UsersIcon size={18} /> INFORME JUGADORES
+                    {(root.analisis_individual_plantilla || root.analisis_video_nac_sport?.analisis_individual_plantilla) && <span className="tab-status-dot" style={{ backgroundColor: '#10B981' }} />}
+                </button>
             </div>
 
-            {activeTab === 'technical' ? (
+            {activeTab === 'players' ? (
+                <div className="players-report-container" style={{ padding: '1.5rem', marginTop: '1rem' }}>
+                    {(() => {
+                        const informe = root.analisis_individual_plantilla || root.analisis_video_nac_sport?.analisis_individual_plantilla;
+                        if (!informe || !informe.jugadores) {
+                            return (
+                                <div className="mt-12 flex flex-col items-center gap-6 p-8 rounded-2xl bg-white border border-slate-200 shadow-sm text-center max-w-2xl mx-auto">
+                                    <div className="text-5xl opacity-20 mb-2">👥</div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-slate-700 uppercase tracking-wide mb-2">Sin Informe Individualizado</h3>
+                                        <p className="text-slate-500 mb-6">El archivo JSON actual no contiene valoraciones individuales de la plantilla. Sube un archivo JSON de Nac Sport actualizado que contenga el nodo <code className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs">analisis_individual_plantilla</code>.</p>
+                                    </div>
+
+                                    <div className="w-full border-t border-slate-100 pt-6">
+                                        <PlayerAnalysisManager
+                                            matchId={match.partido_id || match.id}
+                                            eventId={match.evento_id || match.Evento}
+                                            externalId={match.partido_externo_id}
+                                            existingData={analysis ? analysis.raw_json : null}
+                                            onSaveSuccess={handleSaveSuccess}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <div>
+                                {/* Contexto del Partido */}
+                                {informe.contexto_partido && (
+                                    <div className="premium-card p-6 mb-8 text-center" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '1rem' }}>
+                                        <p className="text-sm text-slate-500 uppercase font-black tracking-widest mb-2">Contexto de Valoración</p>
+                                        <p className="text-slate-700 font-serif italic max-w-3xl mx-auto">"{informe.contexto_partido.merito} {informe.contexto_partido.algoritmo_valoracion}"</p>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                                    {informe.jugadores.map((jugador, idx) => {
+                                        const pName = jugador.perfil?.nombre || jugador.nombre;
+                                        const pDorsal = jugador.perfil?.dorsal || jugador.dorsal;
+                                        const pPos = jugador.perfil?.posicion || jugador.posicion;
+
+                                        // Robust Data Extraction
+                                        const nota = jugador.valoracion?.nota ||
+                                            jugador.nota_media ||
+                                            jugador.perfil?.nota_media ||
+                                            jugador.nota;
+
+                                        const rol = jugador.valoracion?.rol || jugador.rol;
+
+                                        const comentario = jugador.comentario ||
+                                            jugador.comentarios ||
+                                            jugador.analisis ||
+                                            jugador.evaluacion ||
+                                            jugador.perfil?.comentario ||
+                                            jugador.perfil?.analisis ||
+                                            jugador.valoracion?.comentario ||
+                                            jugador.valoracion?.analisis;
+
+                                        // Find photo with improved matching
+                                        let photoUrl = null;
+                                        if (allPlayers && allPlayers.length > 0 && pName) {
+                                            const normalize = (s) => s?.toLowerCase()
+                                                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
+                                                .replace(/[^a-z0-9 ]/g, " ") // replace non-alphanumeric with spaces
+                                                .replace(/\s+/g, " ") // collapse multiple spaces
+                                                .trim() || "";
+
+                                            const targetName = normalize(pName);
+                                            const targetParts = targetName.split(" ").filter(p => p.length > 2); // significative parts (3+ chars)
+
+                                            // Handle "Surname, Name" -> "Name Surname"
+                                            let alternativeName = "";
+                                            if (pName.includes(",")) {
+                                                const parts = pName.split(",").map(p => p.trim());
+                                                if (parts.length === 2) {
+                                                    alternativeName = normalize(`${parts[1]} ${parts[0]}`);
+                                                }
+                                            }
+
+                                            // disambiguation strategy
+                                            // 1. Try by exact dorsal first (highest priority)
+                                            const byDorsal = pDorsal ? allPlayers.find(p => String(p.dorsal) === String(pDorsal) || String(p.numero) === String(pDorsal)) : null;
+
+                                            if (byDorsal && byDorsal.foto) {
+                                                photoUrl = byDorsal.foto;
+                                            } else {
+                                                // 2. Try by name matching with scoring to handle duplicates
+                                                const candidates = allPlayers
+                                                    .map(p => {
+                                                        const dbFirstName = normalize(p.nombre);
+                                                        const dbLastName = normalize(p.apellidos);
+                                                        const dbFullName = normalize(`${p.nombre} ${p.apellidos}`);
+
+                                                        let score = 0;
+                                                        if (dbFullName === targetName || (alternativeName && dbFullName === alternativeName)) {
+                                                            score = 100;
+                                                        } else if (targetParts.length > 0) {
+                                                            const matchCount = targetParts.filter(part =>
+                                                                dbFullName.includes(part) || dbFirstName.includes(part) || dbLastName.includes(part)
+                                                            ).length;
+
+                                                            if (matchCount >= Math.max(1, Math.floor(targetParts.length * 0.7))) {
+                                                                score = (matchCount / targetParts.length) * 80;
+                                                            }
+                                                        }
+                                                        return { ...p, _score: score };
+                                                    })
+                                                    .filter(p => p._score > 0)
+                                                    .sort((a, b) => b._score - a._score);
+
+                                                if (candidates.length > 0 && candidates[0].foto) {
+                                                    photoUrl = candidates[0].foto;
+                                                }
+                                            }
+                                        }
+
+                                        return (
+                                            <div key={idx} className="insight-premium-card p-6 overflow-hidden flex flex-col h-full relative" style={{ padding: '1.5rem', backgroundColor: 'white', borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}>
+
+                                                {/* Meta Nota Badge */}
+                                                {nota && (
+                                                    <div className="absolute top-4 right-4 bg-blue-900 text-white font-black rounded-full w-12 h-12 flex items-center justify-center shadow-lg border-2 border-white text-lg z-10" style={{ position: 'absolute', top: '1rem', right: '1rem', backgroundColor: '#1e3a8a', color: 'white', fontWeight: '900', borderRadius: '9999px', width: '3rem', height: '3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', fontSize: '1.125rem' }}>
+                                                        {nota}
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center gap-4 mb-4" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                                                    {photoUrl ? (
+                                                        <img src={photoUrl} alt={pName} style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #f1f5f9' }} />
+                                                    ) : (
+                                                        <div className="icon-box-premium" style={{ width: '60px', height: '60px', background: '#f1f5f9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            {pDorsal ? (
+                                                                <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#94a3b8' }}>{pDorsal}</span>
+                                                            ) : (
+                                                                <UsersIcon className="text-slate-400" size={24} color="#94a3b8" />
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    <div>
+                                                        <h4 className="font-black text-slate-800 m-0" style={{ fontSize: '1.1rem', lineHeight: '1.2', margin: 0, fontWeight: '900', color: '#1e293b' }}>{pName}</h4>
+                                                        {pPos && <p className="text-xs text-slate-500 font-bold uppercase tracking-wide mt-1" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.025em', marginTop: '0.25rem' }}>{pPos}</p>}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex-1 flex flex-col" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                                    {rol && (
+                                                        <div className="mb-3 p-3 bg-slate-50 rounded-xl border border-slate-100" style={{ marginBottom: '0.75rem', padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: '0.75rem', border: '1px solid #f1f5f9' }}>
+                                                            <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest block mb-1" style={{ fontSize: '10px', fontWeight: '900', color: '#1e3a8a', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: '0.25rem' }}>Misión / Rol</span>
+                                                            <p className="text-[13px] text-slate-700 leading-snug" style={{ fontSize: '13px', color: '#334155', lineHeight: 1.375 }}>{rol}</p>
+                                                        </div>
+                                                    )}
+                                                    {jugador.stats && Object.keys(jugador.stats).length > 0 && (
+                                                        <div className="flex flex-wrap gap-2 mb-4" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                                                            {Object.entries(jugador.stats).map(([k, v], i) => (
+                                                                <span key={i} className="px-2 py-1 bg-white border border-slate-200 rounded-md text-[11px] font-bold text-slate-600 shadow-sm flex items-center gap-1" style={{ padding: '0.25rem 0.5rem', backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '0.375rem', fontSize: '11px', fontWeight: '700', color: '#475569', boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                                                    <span className="text-slate-400 uppercase" style={{ color: '#94a3b8', textTransform: 'uppercase' }}>{k.replace(/_/g, ' ')}:</span>
+                                                                    <span className="text-blue-900" style={{ color: '#1e3a8a' }}>{v}</span>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {comentario && (
+                                                        <p className="text-[14px] text-slate-600 font-serif italic mt-auto pt-2 border-t border-slate-100" style={{ fontSize: '14px', color: '#475569', fontFamily: 'serif', fontStyle: 'italic', marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid #f1f5f9', lineHeight: '1.6' }}>"{comentario}"</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                    }
+                                </div>
+
+                                {/* Update Button */}
+                                {user?.role !== 'JUGADOR' && (
+                                    <div style={{ marginTop: '3rem', textAlign: 'center' }}>
+                                        <button
+                                            onClick={() => {
+                                                if (window.confirm("¿Deseas actualizar los datos del informe de jugadores?")) {
+                                                    // Merge root and internal to ensure we wipe both spots gracefully if they exist
+                                                    const cleanRoot = { ...root };
+                                                    delete cleanRoot.analisis_individual_plantilla;
+                                                    if (cleanRoot.analisis_video_nac_sport) {
+                                                        delete cleanRoot.analisis_video_nac_sport.analisis_individual_plantilla;
+                                                    }
+                                                    setCurrentAnalysis({ ...activeAnalysis, raw_json: cleanRoot });
+                                                }
+                                            }}
+                                            style={{
+                                                fontSize: '0.85rem',
+                                                color: '#64748b',
+                                                textDecoration: 'underline',
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: '0.5rem 1rem',
+                                                borderRadius: '0.5rem',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseOver={(e) => { e.currentTarget.style.color = '#0f172a'; e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                                            onMouseOut={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                        >
+                                            Actualizar informe de jugadores
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+                </div>
+            ) : activeTab === 'technical' ? (
                 <>
 
                     {/* 2. Alineaciones y Rendimiento Individual */}
@@ -741,8 +960,8 @@ export const MatchAnalysisView = ({ match, analysis, onMatchClick, MarkdownRende
                     ) : (
                         user?.role !== 'JUGADOR' ? (
                             <VideoAnalysisManager
-                                matchId={match.id}
-                                eventId={match.evento_id}
+                                matchId={match.partido_id || match.id}
+                                eventId={match.evento_id || match.Evento}
                                 externalId={match.partido_externo_id}
                                 existingData={root}
                                 onSaveSuccess={handleSaveSuccess}

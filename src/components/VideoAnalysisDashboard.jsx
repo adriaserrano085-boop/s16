@@ -95,6 +95,7 @@ const VideoAnalysisDashboard = ({ data, match, allPlayers = [] }) => {
     const alertasDef = nacData.rendimiento_individual_defensivo?.alertas_rendimiento_focos_de_rotura || [];
     const tactico = nacData.analisis_tactico_global || null;
     const insights = nacData.insights_para_app_entrenador || [];
+    const informeJugadores = nacData.analisis_individual_plantilla || null;
 
     const getPlayerPhoto = (dorsal, name) => {
         if (!allPlayers || allPlayers.length === 0) return null;

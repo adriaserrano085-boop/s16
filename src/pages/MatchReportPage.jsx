@@ -14,6 +14,7 @@ const MatchReportPage = ({ user }) => {
     const [match, setMatch] = useState(null);
     const [analysis, setAnalysis] = useState(null);
     const [personalStats, setPersonalStats] = useState(null);
+    const [allPlayers, setAllPlayers] = useState([]);
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -22,6 +23,10 @@ const MatchReportPage = ({ user }) => {
             try {
                 let matchData = null;
                 let analysisData = null;
+
+                // Fetch All Players for mapping (photos, etc.)
+                const { data: playersData } = await supabase.from('jugadores_propios').select('*');
+                if (playersData) setAllPlayers(playersData);
 
                 // 1. Fetch Match Details
                 if (type === 'internal') {
@@ -193,6 +198,7 @@ const MatchReportPage = ({ user }) => {
                         MarkdownRenderer={MarkdownRenderer}
                         personalStats={personalStats}
                         user={user}
+                        allPlayers={allPlayers}
                     />
                 </div>
             </div>
