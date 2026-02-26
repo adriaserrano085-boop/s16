@@ -402,7 +402,7 @@ export const MatchAnalysisView = ({ match, analysis, onMatchClick, MarkdownRende
 
                                                 {/* Meta Nota Badge */}
                                                 {nota && (
-                                                    <div className="absolute top-4 right-4 bg-blue-900 text-white font-black rounded-full w-12 h-12 flex items-center justify-center shadow-lg border-2 border-white text-lg z-10" style={{ position: 'absolute', top: '1rem', right: '1rem', backgroundColor: '#1e3a8a', color: 'white', fontWeight: '900', borderRadius: '9999px', width: '3rem', height: '3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', fontSize: '1.125rem' }}>
+                                                    <div className="absolute top-4 right-4 bg-blue-900 text-white font-black rounded-full w-12 h-12 flex items-center justify-center shadow-lg border-2 border-white text-lg z-10" style={{ position: 'absolute', top: '1rem', right: '1rem', backgroundColor: '#1e3a8a', color: 'white', fontWeight: '900', borderRadius: '9999px', width: '3rem', height: '3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', fontSize: '1.125rem', opacity: 1, visibility: 'visible' }}>
                                                         {nota}
                                                     </div>
                                                 )}
