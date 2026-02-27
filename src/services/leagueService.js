@@ -15,18 +15,25 @@ export const leagueService = {
                 apiGet('/estadisticas_jugador/').catch(() => [])
             ]);
 
+            // Defensive check: ensure all data are arrays
+            const rivals = Array.isArray(rivalsData) ? rivalsData : [];
+            const stats = Array.isArray(statsData) ? statsData : [];
+            const matches = Array.isArray(matchesData) ? matchesData : [];
+            const matchesExternos = Array.isArray(matchesExternosData) ? matchesExternosData : [];
+            const pStats = Array.isArray(playerStats) ? playerStats : [];
+
             const teamShields = {};
             teamShields[HOSPITALET_NAME] = HOSPITALET_SHIELD;
 
             // Map data for lookup
             const rivalsMap = {};
-            rivalsData.forEach(r => {
+            rivals.forEach(r => {
                 rivalsMap[r.id_equipo] = r;
                 teamShields[r.nombre_equipo] = r.escudo;
             });
 
             const matchesMap = {};
-            matchesData.forEach(m => {
+            matches.forEach(m => {
                 matchesMap[m.id] = m;
             });
 
@@ -83,15 +90,15 @@ export const leagueService = {
             };
 
             // Initialize teams from rivals Data
-            rivalsData.forEach(r => {
+            rivals.forEach(r => {
                 const name = r.nombre_equipo;
                 if (!standingsMap[name]) standingsMap[name] = initTeam(name);
             });
             if (!standingsMap[HOSPITALET_NAME]) standingsMap[HOSPITALET_NAME] = initTeam(HOSPITALET_NAME);
 
             // Process match statistics
-            if (statsData) {
-                statsData.forEach(stat => {
+            if (stats && stats.length > 0) {
+                stats.forEach(stat => {
                     if (stat.marcador_local === null || stat.marcador_visitante === null) return;
 
                     let homeName = "Desconocido Local";
@@ -111,7 +118,7 @@ export const leagueService = {
                             }
                         }
                     } else if (stat.partido_externo) {
-                        const pe = matchesExternosData.find(m => m.id === stat.partido_externo);
+                        const pe = matchesExternos.find(m => m.id === stat.partido_externo);
                         if (pe) {
                             homeName = pe.equipo_local;
                             awayName = pe.equipo_visitante;
@@ -124,8 +131,8 @@ export const leagueService = {
             }
 
             // Process disciplinary actions
-            if (playerStats) {
-                playerStats.forEach(stat => {
+            if (pStats && pStats.length > 0) {
+                pStats.forEach(stat => {
                     let team = stat.equipo;
                     if (team && (team.toUpperCase() === "RC L'HOSPITALET" || team.toUpperCase().includes("L'H"))) {
                         team = HOSPITALET_NAME;
