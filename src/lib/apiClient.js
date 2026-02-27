@@ -1,4 +1,7 @@
-export const API_BASE_URL = '/api/v1';
+const isLocal = window.location.hostname === 'localhost';
+export const API_BASE_URL = isLocal
+    ? '/api/v1'
+    : 'https://s16-backend-production.up.railway.app/api/v1';
 
 /**
  * Función base para realizar peticiones HTTP a la API.
