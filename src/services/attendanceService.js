@@ -4,7 +4,7 @@ const BASE_URL = '/asistencia';
 
 const getAll = async () => {
     // Step 1: Fetch attendance
-    const attendanceData = await apiGet(`${BASE_URL}/`);
+    const attendanceData = await apiGet(`${BASE_URL}/`).catch(() => []);
 
     if (!attendanceData || attendanceData.length === 0) return [];
 
@@ -25,12 +25,12 @@ const getById = async (id) => {
 };
 
 const getByTrainingId = async (trainingId) => {
-    return apiGet(`${BASE_URL}/?entrenamiento=${trainingId}`);
+    return apiGet(`${BASE_URL}/?entrenamiento=${trainingId}`).catch(() => []);
 };
 
 const getByEventId = async (eventId) => {
     // We first need the training ID for this event
-    const trainings = await apiGet(`/entrenamientos/?evento=${eventId}`);
+    const trainings = await apiGet(`/entrenamientos/?evento=${eventId}`).catch(() => []);
     if (!trainings || trainings.length === 0) return [];
 
     // Use the first training found
@@ -52,7 +52,7 @@ const getByEventIds = async (eventIds) => {
 };
 
 const getByPlayerId = async (playerId) => {
-    const attendanceData = await apiGet(`${BASE_URL}/?jugador=${playerId}`);
+    const attendanceData = await apiGet(`${BASE_URL}/?jugador=${playerId}`).catch(() => []);
     return attendanceData || [];
 };
 

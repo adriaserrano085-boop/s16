@@ -4,7 +4,7 @@ const BASE_URL = '/rivales';
 
 export const rivalService = {
     getAll: async () => {
-        return apiGet(`${BASE_URL}/`);
+        return apiGet(`${BASE_URL}/`).catch(() => []);
     },
 
     getById: async (id) => {

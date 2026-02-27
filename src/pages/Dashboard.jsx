@@ -249,7 +249,7 @@ const Dashboard = ({ user: propUser }) => {
                 setEvents(mappedEvents);
             }
         } catch (error) {
-            console.error('CRITICAL: Error fetching dashboard data:', error);
+            console.log('Dashboard: Network or data loading issue (possibly backend down):', error.message || error);
         } finally {
             setLoading(false);
         }

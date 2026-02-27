@@ -4,11 +4,11 @@ const BASE_URL = '/users';
 
 const userService = {
     getAll: async () => {
-        return apiGet(`${BASE_URL}/`);
+        return apiGet(`${BASE_URL}/`).catch(() => []);
     },
 
     getPending: async () => {
-        return apiGet(`${BASE_URL}/pending/`);
+        return apiGet(`${BASE_URL}/pending/`).catch(() => []);
     },
 
     getById: async (id) => {

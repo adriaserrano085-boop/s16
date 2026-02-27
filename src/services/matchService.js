@@ -4,7 +4,7 @@ const BASE_URL = '/partidos';
 
 export const matchService = {
     getAll: async () => {
-        return apiGet(`${BASE_URL}/`);
+        return apiGet(`${BASE_URL}/`).catch(() => []);
     },
 
     create: async (matchData) => {
