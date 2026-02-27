@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
+import { apiGet } from '../lib/apiClient';
 import { analysisService } from '../services/analysisService';
 import { ArrowLeft } from 'lucide-react';
 import { MatchAnalysisView } from '../components/MatchAnalysisView';
@@ -25,25 +25,27 @@ const MatchReportPage = ({ user }) => {
                 let analysisData = null;
 
                 // Fetch All Players for mapping (photos, etc.)
-                const { data: playersData } = await supabase.from('jugadores_propios').select('*');
-                if (playersData) setAllPlayers(playersData);
+                const playersData = await apiGet('/jugadores_propios/').catch(() => []);
+                setAllPlayers(playersData || []);
 
                 // 1. Fetch Match Details
                 if (type === 'internal') {
-                    const { data, error } = await supabase
-                        .from('partidos')
-                        .select(`
-                            *,
-                            rivales(nombre_equipo, escudo)
-                        `)
-                        .eq('id', id)
-                        .single();
-
-                    if (error) throw error;
+                    const data = await apiGet(`/partidos/${id}/`).catch(() => null);
 
                     if (data) {
-                        const rivalName = data.rivales?.nombre_equipo || data.Rival || "Rival";
-                        const rivalShield = data.rivales?.escudo || null;
+                        // Fetch rival for name and shield
+                        const rivalId = data.rival_id || data.Rival;
+                        let rivalName = "Rival";
+                        let rivalShield = null;
+
+                        if (rivalId) {
+                            const rivals = await apiGet('/rivales/').catch(() => []);
+                            const rival = rivals.find(r => r.id === rivalId || r.nombre_equipo === rivalId);
+                            if (rival) {
+                                rivalName = rival.nombre_equipo;
+                                rivalShield = rival.escudo;
+                            }
+                        }
 
                         matchData = {
                             id: data.id,
@@ -64,29 +66,19 @@ const MatchReportPage = ({ user }) => {
                         }
                     }
                 } else if (type === 'external') {
-                    const { data, error } = await supabase
-                        .from('partidos_externos')
-                        .select('*')
-                        .eq('id', id)
-                        .single();
-
-                    if (error) throw error;
+                    const data = await apiGet(`/partidos_externos/${id}/`).catch(() => null);
 
                     if (data) {
-                        // We need shields... assumption: we might not have them easily for external matches without more lookups
-                        // but let's try to query 'rivales' if names match, or just use placeholders. 
-                        // Actually 'rivales' table has names and shields.
-
                         // Simple shield fetch helper
                         const getShield = async (name) => {
                             if (name === "RC HOSPITALET") return "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png";
-                            const { data: r } = await supabase.from('rivales').select('escudo').eq('nombre_equipo', name).single();
+                            const rivals = await apiGet('/rivales/').catch(() => []);
+                            const r = rivals.find(riv => riv.nombre_equipo === name);
                             return r?.escudo || null;
                         };
 
                         const homeShield = await getShield(data.equipo_local);
                         const awayShield = await getShield(data.equipo_visitante);
-
 
                         matchData = {
                             id: data.id,
@@ -109,19 +101,13 @@ const MatchReportPage = ({ user }) => {
 
                 // 2. Fetch Personal Stats if User is a Player
                 if (user?.role === 'JUGADOR' && user.playerId) {
-                    let statsQuery = supabase
-                        .from('estadisticas_jugador')
-                        .select('*')
-                        .eq('jugador', user.playerId);
+                    const allStats = await apiGet('/estadisticas_jugador/').catch(() => []);
+                    const pStats = allStats.find(s =>
+                        s.jugador === user.playerId &&
+                        (type === 'internal' ? s.partido === id : s.partido_externo === id)
+                    );
 
-                    if (type === 'internal') {
-                        statsQuery = statsQuery.eq('partido', id);
-                    } else {
-                        statsQuery = statsQuery.eq('partido_externo', id);
-                    }
-
-                    const { data: pStats, error: pError } = await statsQuery.maybeSingle();
-                    if (!pError && pStats) {
+                    if (pStats) {
                         setPersonalStats(pStats);
                     }
                 }

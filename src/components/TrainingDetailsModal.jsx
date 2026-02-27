@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, MapPin, Activity, UserCheck, Users } from 'lucide-react';
+import { apiGet } from '../lib/apiClient';
 import attendanceService from '../services/attendanceService';
-import { supabase } from '../lib/supabaseClient';
 import './TrainingDetailsModal.css';
 
 const TrainingDetailsModal = ({ event, onClose, systemPlayers = [], currentUser }) => {
@@ -27,16 +27,14 @@ const TrainingDetailsModal = ({ event, onClose, systemPlayers = [], currentUser 
             let trainingRecord = null;
 
             if (!trainingId) {
-                // Fetch training record for this event
-                const { data, error } = await supabase
-                    .from('entrenamientos')
-                    .select('id_entrenamiento')
-                    .eq('evento', event.id)
-                    .single();
-
-                if (data) {
-                    trainingId = data.id_entrenamiento;
-                    trainingRecord = data;
+                try {
+                    const allTrainings = await apiGet('/entrenamientos/').catch(() => []);
+                    const found = allTrainings.find(t => t.evento === event.id);
+                    if (found) {
+                        trainingId = found.id_entrenamiento;
+                    }
+                } catch (e) {
+                    console.error("Error fetching training record:", e);
                 }
             }
 
@@ -47,12 +45,7 @@ const TrainingDetailsModal = ({ event, onClose, systemPlayers = [], currentUser 
             }
 
             // 2. Fetch Attendance
-            const { data: attendanceData, error: attendanceError } = await supabase
-                .from('asistencia')
-                .select('*')
-                .eq('entrenamiento', trainingId);
-
-            if (attendanceError) throw attendanceError;
+            const attendanceData = await apiGet(`/asistencia/?entrenamiento=${trainingId}`).catch(() => []);
 
             // 3. Merge with Player Names
             // We use systemPlayers passed from props if available to get names. 

@@ -1,5 +1,4 @@
-
-import { supabase } from '../lib/supabaseClient';
+import { apiGet } from '../lib/apiClient';
 
 const HOSPITALET_NAME = "RC HOSPITALET";
 const HOSPITALET_SHIELD = "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png";
@@ -7,28 +6,29 @@ const HOSPITALET_SHIELD = "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/o
 export const leagueService = {
     getStandings: async () => {
         try {
-            // 0. Fetch Team Shields (Rivales)
-            const { data: rivalsData } = await supabase
-                .from('rivales')
-                .select('nombre_equipo, escudo');
+            // 0. Fetch necessary data in parallel
+            const [rivalsData, statsData, matchesData, matchesExternosData, playerStats] = await Promise.all([
+                apiGet('/rivales/').catch(() => []),
+                apiGet('/estadisticas_partido/').catch(() => []),
+                apiGet('/partidos/').catch(() => []),
+                apiGet('/partidos_externos/').catch(() => []),
+                apiGet('/estadisticas_jugador/').catch(() => [])
+            ]);
 
             const teamShields = {};
             teamShields[HOSPITALET_NAME] = HOSPITALET_SHIELD;
 
-            // 1. Fetch Centralized Match Stats
-            const { data: statsData, error: sError } = await supabase
-                .from('estadisticas_partido')
-                .select(`
-                    id, 
-                    marcador_local, 
-                    marcador_visitante, 
-                    ensayos_local,
-                    ensayos_visitante,
-                    partidos ( id, Rival, es_local, rivales(nombre_equipo) ),
-                    partidos_externos ( id, equipo_local, equipo_visitante )
-                `);
+            // Map data for lookup
+            const rivalsMap = {};
+            rivalsData.forEach(r => {
+                rivalsMap[r.id_equipo] = r;
+                teamShields[r.nombre_equipo] = r.escudo;
+            });
 
-            if (sError) throw sError;
+            const matchesMap = {};
+            matchesData.forEach(m => {
+                matchesMap[m.id] = m;
+            });
 
             const standingsMap = {};
 
@@ -70,56 +70,52 @@ export const leagueService = {
                     t.puntos += 2;
                 } else {
                     t.perdidos += 1;
-                    // Defensive bonus: lose by 7 points or less
                     if ((pointsAgainst - pointsFor) <= 7) {
                         t.puntos += 1;
                         t.bd += 1;
                     }
                 }
 
-                // Offensive bonus: score 3 or more TRIES than the opponent (can apply in any result)
                 if ((triesFor - triesAgainst) >= 3) {
                     t.puntos += 1;
                     t.bo += 1;
                 }
             };
 
-            // Initialize teams from rivals Data FIRST to ensure all 7 are present
-            if (rivalsData) {
-                rivalsData.forEach(r => {
-                    const name = r.nombre_equipo;
-                    if (!standingsMap[name]) standingsMap[name] = initTeam(name);
-                    if (r.escudo) teamShields[name] = r.escudo;
-                    // Re-assign shield if it was missing initially
-                    if (standingsMap[name]) standingsMap[name].escudo = r.escudo;
-                });
-            }
+            // Initialize teams from rivals Data
+            rivalsData.forEach(r => {
+                const name = r.nombre_equipo;
+                if (!standingsMap[name]) standingsMap[name] = initTeam(name);
+            });
             if (!standingsMap[HOSPITALET_NAME]) standingsMap[HOSPITALET_NAME] = initTeam(HOSPITALET_NAME);
 
+            // Process match statistics
             if (statsData) {
                 statsData.forEach(stat => {
-                    // CRITICAL: Skip unplayed matches (null scores)
-                    if (stat.marcador_local === null || stat.marcador_visitante === null) {
-                        return; // Do not count unplayed matches
-                    }
+                    if (stat.marcador_local === null || stat.marcador_visitante === null) return;
 
                     let homeName = "Desconocido Local";
                     let awayName = "Desconocido Visitante";
 
-                    if (stat.partidos) {
-                        const p = stat.partidos;
-                        const rival = p.rivales?.nombre_equipo || p.Rival || "Rival";
-                        if (p.es_local) {
-                            homeName = HOSPITALET_NAME;
-                            awayName = rival;
-                        } else {
-                            homeName = rival;
-                            awayName = HOSPITALET_NAME;
+                    // Handle manual joins
+                    if (stat.partido) {
+                        const p = matchesMap[stat.partido];
+                        if (p) {
+                            const rival = rivalsMap[p.Rival]?.nombre_equipo || p.Rival || "Rival";
+                            if (p.es_local) {
+                                homeName = HOSPITALET_NAME;
+                                awayName = rival;
+                            } else {
+                                homeName = rival;
+                                awayName = HOSPITALET_NAME;
+                            }
                         }
-                    } else if (stat.partidos_externos) {
-                        const pe = stat.partidos_externos;
-                        homeName = pe.equipo_local;
-                        awayName = pe.equipo_visitante;
+                    } else if (stat.partido_externo) {
+                        const pe = matchesExternosData.find(m => m.id === stat.partido_externo);
+                        if (pe) {
+                            homeName = pe.equipo_local;
+                            awayName = pe.equipo_visitante;
+                        }
                     }
 
                     updateStats(homeName, stat.marcador_local, stat.marcador_visitante, stat.ensayos_local || 0, stat.ensayos_visitante || 0);
@@ -127,17 +123,10 @@ export const leagueService = {
                 });
             }
 
-            // 2. Fetch Player Stats for Card Aggregation
-            const { data: playerStats, error: pError } = await supabase
-                .from('estadisticas_jugador')
-                .select('equipo, tarjetas_amarillas, tarjetas_rojas');
-
-            if (pError) console.error("Error fetching player stats for cards:", pError);
-
+            // Process disciplinary actions
             if (playerStats) {
                 playerStats.forEach(stat => {
                     let team = stat.equipo;
-                    // Normalize Hospitalet Name
                     if (team && (team.toUpperCase() === "RC L'HOSPITALET" || team.toUpperCase().includes("L'H"))) {
                         team = HOSPITALET_NAME;
                     }
@@ -166,3 +155,5 @@ export const leagueService = {
         }
     }
 };
+
+export default leagueService;

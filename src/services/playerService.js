@@ -1,58 +1,28 @@
+import { apiGet, apiPost, apiPut, apiDelete } from '../lib/apiClient';
 
-import { supabase } from '../lib/supabaseClient';
-
-const TABLE_NAME = 'jugadores_propios';
+const BASE_URL = '/jugadores_propios';
 
 const playerService = {
     getAll: async () => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('id, nombre, apellidos, foto, talla, posiciones')
-            .order('apellidos', { ascending: true });
-
-        if (error) throw error;
-        return data;
+        // Asumiendo que /api/v1/jugadores_propios/ devuelve la lista de jugadores.
+        // Si el backend espera select(), tendremos que parsearlo una vez devuelto si fuera necesario.
+        return apiGet(`${BASE_URL}/`);
     },
 
     getById: async (id) => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('id, nombre, apellidos, foto, talla, posiciones')
-            .eq('id', id)
-            .single();
-
-        if (error) throw error;
-        return data;
+        return apiGet(`${BASE_URL}/${id}`);
     },
 
     create: async (player) => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .insert(player)
-            .select();
-
-        if (error) throw error;
-        return data;
+        return apiPost(`${BASE_URL}/`, player);
     },
 
     update: async (id, player) => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .update(player)
-            .eq('id', id)
-            .select();
-
-        if (error) throw error;
-        return data;
+        return apiPut(`${BASE_URL}/${id}`, player);
     },
 
     delete: async (id) => {
-        const { error } = await supabase
-            .from(TABLE_NAME)
-            .delete()
-            .eq('id', id);
-
-        if (error) throw error;
+        return apiDelete(`${BASE_URL}/${id}`);
     }
 };
 

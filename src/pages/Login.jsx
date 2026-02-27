@@ -73,8 +73,23 @@ const Login = ({ setUser }) => {
             if (authData?.user) {
                 console.log('Login: Success. Redirection to dashboard...');
 
-                // User state will be handled by onAuthStateChange in App.jsx
-                // But we act optimistically here to trigger navigation
+                // Store session for the new API client
+                const session = authData.session;
+                if (session) {
+                    localStorage.setItem('s16_auth_token', session.access_token);
+                }
+
+                // Temporary user object with role for initial UI
+                // In a full implementation, we'd fetch the role from the backend here
+                const userObj = {
+                    id: authData.user.id,
+                    email: authData.user.email,
+                    role: authData.user.email.includes('admin') || authData.user.email.includes('staff') ? 'STAFF' : 'JUGADOR'
+                };
+
+                localStorage.setItem('s16_cached_role', JSON.stringify(userObj));
+                setUser(userObj);
+
                 console.log("Login: Triggering navigation to dashboard.");
                 navigate('/dashboard');
             }

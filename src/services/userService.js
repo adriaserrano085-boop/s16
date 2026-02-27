@@ -1,39 +1,36 @@
+import { apiGet, apiPost, apiPut } from '../lib/apiClient';
 
-import { supabase } from '../lib/supabaseClient';
-
-const TABLE_NAME = 'usuarios';
+const BASE_URL = '/users';
 
 const userService = {
     getAll: async () => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .order('nombre', { ascending: true });
+        return apiGet(`${BASE_URL}/`);
+    },
 
-        if (error) throw error;
-        return data;
+    getPending: async () => {
+        return apiGet(`${BASE_URL}/pending/`);
     },
 
     getById: async (id) => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .eq('id', id)
-            .single();
-
-        if (error) throw error;
-        return data;
+        return apiGet(`${BASE_URL}/${id}`);
     },
 
     update: async (id, userData) => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .update(userData)
-            .eq('id', id)
-            .select();
+        return apiPut(`${BASE_URL}/${id}`, userData);
+    },
 
-        if (error) throw error;
-        return data;
+    assignRole: async (targetUserId, newRole) => {
+        return apiPost(`${BASE_URL}/assign-role/`, {
+            target_user_id: targetUserId,
+            new_role: newRole
+        });
+    },
+
+    linkFamily: async (familyId, playerId) => {
+        return apiPost(`${BASE_URL}/link-family/`, {
+            family_id: familyId,
+            player_id: playerId
+        });
     }
 };
 

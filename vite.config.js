@@ -4,6 +4,15 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://s16-backend-production.up.railway.app',
+        changeOrigin: true,
+        secure: false, // Set to false if needed for self-signed certs
+      }
+    }
+  },
   build: {
     // Enable CSS code splitting
     cssCodeSplit: true,

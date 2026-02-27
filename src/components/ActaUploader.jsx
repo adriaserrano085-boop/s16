@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { apiGet, apiPost, apiPut } from '../lib/apiClient';
+import { supabase } from '../lib/supabaseClient'; // Keep for Storage only for now
 import * as pdfjsLib from 'pdfjs-dist';
 // Set worker using CDN to avoid Vite build issues with worker files, or use local if configured
 // For simplicity in this environment, we'll try the CDN approach often used in simple React setups
@@ -408,61 +409,60 @@ const ActaUploader = ({ onUploadComplete }) => {
         const formattedDate = `${y}-${m}-${d}`;
 
         // 1. Try to find in standard 'eventos'/'partidos'
-        const { data: eventData, error } = await supabase
-            .from('eventos')
-            .select('id, fecha, partidos(id, Rival, rivales(nombre_equipo))')
-            .gte('fecha', `${formattedDate} 00:00:00`)
-            .lte('fecha', `${formattedDate} 23:59:59`);
+        // Using our new API endpoints
+        try {
+            const eventData = await apiGet(`/eventos/?fecha=${formattedDate}`);
 
-        if (error) console.error("Error searching match:", error);
+            if (eventData && eventData.length > 0) {
+                // Fetch matches for these events
+                const matchesData = await apiGet('/partidos/').catch(() => []);
+                const rivalsData = await apiGet('/rivales/').catch(() => []);
 
-        if (eventData && eventData.length > 0) {
-            const match = eventData.find(e => {
-                if (!e.partidos) return false;
-                const p = Array.isArray(e.partidos) ? e.partidos[0] : e.partidos;
-                if (!p) return false;
-                const rivalName = (p.rivales && p.rivales.nombre_equipo) ? p.rivales.nombre_equipo : '';
-                if (!rivalName) return false;
+                const matchFound = eventData.find(e => {
+                    const p = matchesData.find(m => m.Evento == e.id);
+                    if (!p) return false;
 
-                const rName = rivalName.toLowerCase();
-                const pdfName = metadata.rival.toLowerCase();
-                return (rName.includes(pdfName) || pdfName.includes(rName));
-            });
+                    const rival = rivalsData.find(r => r.id_equipo == p.Rival || r.id == p.Rival);
+                    const rivalName = rival?.nombre_equipo || p.Rival || '';
 
-            if (match) {
-                const realMatchId = (Array.isArray(match.partidos) ? match.partidos[0] : match.partidos).id;
-                console.log("Match found in calendar:", realMatchId);
-                return { id: realMatchId, type: 'standard' };
+                    const rName = rivalName.toLowerCase();
+                    const pdfName = metadata.rival.toLowerCase();
+                    return (rName.includes(pdfName) || pdfName.includes(rName));
+                });
+
+                if (matchFound) {
+                    const realMatch = matchesData.find(m => m.Evento == matchFound.id);
+                    console.log("Match found in calendar:", realMatch.id);
+                    return { id: realMatch.id, type: 'standard' };
+                }
             }
+        } catch (err) {
+            console.error("Error searching match:", err);
         }
 
         // 2. If not found, check if already exists in 'partidos_externos'
-        const { data: existingExternal } = await supabase
-            .from('partidos_externos')
-            .select('id')
-            .eq('fecha', formattedDate)
-            .ilike('equipo_local', metadata.localTeam)
-            .ilike('equipo_visitante', metadata.visitorTeam)
-            .maybeSingle();
+        try {
+            const existingExternals = await apiGet(`/partidos_externos/?fecha=${formattedDate}`);
+            const match = (existingExternals || []).find(m =>
+                m.equipo_local.toLowerCase() === metadata.localTeam.toLowerCase() &&
+                m.equipo_visitante.toLowerCase() === metadata.visitorTeam.toLowerCase()
+            );
 
-        if (existingExternal) {
-            console.log("Existing External Match found:", existingExternal.id);
-            return { id: existingExternal.id, type: 'external' };
+            if (match) {
+                console.log("Existing External Match found:", match.id);
+                return { id: match.id, type: 'external' };
+            }
+        } catch (err) {
+            console.error("Error searching external match:", err);
         }
 
         console.log("Match not found in calendar. Creating External Match...");
-        const { data: newMatch, error: createError } = await supabase
-            .from('partidos_externos')
-            .insert({
-                fecha: formattedDate,
-                equipo_local: metadata.localTeam,
-                equipo_visitante: metadata.visitorTeam,
-                competicion: 'Liga (Acta Externa)'
-            })
-            .select()
-            .single();
-
-        if (createError) throw createError;
+        const newMatch = await apiPost('/partidos_externos/', {
+            fecha: formattedDate,
+            equipo_local: metadata.localTeam,
+            equipo_visitante: metadata.visitorTeam,
+            competicion: 'Liga (Acta Externa)'
+        });
 
         console.log("External Match created:", newMatch.id);
         return { id: newMatch.id, type: 'external' };
@@ -470,11 +470,8 @@ const ActaUploader = ({ onUploadComplete }) => {
 
     async function resolvePlayers(playerLists, metadata) {
         // 1. Fetch Internal Players (Hospitalet)
-        const { data: dbPlayers, error } = await supabase
-            .from('jugadores_propios')
-            .select('id, licencia, nombre, apellidos');
-
-        if (error) throw error;
+        const dbPlayers = await apiGet('/jugadores_propios/').catch(() => []);
+        const externalPlayersAll = await apiGet('/jugadores_externos/').catch(() => []);
 
         const playerMap = { LOCAL: {}, VISITOR: {} };
 
@@ -491,50 +488,39 @@ const ActaUploader = ({ onUploadComplete }) => {
         const processTeam = async (list, teamKey, teamName, isHome) => {
             console.log(`Processing list for ${teamKey} (${teamName})... Is Home? ${isHome}`);
 
-            // If it's NOT our team, we need to ensure players exist in 'jugadores_externos'
             let externalMap = {};
             if (!isHome) {
                 const licenses = list.map(p => p.licencia).filter(l => l);
 
                 if (licenses.length > 0) {
-                    // 1. Fetch existing externals
-                    const { data: existingExternals } = await supabase
-                        .from('jugadores_externos')
-                        .select('id, licencia')
-                        .in('licencia', licenses);
+                    externalPlayersAll.forEach(e => {
+                        if (licenses.includes(e.licencia)) {
+                            externalMap[e.licencia] = e.id;
+                        }
+                    });
 
-                    const existingLicenseMap = {};
-                    existingExternals?.forEach(e => existingLicenseMap[e.licencia] = e.id);
+                    // Identify missing
+                    const missingPlayers = list.filter(p => p.licencia && !externalMap[p.licencia]);
 
-                    // 2. Identify missing
-                    const missingPlayers = list.filter(p => p.licencia && !existingLicenseMap[p.licencia]);
-
-                    // 3. Insert missing
+                    // Insert missing
                     if (missingPlayers.length > 0) {
-                        // Filter duplicates within the missing list itself by license
-                        const uniqueMissing = [];
                         const seen = new Set();
-                        missingPlayers.forEach(p => {
+                        for (const p of missingPlayers) {
                             if (!seen.has(p.licencia)) {
                                 seen.add(p.licencia);
-                                uniqueMissing.push({
-                                    licencia: p.licencia,
-                                    nombre_completo: p.name,
-                                    ultimo_equipo: teamName
-                                });
+                                try {
+                                    const newExt = await apiPost('/jugadores_externos/', {
+                                        licencia: p.licencia,
+                                        nombre_completo: p.name,
+                                        ultimo_equipo: teamName
+                                    });
+                                    externalMap[p.licencia] = newExt.id;
+                                } catch (e) {
+                                    console.error("Error inserting external player:", e);
+                                }
                             }
-                        });
-
-                        const { data: newExternals, error: insertError } = await supabase
-                            .from('jugadores_externos')
-                            .insert(uniqueMissing)
-                            .select('id, licencia');
-
-                        if (insertError) console.error("Error inserting external players:", insertError);
-
-                        newExternals?.forEach(e => existingLicenseMap[e.licencia] = e.id);
+                        }
                     }
-                    externalMap = existingLicenseMap;
                 }
             }
 
@@ -665,51 +651,17 @@ const ActaUploader = ({ onUploadComplete }) => {
         const { id, type } = matchInfo;
         const isExternal = (type === 'external');
 
-        // 1. Create Match Stats Record
-        // If external, we might not strictly need 'estadisticas_partido' if it's just for tracking processed state,
-        // but let's keep it consistent.
-
         const matchStatsPayload = { acta_procesada: true };
         if (isExternal) matchStatsPayload.partido_externo = id;
         else {
             matchStatsPayload.partido = id;
-            // Also update 'acta_url' in 'partidos' table if available
             if (actaUrl) {
-                const { error: updateError } = await supabase
-                    .from('partidos')
-                    .update({ acta_url: actaUrl })
-                    .eq('id', id);
-
-                if (updateError) {
-                    console.error("Error updating acta_url in partidos:", updateError);
-                } else {
-                    console.log("Updated acta_url for match:", id);
-                }
+                await apiPut(`/partidos/${id}`, { acta_url: actaUrl }).catch(e => console.error("Error updating acta_url:", e));
             }
         }
 
-        // On Conflict: 'partido' is unique? 'partido_externo' should also be unique or handled.
-        // Supabase upsert requires a unique constraint. 
-        // We might need to handle this carefully.
-        // For now, simpler: Just insert stats? Or try upsert.
-        // Assuming unique constraint on partido_externo doesn't exist yet on 'estadisticas_partido'.
-        // Let's just try to insert/update based on ID if we can or skip this table for external?
-        // Actually, user wants stats. 
-
-        // Let's UPDATE 'estadisticas_partido' only if Standard Match. 
-        // If External, maybe we don't need 'estadisticas_partido' row? Or we do?
-        // Let's assume we do.
-
-        // Calculate Total Tries & Score from PDF (or metadata if available?)
-        // Acta does not always have clear 'Score' in metadata, but we might have parsed it.
-        // Actually, we didn't robustly parse the Final Score from the PDF text in 'parseMetadata'.
-        // But we DO have 'ensayos' from player stats.
-        // And we might have 'transformaciones', 'penales', 'drops'.
-        // Let's CALCULATE the score from player stats!
-
         let localTries = 0, localPoints = (metadata.scoreLocal !== null) ? metadata.scoreLocal : 0;
         let visitorTries = 0, visitorPoints = (metadata.scoreVisitor !== null) ? metadata.scoreVisitor : 0;
-
         let calculatedLocalPoints = 0;
         let calculatedVisitorPoints = 0;
 
@@ -724,14 +676,11 @@ const ActaUploader = ({ onUploadComplete }) => {
                     localTries += (p.stats.ensayos || 0);
                     calculatedLocalPoints += calcPoints(p.stats);
                 });
-            // Add Penalty Tries (AC)
             const teamStats = playerStatsMap.LOCAL._teamStats;
             if (teamStats) {
                 localTries += (teamStats.acTries || 0);
                 calculatedLocalPoints += (teamStats.acPoints || 0);
             }
-
-            // Fallback if metadata score was missing
             if (metadata.scoreLocal === null) localPoints = calculatedLocalPoints;
         }
         if (playerStatsMap.VISITOR) {
@@ -741,66 +690,47 @@ const ActaUploader = ({ onUploadComplete }) => {
                     visitorTries += (p.stats.ensayos || 0);
                     calculatedVisitorPoints += calcPoints(p.stats);
                 });
-            // Add Penalty Tries (AC)
             const teamStats = playerStatsMap.VISITOR._teamStats;
             if (teamStats) {
                 visitorTries += (teamStats.acTries || 0);
                 calculatedVisitorPoints += (teamStats.acPoints || 0);
             }
-
-            // Fallback if metadata score was missing
             if (metadata.scoreVisitor === null) visitorPoints = calculatedVisitorPoints;
         }
-
-        // Determine Home/Away for DB
-        // If Standard Match: We need 'es_local'. 
-        // We lack 'matchInfo.es_local'.
-        // But we can guess from 'metadata.localTeam' vs 'RC HOSPITALET'.
 
         const isHomeTeam = (name) => name && (name.toUpperCase().includes("HOSPITALET") || name.toUpperCase().includes("L'H"));
         const pdfLocalIsHome = isHomeTeam(metadata.localTeam);
 
-        // Prepare centralized stats payload
         const centralizedStats = {
             ...matchStatsPayload,
-            jornada: null, // Attempt to parse later?
+            jornada: null,
             fecha: (matchInfo.fecha) || (metadata.date ? metadata.date.split('/').reverse().join('-') : null),
-            // FIXED: Always assign Left column (PDF Local) to marcador_local and Right column (PDF Visitor) to marcador_visitante.
-            // valid for both Internal (if Hospitalet is Visitor, their score is visitorPoints) and External matches.
             marcador_local: localPoints,
             marcador_visitante: visitorPoints,
             ensayos_local: localTries,
             ensayos_visitante: visitorTries
         };
 
-        // Attempt to find Jornada in full text (naive check)
-        // We don't have full text here easily unless we passed it.
-        // Let's assume user manually edits Jornada or we find it later.
-
         if (!isExternal) {
-            // Update PARTIDOS table (legacy support)
             const partidosPayload = {
                 ensayos_local: centralizedStats.ensayos_local,
                 ensayos_visitante: centralizedStats.ensayos_visitante,
                 marcador_local: centralizedStats.marcador_local,
                 marcador_visitante: centralizedStats.marcador_visitante
             };
-
-            const { error: matchError } = await supabase
-                .from('partidos')
-                .update(partidosPayload)
-                .eq('id', id);
-
-            if (matchError) console.error("Error updating match score/tries in partidos:", matchError);
+            await apiPut(`/partidos/${id}`, partidosPayload).catch(e => console.error(e));
 
             // Upsert ESTADISTICAS_PARTIDO
-            const { error: statsError } = await supabase
-                .from('estadisticas_partido')
-                .upsert(centralizedStats, { onConflict: 'partido' });
-            if (statsError) throw statsError;
+            const existingStatsAll = await apiGet('/estadisticas_partido/').catch(() => []);
+            const existingStats = existingStatsAll.filter(s => s.partido == id);
+
+            if (existingStats && existingStats.length > 0) {
+                await apiPut(`/estadisticas_partido/${existingStats[0].id}`, centralizedStats);
+            } else {
+                await apiPost('/estadisticas_partido/', centralizedStats);
+            }
         } else {
             // External Match
-            // Update PARTIDOS_EXTERNOS
             const externalPayload = {
                 ensayos_local: centralizedStats.ensayos_local,
                 ensayos_visitante: centralizedStats.ensayos_visitante,
@@ -808,42 +738,39 @@ const ActaUploader = ({ onUploadComplete }) => {
                 marcador_visitante: centralizedStats.marcador_visitante
             };
 
-            await supabase
-                .from('partidos_externos')
-                .update(externalPayload)
-                .eq('id', id);
+            await apiPut(`/partidos_externos/${id}`, externalPayload).catch(e => console.error(e));
 
-            // Upsert ESTADISTICAS_PARTIDO (using partido_externo PK if constraint exists, or just insert?)
-            // Schema likely has unique constraint on 'partido' but maybe not 'partido_externo'.
-            // We should check constraint. If not, we might duplicate.
-            // Assumption: We want to save it. 
-            // Let's try upsert with 'partido_externo' if supported, else just insert.
-            // 'onConflict' needs a constraint name or column.
+            const existingStatsAll = await apiGet('/estadisticas_partido/').catch(() => []);
+            const existingStats = existingStatsAll.filter(s => s.partido_externo == id);
 
-            // For now, let's treat 'estadisticas_partido' as the source.
-
-            const { error: statsError } = await supabase
-                .from('estadisticas_partido')
-                .upsert(centralizedStats, { onConflict: 'partido_externo' }); // Hoping constraint exists
-
-            if (statsError) {
-                // Fallback if no constraint: check if exists
-                console.warn("Upsert failed (maybe no constraint?), trying manual check...", statsError);
-                // ... manual check omitted for brevity, assuming constraint or ignoring dupes
+            if (existingStats && existingStats.length > 0) {
+                await apiPut(`/estadisticas_partido/${existingStats[0].id}`, centralizedStats);
+            } else {
+                await apiPost('/estadisticas_partido/', centralizedStats);
             }
         }
 
         // 2. Insert Player Stats
+        // Delete existing stats for this match
+        const allPlayerStats = await apiGet('/estadisticas_jugador/').catch(() => []);
+        const toDelete = allPlayerStats.filter(s =>
+            (isExternal && s.partido_externo == id) || (!isExternal && s.partido == id)
+        );
 
-        // Flatten the map
+        for (const s of toDelete) {
+            await apiDelete(`/estadisticas_jugador/${s.id}`).catch(e => console.warn(e));
+        }
+
         const records = [];
-        const flatten = (teamMap) => {
+        const flatten = (teamMap, teamKey) => {
             if (!teamMap) return;
+            const isHome = (teamKey === 'LOCAL' && pdfLocalIsHome) || (teamKey === 'VISITOR' && !pdfLocalIsHome);
+
             Object.values(teamMap)
-                .filter(p => p && p.stats) // Filter for players only
+                .filter(p => p && p.stats)
                 .forEach(p => {
                     const record = {
-                        jugador: p.isExternal ? null : p.id,
+                        jugador: (isHome && !p.isExternal) ? p.id : null,
                         jugador_externo: p.isExternal ? p.id : null,
                         equipo: p.teamName,
                         dorsal: p.dorsal,
@@ -857,46 +784,22 @@ const ActaUploader = ({ onUploadComplete }) => {
                         penales: p.stats.penales,
                         drops: p.stats.drops,
                         tarjetas_amarillas: p.stats.tarjetas_amarillas,
-                        tarjetas_rojas: p.stats.tarjetas_rojas
+                        tarjetas_rojas: p.stats.tarjetas_rojas,
+                        fue_convocado: true
                     };
 
                     if (isExternal) record.partido_externo = id;
                     else record.partido = id;
-
-                    // User update: Save all players to track 'convocados' (Called Up)
-                    // statsPage will handle separating 'Jugados' vs 'Convocados' based on minutes > 0
-                    record.fue_convocado = true;
                     records.push(record);
                 });
         };
 
-        flatten(playerStatsMap.LOCAL);
-        flatten(playerStatsMap.VISITOR);
+        flatten(playerStatsMap.LOCAL, 'LOCAL');
+        flatten(playerStatsMap.VISITOR, 'VISITOR');
 
-        // Delete existing stats for this match
-        let query = supabase.from('estadisticas_jugador').delete();
-        if (isExternal) query = query.eq('partido_externo', id);
-        else query = query.eq('partido', id);
-
-        const { error: delError } = await query;
-
-        if (delError) console.warn("Error borrando stats previos:", delError);
-
-        console.log(`Preparing to save ${records.length} player stats records (External: ${isExternal})...`);
-        if (records.length > 0) {
-            console.log('Sample record:', records[0]);
-            const { error: insertError } = await supabase
-                .from('estadisticas_jugador')
-                .insert(records);
-
-            if (insertError) {
-                console.error("Error inserting stats:", insertError);
-                throw insertError;
-            } else {
-                console.log("Stats inserted successfully.");
-            }
-        } else {
-            console.warn("No records to save!");
+        console.log(`Saving ${records.length} player stats records...`);
+        for (const record of records) {
+            await apiPost('/estadisticas_jugador/', record);
         }
     }
 

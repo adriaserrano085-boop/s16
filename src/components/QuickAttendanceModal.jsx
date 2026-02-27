@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { apiGet } from '../lib/apiClient';
 import { X, Calendar as CalendarIcon, Clock, Users, Save } from 'lucide-react';
 import AttendanceList from './AttendanceList';
 import attendanceService from '../services/attendanceService';
@@ -34,34 +34,30 @@ const QuickAttendanceModal = ({ onClose, players }) => {
                 const today = new Date();
                 const pastDate = new Date();
                 pastDate.setMonth(today.getMonth() - 2);
+                const pastDateStr = pastDate.toISOString().split('T')[0];
 
-                // Fetch events of type 'training' first
-                const { data: events, error: eventsError } = await supabase
-                    .from('eventos')
-                    .select(`
-                        id,
-                        fecha,
-                        hora,
-                        tipo,
-                        entrenamientos ( id, id_entrenamiento )
-                    `)
-                    .ilike('tipo', '%training%') // or 'entrenamiento'
-                    .gte('fecha', pastDate.toISOString().split('T')[0])
-                    .order('fecha', { ascending: false })
-                    .limit(20);
+                // Fetch events
+                const events = await apiGet(`/eventos/?tipo=Entrenamiento&fecha_gte=${pastDateStr}`);
 
-                if (eventsError) throw eventsError;
+                // Fetch trainings
+                const allTrainings = await apiGet('/entrenamientos/');
 
-                // Filter valid trainings (must have linked training record)
-                // Note: The join 'entrenamientos' returns an array.
-                const validTrainings = events.filter(e => e.entrenamientos && e.entrenamientos.length > 0)
-                    .map(e => ({
-                        id: e.entrenamientos[0].id_entrenamiento || e.entrenamientos[0].id, // Training ID
-                        eventId: e.id,
-                        date: e.fecha,
-                        time: e.hora,
-                        type: e.tipo
-                    }));
+                // Filter valid trainings
+                const validTrainings = (events || [])
+                    .map(e => {
+                        const training = (allTrainings || []).find(t => t.evento === e.id);
+                        if (!training) return null;
+                        return {
+                            id: training.id_entrenamiento || training.id,
+                            eventId: e.id,
+                            date: e.fecha,
+                            time: e.hora,
+                            type: e.tipo
+                        };
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .slice(0, 20);
 
                 setTrainings(validTrainings);
 

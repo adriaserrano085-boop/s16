@@ -1,39 +1,19 @@
+import { apiGet, apiPost } from '../lib/apiClient';
 
-import { supabase } from '../lib/supabaseClient';
-
-const TABLE_NAME = 'rivales';
+const BASE_URL = '/rivales';
 
 export const rivalService = {
     getAll: async () => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('id_equipo, nombre_equipo, escudo');
-
-        if (error) {
-            console.error('Error in rivalService.getAll:', error);
-            throw error;
-        }
-        return data || [];
+        return apiGet(`${BASE_URL}/`);
     },
 
     getById: async (id) => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('*')
-            .eq('id_equipo', id)
-            .single();
-
-        if (error) throw error;
-        return data;
+        return apiGet(`${BASE_URL}/${id}`);
     },
 
     create: async (rivalData) => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .insert(rivalData)
-            .select();
-
-        if (error) throw error;
-        return data;
+        return apiPost(`${BASE_URL}/`, rivalData);
     }
 };
+
+export default rivalService;

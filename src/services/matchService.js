@@ -1,39 +1,19 @@
+import { apiGet, apiPost, apiPut } from '../lib/apiClient';
 
-import { supabase } from '../lib/supabaseClient';
-
-const TABLE_NAME = 'partidos';
+const BASE_URL = '/partidos';
 
 export const matchService = {
     getAll: async () => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('id, Evento, Rival, es_local, lugar, marcador_local, marcador_visitante, ensayos_local, ensayos_visitante');
-
-        if (error) {
-            console.error('Error in matchService.getAll:', error);
-            throw error;
-        }
-        return data || [];
+        return apiGet(`${BASE_URL}/`);
     },
 
     create: async (matchData) => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .insert(matchData)
-            .select();
-
-        if (error) throw error;
-        return data;
+        return apiPost(`${BASE_URL}/`, matchData);
     },
 
     update: async (id, matchData) => {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .update(matchData)
-            .eq('Evento', id)
-            .select();
-
-        if (error) throw error;
-        return data;
+        return apiPut(`${BASE_URL}/${id}`, matchData);
     }
 };
+
+export default matchService;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, XCircle, Clock, HelpCircle, Save, Info, Activity, Users, Filter } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
+import { apiGet } from '../lib/apiClient';
 import playerService from '../services/playerService';
 import attendanceService from '../services/attendanceService';
 import './AttendanceModal.css';
@@ -54,14 +54,14 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
 
                 // Let's resolve the event ID effectively.
                 const resolveEventId = async () => {
-                    const { data } = await supabase
-                        .from('entrenamientos')
-                        .select('evento')
-                        .eq('id_entrenamiento', initialEventId)
-                        .single();
-                    if (data && data.evento) {
-                        console.log('Resolved Training ID', initialEventId, 'to Event ID', data.evento);
-                        setSelectedEventId(data.evento);
+                    try {
+                        const training = await apiGet(`/entrenamientos/${initialEventId}`);
+                        if (training && training.evento) {
+                            console.log('Resolved Training ID', initialEventId, 'to Event ID', training.evento);
+                            setSelectedEventId(training.evento);
+                        }
+                    } catch (e) {
+                        console.error("Error resolving event ID:", e);
                     }
                 };
                 resolveEventId();
@@ -79,26 +79,8 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
 
     const fetchEvents = async () => {
         try {
-            // 1. Fetch relevant Eventos sorted by date (Future -> Past)
-            // We limit to 50 to get a good range of recent past and upcoming future
-            let query = supabase
-                .from('eventos')
-                .select('id, tipo, fecha, hora')
-                .eq('tipo', 'Entrenamiento')
-                .order('fecha', { ascending: false }); // Most recent/future first
-
-            if (filterDate) {
-                query = query.eq('fecha', filterDate);
-            } else {
-                query = query.limit(50);
-            }
-
-            const { data: eventos, error: eventosError } = await query;
-
-            if (eventosError) {
-                console.error('Error fetching eventos:', eventosError);
-                throw eventosError;
-            }
+            // 1. Fetch relevant Eventos sorted by date
+            const eventos = await apiGet(`/eventos/?tipo=Entrenamiento${filterDate ? `&fecha=${filterDate}` : ''}`);
 
             if (!eventos || eventos.length === 0) {
                 console.log('No training events found');
@@ -106,41 +88,23 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
                 return;
             }
 
-            // 2. Get the list of IDs to query Entrenamientos.
-            // IMPORTANT: Entrenamientos.evento links to Eventos.id
-            const eventLinkIds = eventos.map(e => e.id).filter(Boolean);
+            // 2. Fetch corresponding Entrenamientos
+            const trainings = await apiGet('/entrenamientos/');
 
-            if (eventLinkIds.length === 0) {
-                setEvents([]);
-                return;
-            }
-
-            // 3. Fetch corresponding Entrenamientos for these events
-            const { data: trainings, error: trainingsError } = await supabase
-                .from('entrenamientos')
-                .select('id_entrenamiento, evento')
-                .in('evento', eventLinkIds);
-
-            if (trainingsError) {
-                console.error('Error fetching trainings:', trainingsError);
-                throw trainingsError;
-            }
-
-            // 4. Map Eventos to their Trainings
-            // Create a map: Key = evento (UUID) (from data), Value = Training Record
+            // 3. Map Eventos to their Trainings
             const trainingMap = {};
-            trainings.forEach(t => {
+            (trainings || []).forEach(t => {
                 trainingMap[t.evento] = t;
             });
 
-            // 5. Combine and Format
+            // 4. Combine and Format
             const formattedEvents = eventos
-                .filter(e => trainingMap[e.id]) // Link via id (UUID)
+                .filter(e => trainingMap[e.id])
                 .map(e => {
                     const training = trainingMap[e.id];
                     return {
                         trainingId: training.id_entrenamiento,
-                        eventId: e.id,          // We keep the internal UUID for React keys
+                        eventId: e.id,
                         title: e.tipo || 'Entrenamiento',
                         date: e.fecha,
                         time: e.hora

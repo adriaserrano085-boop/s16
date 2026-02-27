@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
+import { apiGet, apiDelete, apiPut } from '../lib/apiClient';
 import { playerStats as mockPlayerStats, leagueStats as mockLeagueStats } from '../lib/mockData';
 import { ArrowLeft, Users, Trophy, Activity, Calendar, Shield, Trash2, Clock, ClipboardList, Swords, ArrowRightLeft, Target } from 'lucide-react';
 import { leagueService } from '../services/leagueService';
@@ -63,41 +63,36 @@ const StatsPage = ({ user }) => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const { data: rivalsData, error: rError } = await supabase
-                .from('rivales')
-                .select('nombre_equipo, escudo');
-
-            if (rError) console.error("Error fetching shields:", rError);
+            // Fetch all necessary data in parallel
+            const [rivalsData, statsData, matchesData, matchesExternosData, rawStats] = await Promise.all([
+                apiGet('/rivales/').catch(() => []),
+                apiGet('/estadisticas_partido/').catch(() => []),
+                apiGet('/partidos/').catch(() => []),
+                apiGet('/partidos_externos/').catch(() => []),
+                apiGet('/estadisticas_jugador/').catch(() => [])
+            ]);
 
             const teamShields = {};
             teamShields[HOSPITALET_NAME] = "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png";
-            if (rivalsData) {
-                rivalsData.forEach(r => {
-                    if (r.escudo) teamShields[r.nombre_equipo] = r.escudo;
-                });
-            }
+
+            const rivalsMap = {};
+            rivalsData.forEach(r => {
+                rivalsMap[r.id_equipo || r.id] = r;
+                if (r.escudo) teamShields[r.nombre_equipo] = r.escudo;
+            });
+
+            const matchesMap = {};
+            matchesData.forEach(m => {
+                matchesMap[m.id] = m;
+            });
+
+            const matchesExternosMap = {};
+            matchesExternosData.forEach(m => {
+                matchesExternosMap[m.id] = m;
+            });
 
             const standings = await leagueService.getStandings();
             setLeagueStats(standings);
-
-            const { data: statsData, error: sError } = await supabase
-                .from('estadisticas_partido')
-                .select(`
-                    id, 
-                    partido, 
-                    partido_externo,
-                    marcador_local, 
-                    marcador_visitante, 
-                    ensayos_local,
-                    ensayos_visitante,
-                    jornada, 
-                    fecha,
-                    partidos ( id, Rival, es_local, Evento, rivales(nombre_equipo) ),
-                    partidos_externos ( id, equipo_local, equipo_visitante, competicion )
-                `)
-                .order('fecha', { ascending: true });
-
-            if (sError) throw sError;
 
             const results = [];
             const rivalsSet = new Set();
@@ -109,33 +104,35 @@ const StatsPage = ({ user }) => {
                     let date = stat.fecha;
                     let jornada = stat.jornada;
 
-                    if (stat.partidos) {
-                        const p = stat.partidos;
-                        const rival = p.rivales?.nombre_equipo || p.Rival || "Rival";
-                        if (p.es_local) {
-                            homeName = HOSPITALET_NAME;
-                            awayName = rival;
-                        } else {
-                            homeName = rival;
-                            awayName = HOSPITALET_NAME;
+                    // Manual Join for stat.partido
+                    if (stat.partido) {
+                        const p = matchesMap[stat.partido];
+                        if (p) {
+                            const rival = rivalsMap[p.Rival]?.nombre_equipo || p.Rival || "Rival";
+                            if (p.es_local) {
+                                homeName = HOSPITALET_NAME;
+                                awayName = rival;
+                            } else {
+                                homeName = rival;
+                                awayName = HOSPITALET_NAME;
+                            }
+                            rivalsSet.add(rival);
                         }
-                        rivalsSet.add(rival);
-                    } else if (stat.partidos_externos) {
-                        const pe = stat.partidos_externos;
-                        homeName = pe.equipo_local;
-                        awayName = pe.equipo_visitante;
-                        rivalsSet.add(homeName);
-                        rivalsSet.add(awayName);
+                    } else if (stat.partido_externo) {
+                        const pe = matchesExternosMap[stat.partido_externo];
+                        if (pe) {
+                            homeName = pe.equipo_local;
+                            awayName = pe.equipo_visitante;
+                            rivalsSet.add(homeName);
+                            rivalsSet.add(awayName);
+                        }
                     }
-
-                    const pId = stat.partido;
-                    const peId = stat.partido_externo;
 
                     results.push({
                         id: stat.id,
-                        partido_id: pId,
-                        partido_externo_id: peId,
-                        evento_id: stat.partidos?.Evento,
+                        partido_id: stat.partido,
+                        partido_externo_id: stat.partido_externo,
+                        evento_id: matchesMap[stat.partido]?.Evento,
                         home: homeName,
                         away: awayName,
                         scoreHome: stat.marcador_local,
@@ -196,10 +193,6 @@ const StatsPage = ({ user }) => {
 
             setRivalsList(Array.from(rivalsSet).filter(r => r !== HOSPITALET_NAME).sort());
 
-            const { data: rawStats } = await supabase
-                .from('estadisticas_jugador')
-                .select('jugador, licencia, nombre, equipo, minutos_jugados, es_titular, ensayos, transformaciones, penales, tarjetas_amarillas, tarjetas_rojas');
-
             if (rawStats) {
                 const aggregated = {};
                 rawStats.forEach(stat => {
@@ -249,17 +242,24 @@ const StatsPage = ({ user }) => {
 
         try {
             setLoading(true);
-            const playerQuery = supabase.from('estadisticas_jugador').delete();
-            if (match.partido_externo_id) playerQuery.eq('partido_externo', match.partido_externo_id);
-            else playerQuery.eq('partido', match.partido_id);
-            await playerQuery;
 
-            await supabase.from('estadisticas_partido').delete().eq('id', match.id);
+            // Delete player stats for this match
+            const pStats = await apiGet('/estadisticas_jugador/');
+            const toDelete = pStats.filter(s =>
+                (match.partido_externo_id && s.partido_externo === match.partido_externo_id) ||
+                (match.partido_id && s.partido === match.partido_id)
+            );
+
+            for (const s of toDelete) {
+                await apiDelete(`/estadisticas_jugador/${s.id}`);
+            }
+
+            await apiDelete(`/estadisticas_partido/${match.id}`);
 
             if (match.partido_externo_id) {
-                await supabase.from('partidos_externos').delete().eq('id', match.partido_externo_id);
+                await apiDelete(`/partidos_externos/${match.partido_externo_id}`);
             } else if (match.partido_id) {
-                await supabase.from('partidos').update({ marcador_local: null, marcador_visitante: null }).eq('id', match.partido_id);
+                await apiPut(`/partidos/${match.partido_id}`, { marcador_local: null, marcador_visitante: null });
             }
             await fetchData();
         } catch (err) {

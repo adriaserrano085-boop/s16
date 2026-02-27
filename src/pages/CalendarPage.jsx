@@ -7,7 +7,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import esLocale from '@fullcalendar/core/locales/es';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
+import { apiGet } from '../lib/apiClient';
 import { eventService } from '../services/eventService';
 import { matchService } from '../services/matchService';
 import { rivalService } from '../services/rivalService';
@@ -176,11 +176,16 @@ const CalendarPage = ({ user }) => {
     }, [newEvent.Tipo]);
 
     const fetchTeamId = async () => {
-        const { data } = await supabase.from('equipos').select('id').eq('is_club_team', true).maybeSingle();
-        if (data) {
-            setHospitaletTeamId(data.id);
-            setNewEvent(prev => ({ ...prev, equip_id: data.id }));
-            return data.id;
+        try {
+            const data = await apiGet('/equipos/?is_club_team=true');
+            if (data && data.length > 0) {
+                const team = data[0];
+                setHospitaletTeamId(team.id);
+                setNewEvent(prev => ({ ...prev, equip_id: team.id }));
+                return team.id;
+            }
+        } catch (e) {
+            console.error("Error fetching team ID:", e);
         }
         return null;
     };
@@ -602,25 +607,19 @@ const CalendarPage = ({ user }) => {
 
             if (!trainingId) {
                 // If it's a match or training without record, find/create training record
-                const { data: eventData } = await supabase
-                    .from('eventos')
-                    .select('id_eventos')
-                    .eq('id', currentEvent.publicId || currentEvent.id)
-                    .single();
+                const eventId = currentEvent.publicId || currentEvent.id;
+                const eventData = await apiGet(`/eventos/${eventId}`);
 
                 if (eventData) {
-                    const { data: trainingData } = await supabase
-                        .from('entrenamientos')
-                        .select('id_entrenamiento')
-                        .eq('evento', eventData.id_eventos)
-                        .maybeSingle();
+                    const allTrainings = await apiGet('/entrenamientos/').catch(() => []);
+                    const trainingData = allTrainings.find(t => t.evento === eventId);
 
                     if (trainingData) {
                         trainingId = trainingData.id_entrenamiento;
                     } else {
-                        // Create training record if it doesn't exist (needed for attendance link)
+                        // Create training record if it doesn't exist
                         const newTraining = await trainingService.create({
-                            evento: eventData.id_eventos,
+                            evento: eventId,
                             calentamiento: '',
                             trabajo_separado: '',
                             trabajo_conjunto: ''

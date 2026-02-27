@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
+import { apiGet } from '../lib/apiClient';
 import { physicalTests as mockPhysicalTests } from '../lib/mockData';
 import { ArrowLeft, Activity, Zap, Heart, Shield, Dumbbell } from 'lucide-react';
 
@@ -18,13 +18,19 @@ const PhysicalTestsPage = ({ user }) => {
     const fetchTests = async () => {
         setLoading(true);
         try {
-            const { data } = await supabase
-                .from('pruebas_fisicas')
-                .select('*, jugadores(name, equip_id)');
+            const data = await apiGet('/pruebas_fisicas/').catch(() => []);
+            const allPlayers = await apiGet('/jugadores_propios/').catch(() => []);
 
             if (data && data.length > 0) {
-                // Unified Staff view: All physical data is visible
-                setResults(data);
+                // Merge with players for name display if backend doesn't provide it
+                const formatted = data.map(test => {
+                    const player = allPlayers.find(p => p.id === test.jugador);
+                    return {
+                        ...test,
+                        players: player ? { name: `${player.nombre} ${player.apellidos}`, equip_id: player.equipo } : null
+                    };
+                });
+                setResults(formatted);
             } else {
                 // Fallback to all mock data for the club team
                 const filtered = mockPhysicalTests.filter(test => test.team === "RC HOSPITALET");

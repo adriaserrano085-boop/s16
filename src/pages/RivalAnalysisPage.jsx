@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
+import { apiGet } from '../lib/apiClient';
 import { leagueService } from '../services/leagueService';
 import { analysisService } from '../services/analysisService';
 import RivalAnalysis from '../components/RivalAnalysis';
@@ -28,24 +28,10 @@ const RivalAnalysisPage = ({ user }) => {
                 setLeagueStats(standings);
 
                 // 2. Fetch Match Stats
-                const { data: statsData, error: sError } = await supabase
-                    .from('estadisticas_partido')
-                    .select(`
-                        id, 
-                        partido, 
-                        partido_externo,
-                        marcador_local, 
-                        marcador_visitante, 
-                        ensayos_local,
-                        ensayos_visitante,
-                        jornada, 
-                        fecha,
-                        partidos ( id, Rival, es_local, Evento, rivales(nombre_equipo) ),
-                        partidos_externos ( id, equipo_local, equipo_visitante, competicion )
-                    `)
-                    .order('fecha', { ascending: true });
-
-                if (sError) throw sError;
+                const statsData = await apiGet('/estadisticas_partido/').catch(() => []);
+                const allPartidos = await apiGet('/partidos/').catch(() => []);
+                const allPartidosExternos = await apiGet('/partidos_externos/').catch(() => []);
+                const allRivales = await apiGet('/rivales/').catch(() => []);
 
                 const results = [];
                 // Process matches similarly to StatsPage but simpler
@@ -56,49 +42,47 @@ const RivalAnalysisPage = ({ user }) => {
                         let date = stat.fecha;
 
                         // Determine names based on source
-                        if (stat.partidos) {
+                        const p = allPartidos.find(part => part.id === stat.partido);
+                        const pe = allPartidosExternos.find(pext => pext.id === stat.partido_externo);
+
+                        if (p) {
                             // Internal Match
-                            const p = stat.partidos;
-                            const rival = p.rivales?.nombre_equipo || p.Rival || "Rival";
+                            const rival = allRivales.find(r => r.id === p.rival_id || r.nombre_equipo === p.Rival);
+                            const rivalNameStr = rival?.nombre_equipo || p.Rival || "Rival";
                             if (p.es_local) {
                                 homeName = HOSPITALET_NAME;
-                                awayName = rival;
+                                awayName = rivalNameStr;
                             } else {
-                                homeName = rival;
+                                homeName = rivalNameStr;
                                 awayName = HOSPITALET_NAME;
                             }
-                        } else if (stat.partidos_externos) {
+                        } else if (pe) {
                             // External Match
-                            const pe = stat.partidos_externos;
                             homeName = pe.equipo_local;
                             awayName = pe.equipo_visitante;
                         }
 
-                        const pObj = Array.isArray(stat.partidos) ? stat.partidos[0] : stat.partidos;
-                        const peObj = Array.isArray(stat.partidos_externos) ? stat.partidos_externos[0] : stat.partidos_externos;
-                        const pId = stat.partido || pObj?.id;
-                        const peId = stat.partido_externo || peObj?.id;
-
-                        results.push({
-                            partido_id: pId,
-                            partido_externo_id: peId,
-                            evento_id: pObj?.Evento,
-                            home: homeName,
-                            away: awayName,
-                            scoreHome: stat.marcador_local,
-                            scoreAway: stat.marcador_visitante,
-                            date: date
-                        });
+                        if (p || pe) {
+                            results.push({
+                                partido_id: stat.partido,
+                                partido_externo_id: stat.partido_externo,
+                                evento_id: p?.Evento,
+                                home: homeName,
+                                away: awayName,
+                                scoreHome: stat.marcador_local,
+                                scoreAway: stat.marcador_visitante,
+                                date: date
+                            });
+                        }
                     });
                 }
 
                 // Wrap in structure expected by RivalAnalysis ( { matches: [] } )
-                // It treats matchResults as grouping array, so we provide one group with all matches.
                 setMatchResults([{ matches: results }]);
 
 
                 // 3. Fetch Player Stats (Needed for top scorers etc.)
-                const { data: rawStats } = await supabase.from('estadisticas_jugador').select('*');
+                const rawStats = await apiGet('/estadisticas_jugador/').catch(() => []);
                 if (rawStats) {
                     const aggregated = {};
                     rawStats.forEach(stat => {

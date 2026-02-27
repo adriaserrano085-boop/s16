@@ -1,96 +1,63 @@
-import { supabase } from '../lib/supabaseClient';
+import { apiGet, apiPost, apiPut } from '../lib/apiClient';
+
+const BASE_URL = '/analisis_partido';
 
 export const analysisService = {
     // Get analysis for a match
     getByEventId: async (eventId) => {
-        const { data, error } = await supabase
-            .from('analisis_partido')
-            .select('*')
-            .eq('evento_id', eventId)
-            .maybeSingle();
-
-        if (error) throw error;
-        return data;
+        const data = await apiGet(`${BASE_URL}/?evento_id=${eventId}`);
+        return data && data.length > 0 ? data[0] : null;
     },
 
     getByExternalMatchId: async (externalId) => {
-        const { data, error } = await supabase
-            .from('analisis_partido')
-            .select('*')
-            .eq('partido_externo_id', externalId)
-            .maybeSingle();
-        if (error) throw error;
-        return data;
+        const data = await apiGet(`${BASE_URL}/?partido_externo_id=${externalId}`);
+        return data && data.length > 0 ? data[0] : null;
     },
 
     // Get all analyses (for evolution calculation)
     getAll: async () => {
-        const { data, error } = await supabase
-            .from('analisis_partido')
-            .select('*');
-        if (error) throw error;
-        return data;
+        return apiGet(`${BASE_URL}/`);
     },
 
     // Save or update analysis
     upsert: async (analysisData) => {
-        // Guard: at least one valid identifier is required
         const hasEventId = !!analysisData.evento_id;
         const hasExternalId = !!analysisData.partido_externo_id;
         const hasMatchId = !!analysisData.partido_id;
 
         if (!hasEventId && !hasExternalId && !hasMatchId) {
-            throw new Error('No se proporcionó ningún identificador de partido válido (partido_id, evento_id o partido_externo_id).');
+            throw new Error('No se proporcionó ningún identificador de partido válido.');
         }
 
-        let existingId = null;
+        let existingRecord = null;
 
-        // 1. Try to find existing record — check all three identifier types
+        // Try to find existing record
         if (hasExternalId) {
-            const { data } = await supabase
-                .from('analisis_partido')
-                .select('id')
-                .eq('partido_externo_id', analysisData.partido_externo_id)
-                .maybeSingle();
-            if (data) existingId = data.id;
+            const results = await apiGet(`${BASE_URL}/?partido_externo_id=${analysisData.partido_externo_id}`);
+            if (results && results.length > 0) existingRecord = results[0];
         }
 
-        if (!existingId && hasEventId) {
-            const { data } = await supabase
-                .from('analisis_partido')
-                .select('id')
-                .eq('evento_id', analysisData.evento_id)
-                .maybeSingle();
-            if (data) existingId = data.id;
+        if (!existingRecord && hasEventId) {
+            const results = await apiGet(`${BASE_URL}/?evento_id=${analysisData.evento_id}`);
+            if (results && results.length > 0) existingRecord = results[0];
         }
 
-        if (!existingId && hasMatchId) {
-            const { data } = await supabase
-                .from('analisis_partido')
-                .select('id')
-                .eq('partido_id', analysisData.partido_id)
-                .maybeSingle();
-            if (data) existingId = data.id;
+        if (!existingRecord && hasMatchId) {
+            const results = await apiGet(`${BASE_URL}/?partido_id=${analysisData.partido_id}`);
+            if (results && results.length > 0) existingRecord = results[0];
         }
 
-        // 2. Prepare payload — strip null FK fields to avoid FK violations on INSERT
         const payload = { ...analysisData };
         if (!hasEventId) delete payload.evento_id;
         if (!hasExternalId) delete payload.partido_externo_id;
         if (!hasMatchId) delete payload.partido_id;
 
-        if (existingId) {
-            payload.id = existingId; // Force update on PK
+        if (existingRecord) {
+            return apiPut(`${BASE_URL}/${existingRecord.id}`, payload);
+        } else {
+            return apiPost(`${BASE_URL}/`, payload);
         }
-
-        // 3. Upsert (if ID is present, it updates; if not, it inserts)
-        const { data, error } = await supabase
-            .from('analisis_partido')
-            .upsert(payload)
-            .select()
-            .single();
-
-        if (error) throw error;
-        return data;
     }
 };
+
+export default analysisService;

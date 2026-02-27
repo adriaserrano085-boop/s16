@@ -22,7 +22,7 @@ import {
     Legend,
 } from 'chart.js';
 
-import { supabase } from '../lib/supabaseClient';
+import { apiGet } from '../lib/apiClient';
 import { eventService } from '../services/eventService';
 import { matchService } from '../services/matchService';
 import { rivalService } from '../services/rivalService';
@@ -101,15 +101,22 @@ const Dashboard = ({ user: propUser }) => {
     useEffect(() => {
         const resolveUser = async () => {
             if (propUser) {
-                // Respect the role passed from App.jsx
                 setCurrentUser(propUser);
                 fetchDashboardData(propUser);
             } else {
-                const { data: { user: authUser } } = await supabase.auth.getUser();
-                if (authUser) {
-                    const staffUser = { ...authUser, role: 'STAFF', email: authUser.email };
-                    setCurrentUser(staffUser);
-                    fetchDashboardData(staffUser);
+                // If no user is passed, we check localStorage or redirect
+                const token = localStorage.getItem('s16_auth_token');
+                if (token) {
+                    // We need a /users/me endpoint to resolve the actual user data
+                    // For now, we use the cached role if available
+                    const cachedStr = localStorage.getItem('s16_cached_role');
+                    if (cachedStr) {
+                        const cached = JSON.parse(cachedStr);
+                        setCurrentUser(cached);
+                        fetchDashboardData(cached);
+                    } else {
+                        navigate('/login');
+                    }
                 } else {
                     navigate('/login');
                 }
@@ -154,10 +161,7 @@ const Dashboard = ({ user: propUser }) => {
 
             // Fetch average stats for players
             if (user?.role === 'JUGADOR' && user.playerId) {
-                const { data: playerStatsData } = await supabase
-                    .from('estadisticas_jugador')
-                    .select('*')
-                    .eq('jugador', user.playerId);
+                const playerStatsData = await apiGet(`/estadisticas_jugador/?jugador=${user.playerId}`).catch(() => []);
 
                 if (playerStatsData && playerStatsData.length > 0) {
                     const playedMatches = playerStatsData.filter(s => (s.minutos_jugados || 0) > 0 || s.es_titular);
