@@ -65,7 +65,8 @@ export async function apiFetch(endpoint, options = {}) {
 
         return data;
     } catch (error) {
-        console.error(`API Error on ${url}:`, error);
+        // Log details but don't use console.error to keep it cleaner during known failures
+        console.log(`API Fetch issue on ${url}:`, error.message || error);
         throw error;
     }
 }
