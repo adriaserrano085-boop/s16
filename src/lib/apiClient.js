@@ -33,13 +33,26 @@ export async function apiFetch(endpoint, options = {}) {
     try {
         const response = await fetch(url, config);
 
-        // Intentamos parsear el JSON de la respuesta siempre
         let data;
         const contentType = response.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) {
+        const isJson = contentType && contentType.indexOf("application/json") !== -1;
+
+        if (isJson) {
             data = await response.json();
         } else {
             data = await response.text();
+            // If we expected JSON but got text/HTML, and it's a 2xx, 
+            // it's likely a proxy error or misconfiguration.
+            if (response.ok) {
+                console.warn(`API returned non-JSON response for ${url} despite 200 OK.`);
+                // Return empty array/object based on common patterns? 
+                // Better to throw so the .catch() in services handles it.
+                throw {
+                    status: response.status,
+                    message: 'La respuesta del servidor no es un JSON válido',
+                    data
+                };
+            }
         }
 
         if (!response.ok) {
