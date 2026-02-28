@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { apiGet, apiPost, apiPut, API_BASE_URL } from '../lib/apiClient';
+import { apiGet, apiPost, apiPut, apiDelete, API_BASE_URL } from '../lib/apiClient';
 const ActaUploader = ({ onUploadComplete }) => {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('');
@@ -498,7 +498,7 @@ const ActaUploader = ({ onUploadComplete }) => {
                             if (!seen.has(p.licencia)) {
                                 seen.add(p.licencia);
                                 try {
-                                    const newExt = await apiPost('/jugadores_externos/', {
+                                    const newExt = await apiPost('/jugadores_externos', {
                                         licencia: p.licencia,
                                         nombre_completo: p.name,
                                         ultimo_equipo: teamName

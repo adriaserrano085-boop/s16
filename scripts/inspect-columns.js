@@ -23,9 +23,10 @@ async function inspectTable(tableName) {
 }
 
 async function main() {
-    await inspectTable('eventos'); // Do events again to be sure
+    await inspectTable('eventos');
     await inspectTable('partidos');
     await inspectTable('analisis_partido');
+    await inspectTable('estadisticas_partido');
 }
 
 main();
