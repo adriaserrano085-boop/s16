@@ -4,7 +4,7 @@ const BASE_URL = '/rivales';
 
 export const rivalService = {
     getAll: async () => {
-        return apiGet(`${BASE_URL}/`).catch(() => []);
+        return apiGet(`${BASE_URL}`).catch(() => []);
     },
 
     getById: async (id) => {
@@ -12,7 +12,7 @@ export const rivalService = {
     },
 
     create: async (rivalData) => {
-        return apiPost(`${BASE_URL}/`, rivalData);
+        return apiPost(`${BASE_URL}`, rivalData);
     }
 };
 

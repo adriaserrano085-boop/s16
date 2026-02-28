@@ -130,19 +130,30 @@ const Dashboard = ({ user: propUser }) => {
         try {
             console.log('Fetching dashboard data from standardized services...');
 
-            // Optimization: Fetch only relevant attendance for players
-            const attendancePromise = (user?.role === 'JUGADOR' && user.playerId)
-                ? attendanceService.getByPlayerId(user.playerId)
-                : attendanceService.getAll();
+            // 1. Fetch Eventos First (Base Table)
+            const eventData = await eventService.getAll().catch(err => {
+                console.error("Failed to fetch events:", err);
+                return [];
+            });
 
-            const [eventData, matchData, rivalData, trainingData, playersData, attData, leagueData] = await Promise.all([
-                eventService.getAll(),
-                matchService.getAll(),
-                rivalService.getAll(),
-                trainingService.getAll(),
-                playerService.getAll(),
-                attendancePromise,
-                leagueService.getStandings()
+            // 2. Fetch Other Data Safely (Only if events loaded, though not strictly required)
+            // Using individual try/catches ensures one failing endpoint doesn't break the rest
+            const fetchSafe = async (fn) => {
+                try { return await fn(); }
+                catch (e) { console.error("Data fetch error:", e); return []; }
+            };
+
+            const attendancePromise = (user?.role === 'JUGADOR' && user.playerId)
+                ? () => attendanceService.getByPlayerId(user.playerId)
+                : () => attendanceService.getAll();
+
+            const [matchData, rivalData, trainingData, playersData, attData, leagueData] = await Promise.all([
+                fetchSafe(() => matchService.getAll()),
+                fetchSafe(() => rivalService.getAll()),
+                fetchSafe(() => trainingService.getAll()),
+                fetchSafe(() => playerService.getAll()),
+                fetchSafe(attendancePromise),
+                fetchSafe(() => leagueService.getStandings())
             ]);
 
             console.log('Data received:', {

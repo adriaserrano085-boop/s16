@@ -4,7 +4,7 @@ const BASE_URL = '/asistencia';
 
 const getAll = async () => {
     // Step 1: Fetch attendance
-    const attendanceData = await apiGet(`${BASE_URL}/`).catch(() => []);
+    const attendanceData = await apiGet(`${BASE_URL}`).catch(() => []);
 
     if (!attendanceData || attendanceData.length === 0) return [];
 
@@ -25,12 +25,12 @@ const getById = async (id) => {
 };
 
 const getByTrainingId = async (trainingId) => {
-    return apiGet(`${BASE_URL}/?entrenamiento=${trainingId}`).catch(() => []);
+    return apiGet(`${BASE_URL}?entrenamiento=${trainingId}`).catch(() => []);
 };
 
 const getByEventId = async (eventId) => {
     // We first need the training ID for this event
-    const trainings = await apiGet(`/entrenamientos/?evento=${eventId}`).catch(() => []);
+    const trainings = await apiGet(`/entrenamientos?evento=${eventId}`).catch(() => []);
     if (!trainings || trainings.length === 0) return [];
 
     // Use the first training found
@@ -52,7 +52,7 @@ const getByEventIds = async (eventIds) => {
 };
 
 const getByPlayerId = async (playerId) => {
-    const attendanceData = await apiGet(`${BASE_URL}/?jugador=${playerId}`).catch(() => []);
+    const attendanceData = await apiGet(`${BASE_URL}?jugador=${playerId}`).catch(() => []);
     return attendanceData || [];
 };
 
@@ -63,7 +63,7 @@ const upsert = async (attendanceData) => {
     for (const record of records) {
         try {
             // Check if record already exists (manual check because of no native upsert in simple CRUD API)
-            const existing = await apiGet(`${BASE_URL}/?entrenamiento=${record.entrenamiento}&jugador=${record.jugador}`);
+            const existing = await apiGet(`${BASE_URL}?entrenamiento=${record.entrenamiento}&jugador=${record.jugador}`);
 
             if (existing && existing.length > 0) {
                 // Update existing record
@@ -71,7 +71,7 @@ const upsert = async (attendanceData) => {
                 results.push(updated);
             } else {
                 // Insert new record
-                const inserted = await apiPost(`${BASE_URL}/`, record);
+                const inserted = await apiPost(`${BASE_URL}`, record);
                 results.push(inserted);
             }
         } catch (err) {

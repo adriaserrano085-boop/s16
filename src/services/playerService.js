@@ -6,7 +6,7 @@ const playerService = {
     getAll: async () => {
         // Asumiendo que /api/v1/jugadores_propios/ devuelve la lista de jugadores.
         // Si el backend espera select(), tendremos que parsearlo una vez devuelto si fuera necesario.
-        return apiGet(`${BASE_URL}/`).catch(() => []);
+        return apiGet(`${BASE_URL}`).catch(() => []);
     },
 
     getById: async (id) => {
@@ -14,7 +14,7 @@ const playerService = {
     },
 
     create: async (player) => {
-        return apiPost(`${BASE_URL}/`, player);
+        return apiPost(`${BASE_URL}`, player);
     },
 
     update: async (id, player) => {

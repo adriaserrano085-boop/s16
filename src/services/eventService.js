@@ -4,11 +4,11 @@ const BASE_URL = '/eventos';
 
 export const eventService = {
     getAll: async () => {
-        return apiGet(`${BASE_URL}/`).catch(() => []);
+        return apiGet(`${BASE_URL}`).catch(() => []);
     },
 
     create: async (eventData) => {
-        return apiPost(`${BASE_URL}/`, eventData);
+        return apiPost(`${BASE_URL}`, eventData);
     },
 
     update: async (id, eventData) => {
