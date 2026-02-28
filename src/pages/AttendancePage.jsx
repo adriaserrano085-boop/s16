@@ -90,8 +90,8 @@ const AttendancePage = ({ user }) => {
         const filteredAttendance = allAttendance.filter(record => {
             if (selectedMonth === 'all') return true;
 
-            // Check date in record.eventos.date
-            const eventDate = record.eventos?.date;
+            // Check date in record.entrenamientos.evento_ref.fecha
+            const eventDate = record.entrenamientos?.evento_ref?.fecha;
             if (!eventDate) return false;
 
             return eventDate.startsWith(selectedMonth);

@@ -5,11 +5,13 @@ import { convocatoriaService } from '../services/convocatoriaService';
 import { analysisService } from '../services/analysisService';
 import { analyzePdf } from '../utils/pdfAnalysis';
 import playerService from '../services/playerService';
+import attendanceService from '../services/attendanceService';
+import AttendanceList from './AttendanceList';
 import './MatchDetailsModal.css';
 
 const MAX_SQUAD = 23;
 
-const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
+const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch, onEditMatch }) => {
     if (!match) return null;
 
     const props = match.extendedProps || {};
@@ -39,6 +41,11 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
 
     // Tabs
     const [activeTab, setActiveTab] = useState('summary');
+
+    // Attendance State
+    const [players, setPlayers] = useState([]);
+    const [attendance, setAttendance] = useState({});
+    const [savingAttendance, setSavingAttendance] = useState(false);
 
     // Squad State
     const [squad, setSquad] = useState([]);
@@ -90,13 +97,27 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
         if (externalId) {
             loadAnalysisExternal();
         } else if (eventId) {
-            // Load Squad only if it's a real match (partido_id exists)
+            // Load Squad & Attendance only if it's a real match (partido_id exists)
             if (matchId) {
                 loadSquadData();
             }
+            fetchExistingAttendance(eventId);
             loadAnalysisData();
         }
     }, [eventId, matchId, externalId]);
+
+    const fetchExistingAttendance = async (evId) => {
+        try {
+            const data = await attendanceService.getByEventId(evId);
+            const attendanceMap = {};
+            data.forEach(record => {
+                attendanceMap[record.jugador] = record.asistencia;
+            });
+            setAttendance(attendanceMap);
+        } catch (err) {
+            console.error('Error fetching attendance:', err);
+        }
+    };
 
     const loadAnalysisData = async () => {
         try {
@@ -363,6 +384,63 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
         }
     };
 
+    const handleAttendanceToggle = (playerId) => {
+        const statusCycle = ['Presente', 'Retraso', 'Falta', 'Falta Justificada', 'Lesion', 'Catalana', 'Emfermo', 'Pendiente'];
+        setAttendance(prev => {
+            const currentStatus = prev[playerId] || 'Pendiente';
+            const currentIndex = statusCycle.indexOf(currentStatus);
+            const nextIndex = (currentIndex + 1) % statusCycle.length;
+            return {
+                ...prev,
+                [playerId]: statusCycle[nextIndex]
+            };
+        });
+    };
+
+    const handleSaveAttendance = async () => {
+        setSavingAttendance(true);
+        try {
+            // Get training ID related to this match event
+            let trainingId = props.training_id;
+
+            if (!trainingId) {
+                // Determine the correct API module to fetch training using apiClient
+                const { apiGet } = await import('../lib/apiClient');
+                const allTrainings = await apiGet('/entrenamientos/').catch(() => []);
+                const trainingData = allTrainings.find(t => t.evento === eventId);
+
+                if (trainingData) {
+                    trainingId = trainingData.id_entrenamiento;
+                } else {
+                    const { trainingService } = await import('../services/trainingService');
+                    const newTraining = await trainingService.create({
+                        evento: eventId,
+                        calentamiento: '',
+                        trabajo_separado: '',
+                        trabajo_conjunto: ''
+                    });
+                    trainingId = newTraining[0].id_entrenamiento;
+                }
+            }
+
+            if (!trainingId) throw new Error("No se pudo identificar el registro de entrenamiento.");
+
+            const attendanceRecords = Object.entries(attendance).map(([playerId, status]) => ({
+                entrenamiento: trainingId,
+                jugador: playerId,
+                asistencia: status
+            }));
+
+            await attendanceService.upsert(attendanceRecords);
+            alert('Asistencia guardada con éxito');
+        } catch (err) {
+            console.error('Error saving attendance:', err);
+            alert('Error al guardar asistencia: ' + err.message);
+        } finally {
+            setSavingAttendance(false);
+        }
+    };
+
     const handlePlayerChange = (index, playerId) => {
         const newSquad = [...squad];
         newSquad[index] = { ...newSquad[index], jugador: playerId };
@@ -440,689 +518,764 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch }) => {
                         </div>
                     </div>
 
-                    {/* Details Info Grid */}
-                    <div className="details-info-grid">
-                        <div className="info-item">
-                            <Calendar size={20} />
-                            <div>
-                                <label>Fecha</label>
-                                <p>{dateStr}</p>
-                            </div>
-                        </div>
-                        <div className="info-item">
-                            <Clock size={20} />
-                            <div>
-                                <label>Hora</label>
-                                <p>{timeStr} hs</p>
-                            </div>
-                        </div>
-                        <div className="info-item">
-                            <MapPin size={20} />
-                            <div>
-                                <label>Lugar</label>
-                                <p>{props.lugar || 'Por confirmar'}</p>
-                            </div>
-                        </div>
-                        <div className="info-item">
-                            <Activity size={20} />
-                            <div>
-                                <label>Estado</label>
-                                <p>{props.estado || 'Programado'}</p>
-                            </div>
-                        </div>
+                    {/* New Tabs Interface */}
+                    <div className="modal-tabs" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                        <button
+                            onClick={() => setActiveTab('summary')}
+                            className={`tab-link ${activeTab === 'summary' ? 'active' : ''}`}
+                            style={{ background: 'none', border: 'none', borderBottom: activeTab === 'summary' ? '3px solid var(--color-primary-blue)' : 'none', color: activeTab === 'summary' ? 'var(--color-primary-blue)' : '#666', padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            Resumen
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('attendance')}
+                            className={`tab-link ${activeTab === 'attendance' ? 'active' : ''}`}
+                            style={{ background: 'none', border: 'none', borderBottom: activeTab === 'attendance' ? '3px solid var(--color-primary-blue)' : 'none', color: activeTab === 'attendance' ? 'var(--color-primary-blue)' : '#666', padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            Asistencia
+                        </button>
                     </div>
 
-                    {props.observaciones && (
-                        <div className="match-observations">
-                            <div className="obs-header">
-                                <Info size={18} />
-                                <span>Observaciones</span>
-                            </div>
-                            <p className="obs-text">{props.observaciones}</p>
-                        </div>
-                    )}
-
-                    {/* Report Button for Past Matches */}
-                    {isFinished && (
-                        <div style={{ marginTop: '1rem' }}>
-                            <button
-                                onClick={() => {
-                                    onClose();
-                                    const targetId = props.match_id || props.partido_externo_id;
-                                    const targetType = props.match_id ? 'internal' : (props.partido_externo_id ? 'external' : 'any');
-
-                                    // Use new dedicated page
-                                    if (targetId) {
-                                        navigate(`/analysis/match/${targetType}/${targetId}`);
-                                    }
-                                }}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                                    color: 'white',
-                                    fontSize: '1rem',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '0.5rem',
-                                    boxShadow: '0 4px 6px -1px rgba(245, 158, 11, 0.5)'
-                                }}
-                            >
-                                <FileJson size={18} />
-                                Ver Informe del Partido
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Rival Analysis Button for Players - Only for NEXT match */}
-                    {currentUser?.role === 'JUGADOR' && isNextMatch && (props.homeTeamName !== 'RC HOSPITALET' || props.awayTeamName !== 'RC HOSPITALET') && (
-                        <div style={{ marginTop: '1rem' }}>
-                            <button
-                                onClick={() => {
-                                    const rival = props.homeTeamName === 'RC HOSPITALET' ? props.awayTeamName : props.homeTeamName;
-                                    if (rival) {
-                                        onClose();
-                                        navigate(`/analysis/rival/${encodeURIComponent(rival)}`);
-                                    }
-                                }}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                                    color: 'white',
-                                    fontSize: '1rem',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '0.5rem',
-                                    boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.5)'
-                                }}
-                            >
-                                <TrendingUp size={18} />
-                                Ver Análisis del Rival
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Convocatoria Section */}
-                    {matchId && (
-                        <div className="convocatoria-section">
-                            <div
-                                className="convocatoria-header"
-                                onClick={() => setShowConvocatoria(!showConvocatoria)}
-                            >
-                                <div className="convocatoria-title">
-                                    <ClipboardList size={20} />
-                                    <span>CONVOCATORIA</span>
-                                    <span className="convocatoria-count">{filledCount}/{MAX_SQUAD}</span>
+                    {activeTab === 'summary' ? (
+                        <>
+                            {/* Details Info Grid */}
+                            <div className="details-info-grid">
+                                <div className="info-item">
+                                    <Calendar size={20} />
+                                    <div>
+                                        <label>Fecha</label>
+                                        <p>{dateStr}</p>
+                                    </div>
                                 </div>
-                                <span className={`convocatoria-toggle ${showConvocatoria ? 'open' : ''}`}>▾</span>
+                                <div className="info-item">
+                                    <Clock size={20} />
+                                    <div>
+                                        <label>Hora</label>
+                                        <p>{timeStr} hs</p>
+                                    </div>
+                                </div>
+                                <div className="info-item">
+                                    <MapPin size={20} />
+                                    <div>
+                                        <label>Lugar</label>
+                                        <p>{props.lugar || 'Por confirmar'}</p>
+                                    </div>
+                                </div>
+                                <div className="info-item">
+                                    <Activity size={20} />
+                                    <div>
+                                        <label>Estado</label>
+                                        <p>{props.estado || 'Programado'}</p>
+                                    </div>
+                                </div>
                             </div>
 
-                            {showConvocatoria && (
-                                <div className="convocatoria-body">
-                                    {/* Player Personal Status */}
-                                    {currentUser?.role === 'JUGADOR' && !loadingSquad && (
-                                        <div className="player-convocatoria-status" style={{ marginBottom: '1rem' }}>
-                                            {(() => {
-                                                const mySpot = squad.find(s => s.jugador === currentUser.playerId);
-                                                return mySpot ? (
-                                                    <div className="status-card-large badge-presente" style={{ padding: '0.5rem 1rem 0 1rem', borderRadius: '12px', textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
-                                                        <span className="status-large-text" style={{ fontSize: '1.1rem', fontWeight: '800', display: 'block', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                                                            {isFinished || (props.homeScore !== null && props.awayScore !== null) ? '¡Estuviste Convocado!' : '¡Estás Convocado!'}
-                                                        </span>
+                            {props.observaciones && (
+                                <div className="match-observations">
+                                    <div className="obs-header">
+                                        <Info size={18} />
+                                        <span>Observaciones</span>
+                                    </div>
+                                    <p className="obs-text">{props.observaciones}</p>
+                                </div>
+                            )}
 
-                                                        {/* Jersey Container */}
-                                                        <div style={{ position: 'relative', width: '450px', height: '450px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '-60px', marginBottom: '-100px' }}>
-                                                            <img
-                                                                src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/camiseta.png"
-                                                                alt="Camiseta"
-                                                                style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.25))' }}
-                                                            />
-                                                            <span style={{
-                                                                position: 'absolute',
-                                                                top: '42%',
-                                                                left: '50%',
-                                                                transform: 'translate(-50%, -50%)',
-                                                                fontSize: '5rem',
-                                                                fontWeight: '900',
-                                                                color: 'var(--color-primary-blue)',
-                                                                zIndex: 10,
-                                                                fontFamily: 'var(--font-main)',
-                                                                textAlign: 'center',
-                                                                width: '100%'
-                                                            }}>
-                                                                {mySpot.numero}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="status-card-large badge-ausente" style={{ padding: '1rem', borderRadius: '8px', textAlign: 'center', backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}>
-                                                        <span className="status-large-text" style={{ fontSize: '1.2rem', fontWeight: 'bold', display: 'block' }}>NO CONVOCADO</span>
-                                                        <span style={{ fontSize: '0.9rem' }}>No estás en la lista para este partido.</span>
-                                                    </div>
-                                                );
-                                            })()}
+                            {onEditMatch && (
+                                <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
+                                    <button
+                                        onClick={() => onEditMatch(props)}
+                                        style={{
+                                            padding: '0.5rem 1.5rem',
+                                            borderRadius: '8px',
+                                            border: '1px solid #d1d5db',
+                                            background: 'white',
+                                            color: '#4b5563',
+                                            fontSize: '0.9rem',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Editar Evento
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Report Button for Past Matches */}
+                            {isFinished && (
+                                <div style={{ marginTop: '1rem' }}>
+                                    <button
+                                        onClick={() => {
+                                            onClose();
+                                            const targetId = props.match_id || props.partido_externo_id;
+                                            const targetType = props.match_id ? 'internal' : (props.partido_externo_id ? 'external' : 'any');
+
+                                            // Use new dedicated page
+                                            if (targetId) {
+                                                navigate(`/analysis/match/${targetType}/${targetId}`);
+                                            }
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                            color: 'white',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '0.5rem',
+                                            boxShadow: '0 4px 6px -1px rgba(245, 158, 11, 0.5)'
+                                        }}
+                                    >
+                                        <FileJson size={18} />
+                                        Ver Informe del Partido
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Rival Analysis Button for Players - Only for NEXT match */}
+                            {currentUser?.role === 'JUGADOR' && isNextMatch && (props.homeTeamName !== 'RC HOSPITALET' || props.awayTeamName !== 'RC HOSPITALET') && (
+                                <div style={{ marginTop: '1rem' }}>
+                                    <button
+                                        onClick={() => {
+                                            const rival = props.homeTeamName === 'RC HOSPITALET' ? props.awayTeamName : props.homeTeamName;
+                                            if (rival) {
+                                                onClose();
+                                                navigate(`/analysis/rival/${encodeURIComponent(rival)}`);
+                                            }
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                            color: 'white',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '0.5rem',
+                                            boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.5)'
+                                        }}
+                                    >
+                                        <TrendingUp size={18} />
+                                        Ver Análisis del Rival
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Convocatoria Section */}
+                            {matchId && (
+                                <div className="convocatoria-section">
+                                    <div
+                                        className="convocatoria-header"
+                                        onClick={() => setShowConvocatoria(!showConvocatoria)}
+                                    >
+                                        <div className="convocatoria-title">
+                                            <ClipboardList size={20} />
+                                            <span>CONVOCATORIA</span>
+                                            <span className="convocatoria-count">{filledCount}/{MAX_SQUAD}</span>
                                         </div>
-                                    )}
+                                        <span className={`convocatoria-toggle ${showConvocatoria ? 'open' : ''}`}>▾</span>
+                                    </div>
 
-                                    {/* Full Squad List - Only for Staff/Non-Players */}
-                                    {currentUser?.role !== 'JUGADOR' && (
-                                        <>
-                                            {loadingSquad ? (
-                                                <p className="convocatoria-loading">Cargando plantilla...</p>
-                                            ) : (
-                                                <>
-                                                    <div className="squad-list">
-                                                        {squad.map((slot, idx) => (
-                                                            <div key={idx} className={`squad-slot ${slot.jugador ? 'squad-slot--filled' : ''}`}>
-                                                                <span className="squad-number">{slot.numero}</span>
-                                                                {isFutureMatch ? (
-                                                                    <select
-                                                                        className="squad-select"
-                                                                        value={slot.jugador || ''}
-                                                                        onChange={(e) => handlePlayerChange(idx, e.target.value)}
-                                                                    >
-                                                                        <option value="">— Vacante —</option>
-                                                                        {getAvailablePlayers(slot.jugador).map(p => (
-                                                                            <option key={p.id} value={p.id}>
-                                                                                {p.apellidos}, {p.nombre}
-                                                                            </option>
-                                                                        ))}
-                                                                    </select>
-                                                                ) : (
-                                                                    <span className="squad-player-name">
-                                                                        {slot.jugador ? getPlayerName(slot.jugador) : '—'}
+                                    {showConvocatoria && (
+                                        <div className="convocatoria-body">
+                                            {/* Player Personal Status */}
+                                            {currentUser?.role === 'JUGADOR' && !loadingSquad && (
+                                                <div className="player-convocatoria-status" style={{ marginBottom: '1rem' }}>
+                                                    {(() => {
+                                                        const mySpot = squad.find(s => s.jugador === currentUser.playerId);
+                                                        return mySpot ? (
+                                                            <div className="status-card-large badge-presente" style={{ padding: '0.5rem 1rem 0 1rem', borderRadius: '12px', textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                                                                <span className="status-large-text" style={{ fontSize: '1.1rem', fontWeight: '800', display: 'block', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                                                                    {isFinished || (props.homeScore !== null && props.awayScore !== null) ? '¡Estuviste Convocado!' : '¡Estás Convocado!'}
+                                                                </span>
+
+                                                                {/* Jersey Container */}
+                                                                <div style={{ position: 'relative', width: '450px', height: '450px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '-60px', marginBottom: '-100px' }}>
+                                                                    <img
+                                                                        src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/camiseta.png"
+                                                                        alt="Camiseta"
+                                                                        style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.25))' }}
+                                                                    />
+                                                                    <span style={{
+                                                                        position: 'absolute',
+                                                                        top: '42%',
+                                                                        left: '50%',
+                                                                        transform: 'translate(-50%, -50%)',
+                                                                        fontSize: '5rem',
+                                                                        fontWeight: '900',
+                                                                        color: 'var(--color-primary-blue)',
+                                                                        zIndex: 10,
+                                                                        fontFamily: 'var(--font-main)',
+                                                                        textAlign: 'center',
+                                                                        width: '100%'
+                                                                    }}>
+                                                                        {mySpot.numero}
                                                                     </span>
-                                                                )}
+                                                                </div>
                                                             </div>
-                                                        ))}
-                                                    </div>
+                                                        ) : (
+                                                            <div className="status-card-large badge-ausente" style={{ padding: '1rem', borderRadius: '8px', textAlign: 'center', backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}>
+                                                                <span className="status-large-text" style={{ fontSize: '1.2rem', fontWeight: 'bold', display: 'block' }}>NO CONVOCADO</span>
+                                                                <span style={{ fontSize: '0.9rem' }}>No estás en la lista para este partido.</span>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            )}
 
-                                                    {isFutureMatch && (
-                                                        <div className="convocatoria-actions">
-                                                            <button
-                                                                className="btn-save-squad"
-                                                                onClick={handleSaveSquad}
-                                                                disabled={savingSquad}
-                                                            >
-                                                                <Save size={16} />
-                                                                {savingSquad ? 'Guardando...' : 'Guardar Convocatoria'}
-                                                            </button>
-                                                            {squadMessage && (
-                                                                <span className="squad-message">{squadMessage}</span>
+                                            {/* Full Squad List - Only for Staff/Non-Players */}
+                                            {currentUser?.role !== 'JUGADOR' && (
+                                                <>
+                                                    {loadingSquad ? (
+                                                        <p className="convocatoria-loading">Cargando plantilla...</p>
+                                                    ) : (
+                                                        <>
+                                                            <div className="squad-list">
+                                                                {squad.map((slot, idx) => (
+                                                                    <div key={idx} className={`squad-slot ${slot.jugador ? 'squad-slot--filled' : ''}`}>
+                                                                        <span className="squad-number">{slot.numero}</span>
+                                                                        {isFutureMatch ? (
+                                                                            <select
+                                                                                className="squad-select"
+                                                                                value={slot.jugador || ''}
+                                                                                onChange={(e) => handlePlayerChange(idx, e.target.value)}
+                                                                            >
+                                                                                <option value="">— Vacante —</option>
+                                                                                {getAvailablePlayers(slot.jugador).map(p => (
+                                                                                    <option key={p.id} value={p.id}>
+                                                                                        {p.apellidos}, {p.nombre}
+                                                                                    </option>
+                                                                                ))}
+                                                                            </select>
+                                                                        ) : (
+                                                                            <span className="squad-player-name">
+                                                                                {slot.jugador ? getPlayerName(slot.jugador) : '—'}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+
+                                                            {isFutureMatch && (
+                                                                <div className="convocatoria-actions">
+                                                                    <button
+                                                                        className="btn-save-squad"
+                                                                        onClick={handleSaveSquad}
+                                                                        disabled={savingSquad}
+                                                                    >
+                                                                        <Save size={16} />
+                                                                        {savingSquad ? 'Guardando...' : 'Guardar Convocatoria'}
+                                                                    </button>
+                                                                    {squadMessage && (
+                                                                        <span className="squad-message">{squadMessage}</span>
+                                                                    )}
+                                                                </div>
                                                             )}
-                                                        </div>
+                                                        </>
                                                     )}
                                                 </>
                                             )}
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             )}
-                        </div>
-                    )}
 
-                    {/* Match Analysis Section - Available for ALL events BUT ONLY STAFF sees it */}
-                    {(eventId || externalId) && currentUser?.role !== 'JUGADOR' && (
-                        <div className="convocatoria-section" style={{ marginTop: '12px' }}>
-                            <div
-                                className="convocatoria-header"
-                                onClick={() => setShowAnalysis(!showAnalysis)}
-                                style={{ background: 'linear-gradient(to right, #f8fafc, #eff6ff)', borderLeft: '4px solid #3b82f6' }}
-                            >
-                                <div className="convocatoria-title">
-                                    <FileJson size={20} color="#3b82f6" />
-                                    <span style={{ color: '#1e3a8a', fontWeight: '800' }}>ANÁLISIS E INFORMES</span>
-                                    {analysis && <span className="status-dot-green" title="Configurado"></span>}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>
-                                        {analysis?.raw_json?.match_report ? 'FORMATO AVANZADO' : (analysis ? 'FORMATO SIMPLE' : 'SIN DATOS')}
-                                    </span>
-                                    <span className={`convocatoria-toggle ${showAnalysis ? 'open' : ''}`}>▾</span>
-                                </div>
-                            </div>
-
-                            {showAnalysis && (
-                                <div className="convocatoria-body" style={{ padding: '1.5rem' }}>
-                                    {/* Main Importer Action */}
-                                    <div className="analysis-importer-box" style={{
-                                        background: '#f0f9ff',
-                                        border: '2px dashed #bae6fd',
-                                        borderRadius: '12px',
-                                        padding: '1.5rem',
-                                        marginBottom: '1.5rem',
-                                        textAlign: 'center'
-                                    }}>
-                                        <h4 style={{ margin: '0 0 0.5rem 0', color: '#0369a1' }}>Importador Masivo de Datos (JSON)</h4>
-                                        <p style={{ fontSize: '0.85rem', color: '#0c4a6e', marginBottom: '1rem' }}>
-                                            Pega el JSON generado por la IA para cargar automáticamente alineaciones, estadísticas, flujo del partido y recomendaciones.
-                                        </p>
-                                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                                            <button
-                                                onClick={() => setShowJsonInput(!showJsonInput)}
-                                                style={{
-                                                    backgroundColor: showJsonInput ? '#64748b' : '#0284c7',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '10px 20px',
-                                                    borderRadius: '8px',
-                                                    cursor: 'pointer',
-                                                    fontWeight: '700',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.4)'
-                                                }}
-                                            >
-                                                <FileJson size={18} /> {showJsonInput ? 'Cerrar Importador' : 'Cargar JSON de Análisis'}
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    import('../services/reportService').then(({ reportService }) => {
-                                                        const template = JSON.stringify(reportService.getTemplate(), null, 2);
-                                                        navigator.clipboard.writeText(template);
-                                                        alert("📋 Plantilla copiada.");
-                                                    });
-                                                }}
-                                                style={{
-                                                    backgroundColor: 'white',
-                                                    color: '#475569',
-                                                    border: '1px solid #e2e8f0',
-                                                    padding: '10px 15px',
-                                                    borderRadius: '8px',
-                                                    cursor: 'pointer',
-                                                    fontWeight: '600'
-                                                }}
-                                            >
-                                                Copiar Plantilla
-                                            </button>
+                            {/* Match Analysis Section - Available for ALL events BUT ONLY STAFF sees it */}
+                            {(eventId || externalId) && currentUser?.role !== 'JUGADOR' && (
+                                <div className="convocatoria-section" style={{ marginTop: '12px' }}>
+                                    <div
+                                        className="convocatoria-header"
+                                        onClick={() => setShowAnalysis(!showAnalysis)}
+                                        style={{ background: 'linear-gradient(to right, #f8fafc, #eff6ff)', borderLeft: '4px solid #3b82f6' }}
+                                    >
+                                        <div className="convocatoria-title">
+                                            <FileJson size={20} color="#3b82f6" />
+                                            <span style={{ color: '#1e3a8a', fontWeight: '800' }}>ANÁLISIS E INFORMES</span>
+                                            {analysis && <span className="status-dot-green" title="Configurado"></span>}
                                         </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>
+                                                {analysis?.raw_json?.match_report ? 'FORMATO AVANZADO' : (analysis ? 'FORMATO SIMPLE' : 'SIN DATOS')}
+                                            </span>
+                                            <span className={`convocatoria-toggle ${showAnalysis ? 'open' : ''}`}>▾</span>
+                                        </div>
+                                    </div>
 
-                                        {showJsonInput && (
-                                            <div style={{ marginTop: '1.5rem', textAlign: 'left' }}>
-                                                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.5rem', display: 'block' }}>
-                                                    Pega el contenido JSON aquí:
-                                                </label>
-                                                <textarea
-                                                    className="json-import-textarea"
-                                                    value={pastedJson}
-                                                    onChange={(e) => setPastedJson(e.target.value)}
-                                                    placeholder='{ "match_report": { ... } }'
-                                                    rows={8}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px',
+                                    {showAnalysis && (
+                                        <div className="convocatoria-body" style={{ padding: '1.5rem' }}>
+                                            {/* Main Importer Action */}
+                                            <div className="analysis-importer-box" style={{
+                                                background: '#f0f9ff',
+                                                border: '2px dashed #bae6fd',
+                                                borderRadius: '12px',
+                                                padding: '1.5rem',
+                                                marginBottom: '1.5rem',
+                                                textAlign: 'center'
+                                            }}>
+                                                <h4 style={{ margin: '0 0 0.5rem 0', color: '#0369a1' }}>Importador Masivo de Datos (JSON)</h4>
+                                                <p style={{ fontSize: '0.85rem', color: '#0c4a6e', marginBottom: '1rem' }}>
+                                                    Pega el JSON generado por la IA para cargar automáticamente alineaciones, estadísticas, flujo del partido y recomendaciones.
+                                                </p>
+                                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                                                    <button
+                                                        onClick={() => setShowJsonInput(!showJsonInput)}
+                                                        style={{
+                                                            backgroundColor: showJsonInput ? '#64748b' : '#0284c7',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            padding: '10px 20px',
+                                                            borderRadius: '8px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '700',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.4)'
+                                                        }}
+                                                    >
+                                                        <FileJson size={18} /> {showJsonInput ? 'Cerrar Importador' : 'Cargar JSON de Análisis'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            import('../services/reportService').then(({ reportService }) => {
+                                                                const template = JSON.stringify(reportService.getTemplate(), null, 2);
+                                                                navigator.clipboard.writeText(template);
+                                                                alert("📋 Plantilla copiada.");
+                                                            });
+                                                        }}
+                                                        style={{
+                                                            backgroundColor: 'white',
+                                                            color: '#475569',
+                                                            border: '1px solid #e2e8f0',
+                                                            padding: '10px 15px',
+                                                            borderRadius: '8px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '600'
+                                                        }}
+                                                    >
+                                                        Copiar Plantilla
+                                                    </button>
+                                                </div>
+
+                                                {showJsonInput && (
+                                                    <div style={{ marginTop: '1.5rem', textAlign: 'left' }}>
+                                                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.5rem', display: 'block' }}>
+                                                            Pega el contenido JSON aquí:
+                                                        </label>
+                                                        <textarea
+                                                            className="json-import-textarea"
+                                                            value={pastedJson}
+                                                            onChange={(e) => setPastedJson(e.target.value)}
+                                                            placeholder='{ "match_report": { ... } }'
+                                                            rows={8}
+                                                            style={{
+                                                                width: '100%',
+                                                                padding: '12px',
+                                                                borderRadius: '8px',
+                                                                border: '2px solid #bae6fd',
+                                                                fontSize: '0.85rem',
+                                                                fontFamily: 'monospace',
+                                                                marginBottom: '1rem',
+                                                                resize: 'vertical'
+                                                            }}
+                                                        />
+                                                        <button
+                                                            onClick={() => {
+                                                                const jsonString = pastedJson;
+                                                                if (jsonString) {
+                                                                    const cleanJsonInput = (input) => {
+                                                                        if (!input) return "";
+                                                                        let cleaned = input.replace(/```json/g, "").replace(/```/g, "");
+                                                                        cleaned = cleaned.replace(/\[cite_start\]/g, "");
+                                                                        cleaned = cleaned.replace(/\[cite:[^\]]*\]/g, "");
+                                                                        return cleaned.trim();
+                                                                    };
+
+                                                                    try {
+                                                                        const cleanedString = cleanJsonInput(jsonString);
+                                                                        const jsonData = JSON.parse(cleanedString);
+                                                                        setRawJson(jsonData);
+
+                                                                        import('../services/reportService').then(({ reportService }) => {
+                                                                            // 1. Update markdown report
+                                                                            const markdown = reportService.jsonToMarkdown(jsonData);
+                                                                            setAnalystReport(markdown);
+
+                                                                            // 2. Sync specialized states (Timeline, Stats)
+                                                                            const syncData = reportService.syncAnalysisToState(jsonData);
+                                                                            if (syncData) {
+                                                                                if (syncData.timeline) setTimeline(syncData.timeline);
+                                                                                if (syncData.stats) {
+                                                                                    const { possession, tackles, mele } = syncData.stats;
+                                                                                    setPossessionHome(possession.local);
+                                                                                    setPossessionAway(possession.visitor);
+                                                                                    setTacklesHomeMade(tackles.homeMade);
+                                                                                    setTacklesAwayMade(tackles.awayMade);
+                                                                                    setTacklesHomeMissed(tackles.homeMissed);
+                                                                                    setTacklesAwayMissed(tackles.awayMissed);
+                                                                                    setScrumsHomeWon(mele.local_ganada);
+                                                                                    setScrumsHomeLost(mele.local_perdida);
+                                                                                    setScrumsAwayWon(mele.visitante_ganada);
+                                                                                    setScrumsAwayLost(mele.visitante_perdida);
+                                                                                }
+                                                                            }
+                                                                        });
+
+                                                                        alert("✅ Datos importados y sincronizados correctamente. ¡No olvides Guardar el Análisis!");
+                                                                        setShowJsonInput(false);
+                                                                        setPastedJson('');
+                                                                    } catch (e) {
+                                                                        console.error(e);
+                                                                        alert("❌ Error: Formato JSON inválido.");
+                                                                    }
+                                                                }
+                                                            }}
+                                                            disabled={!pastedJson.trim()}
+                                                            style={{
+                                                                width: '100%',
+                                                                backgroundColor: '#0ea5e9',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                padding: '12px',
+                                                                borderRadius: '8px',
+                                                                cursor: pastedJson.trim() ? 'pointer' : 'not-allowed',
+                                                                fontWeight: 'bold',
+                                                                opacity: pastedJson.trim() ? 1 : 0.6
+                                                            }}
+                                                        >
+                                                            Procesar e Importar Datos
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* AI Roster Sync Section */}
+                                                {rawJson?.match_report?.rosters_and_stats?.local && (
+                                                    <div style={{
+                                                        marginTop: '1.5rem',
+                                                        padding: '1rem',
+                                                        background: 'white',
                                                         borderRadius: '8px',
-                                                        border: '2px solid #bae6fd',
-                                                        fontSize: '0.85rem',
-                                                        fontFamily: 'monospace',
-                                                        marginBottom: '1rem',
-                                                        resize: 'vertical'
-                                                    }}
-                                                />
-                                                <button
-                                                    onClick={() => {
-                                                        const jsonString = pastedJson;
-                                                        if (jsonString) {
-                                                            const cleanJsonInput = (input) => {
-                                                                if (!input) return "";
-                                                                let cleaned = input.replace(/```json/g, "").replace(/```/g, "");
-                                                                cleaned = cleaned.replace(/\[cite_start\]/g, "");
-                                                                cleaned = cleaned.replace(/\[cite:[^\]]*\]/g, "");
-                                                                return cleaned.trim();
-                                                            };
+                                                        border: '1px solid #e0f2fe',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        gap: '12px'
+                                                    }}>
+                                                        <div style={{ textAlign: 'left' }}>
+                                                            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#0369a1', display: 'block' }}>
+                                                                Alineación AI disponible ({rawJson.match_report.rosters_and_stats.local.length} jugadores)
+                                                            </span>
+                                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                                Puedes sincronizar estos nombres con la convocatoria oficial del club.
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => {
+                                                                const aiRoster = rawJson.match_report.rosters_and_stats.local;
+                                                                const newSquad = [...squad];
+                                                                let matchedCount = 0;
 
-                                                            try {
-                                                                const cleanedString = cleanJsonInput(jsonString);
-                                                                const jsonData = JSON.parse(cleanedString);
-                                                                setRawJson(jsonData);
+                                                                aiRoster.forEach(aiPlayer => {
+                                                                    const dorsal = aiPlayer.dorsal;
+                                                                    if (dorsal >= 1 && dorsal <= MAX_SQUAD) {
+                                                                        // Try fuzzy match by name
+                                                                        const matchedPlayer = allPlayers.find(p => {
+                                                                            const fullName = `${p.nombre} ${p.apellidos}`.toLowerCase();
+                                                                            const aiName = aiPlayer.name.toLowerCase();
+                                                                            return fullName.includes(aiName) || aiName.includes(p.nombre.toLowerCase());
+                                                                        });
 
-                                                                import('../services/reportService').then(({ reportService }) => {
-                                                                    // 1. Update markdown report
-                                                                    const markdown = reportService.jsonToMarkdown(jsonData);
-                                                                    setAnalystReport(markdown);
-
-                                                                    // 2. Sync specialized states (Timeline, Stats)
-                                                                    const syncData = reportService.syncAnalysisToState(jsonData);
-                                                                    if (syncData) {
-                                                                        if (syncData.timeline) setTimeline(syncData.timeline);
-                                                                        if (syncData.stats) {
-                                                                            const { possession, tackles, mele } = syncData.stats;
-                                                                            setPossessionHome(possession.local);
-                                                                            setPossessionAway(possession.visitor);
-                                                                            setTacklesHomeMade(tackles.homeMade);
-                                                                            setTacklesAwayMade(tackles.awayMade);
-                                                                            setTacklesHomeMissed(tackles.homeMissed);
-                                                                            setTacklesAwayMissed(tackles.awayMissed);
-                                                                            setScrumsHomeWon(mele.local_ganada);
-                                                                            setScrumsHomeLost(mele.local_perdida);
-                                                                            setScrumsAwayWon(mele.visitante_ganada);
-                                                                            setScrumsAwayLost(mele.visitante_perdida);
+                                                                        if (matchedPlayer) {
+                                                                            newSquad[dorsal - 1] = { numero: dorsal, jugador: matchedPlayer.id };
+                                                                            matchedCount++;
                                                                         }
                                                                     }
                                                                 });
 
-                                                                alert("✅ Datos importados y sincronizados correctamente. ¡No olvides Guardar el Análisis!");
-                                                                setShowJsonInput(false);
-                                                                setPastedJson('');
-                                                            } catch (e) {
-                                                                console.error(e);
-                                                                alert("❌ Error: Formato JSON inválido.");
-                                                            }
-                                                        }
-                                                    }}
-                                                    disabled={!pastedJson.trim()}
-                                                    style={{
-                                                        width: '100%',
-                                                        backgroundColor: '#0ea5e9',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        padding: '12px',
-                                                        borderRadius: '8px',
-                                                        cursor: pastedJson.trim() ? 'pointer' : 'not-allowed',
-                                                        fontWeight: 'bold',
-                                                        opacity: pastedJson.trim() ? 1 : 0.6
-                                                    }}
-                                                >
-                                                    Procesar e Importar Datos
-                                                </button>
+                                                                setSquad(newSquad);
+                                                                alert(`✅ Sincronización completada: ${matchedCount} jugadores emparejados automáticamente.`);
+                                                            }}
+                                                            style={{
+                                                                backgroundColor: '#f0f9ff',
+                                                                color: '#0369a1',
+                                                                border: '1px solid #bae6fd',
+                                                                padding: '8px 16px',
+                                                                borderRadius: '6px',
+                                                                cursor: 'pointer',
+                                                                fontWeight: 'bold',
+                                                                fontSize: '0.85rem'
+                                                            }}
+                                                        >
+                                                            Sincronizar Plantilla
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
 
-                                        {/* AI Roster Sync Section */}
-                                        {rawJson?.match_report?.rosters_and_stats?.local && (
-                                            <div style={{
-                                                marginTop: '1.5rem',
-                                                padding: '1rem',
-                                                background: 'white',
-                                                borderRadius: '8px',
-                                                border: '1px solid #e0f2fe',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                gap: '12px'
-                                            }}>
-                                                <div style={{ textAlign: 'left' }}>
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#0369a1', display: 'block' }}>
-                                                        Alineación AI disponible ({rawJson.match_report.rosters_and_stats.local.length} jugadores)
-                                                    </span>
-                                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                                        Puedes sincronizar estos nombres con la convocatoria oficial del club.
-                                                    </span>
+                                            <div className="details-info-grid">
+                                                <div className="info-item full-width">
+                                                    <label>URL del Video de Referencia (YouTube)</label>
+                                                    <input
+                                                        type="text"
+                                                        className="squad-select"
+                                                        placeholder="https://youtube.com/..."
+                                                        value={videoUrl}
+                                                        onChange={(e) => setVideoUrl(e.target.value)}
+                                                    />
                                                 </div>
-                                                <button
-                                                    onClick={() => {
-                                                        const aiRoster = rawJson.match_report.rosters_and_stats.local;
-                                                        const newSquad = [...squad];
-                                                        let matchedCount = 0;
-
-                                                        aiRoster.forEach(aiPlayer => {
-                                                            const dorsal = aiPlayer.dorsal;
-                                                            if (dorsal >= 1 && dorsal <= MAX_SQUAD) {
-                                                                // Try fuzzy match by name
-                                                                const matchedPlayer = allPlayers.find(p => {
-                                                                    const fullName = `${p.nombre} ${p.apellidos}`.toLowerCase();
-                                                                    const aiName = aiPlayer.name.toLowerCase();
-                                                                    return fullName.includes(aiName) || aiName.includes(p.nombre.toLowerCase());
-                                                                });
-
-                                                                if (matchedPlayer) {
-                                                                    newSquad[dorsal - 1] = { numero: dorsal, jugador: matchedPlayer.id };
-                                                                    matchedCount++;
-                                                                }
-                                                            }
-                                                        });
-
-                                                        setSquad(newSquad);
-                                                        alert(`✅ Sincronización completada: ${matchedCount} jugadores emparejados automáticamente.`);
-                                                    }}
-                                                    style={{
-                                                        backgroundColor: '#f0f9ff',
-                                                        color: '#0369a1',
-                                                        border: '1px solid #bae6fd',
-                                                        padding: '8px 16px',
-                                                        borderRadius: '6px',
-                                                        cursor: 'pointer',
-                                                        fontWeight: 'bold',
-                                                        fontSize: '0.85rem'
-                                                    }}
-                                                >
-                                                    Sincronizar Plantilla
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="details-info-grid">
-                                        <div className="info-item full-width">
-                                            <label>URL del Video de Referencia (YouTube)</label>
-                                            <input
-                                                type="text"
-                                                className="squad-select"
-                                                placeholder="https://youtube.com/..."
-                                                value={videoUrl}
-                                                onChange={(e) => setVideoUrl(e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="info-item">
-                                            <label>Sincronización (Offset seg.)</label>
-                                            <input
-                                                type="number"
-                                                className="squad-select"
-                                                placeholder="0"
-                                                value={videoOffset}
-                                                onChange={(e) => setVideoOffset(e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="info-item" style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                            <button
-                                                className="btn-save-squad"
-                                                onClick={handleSaveAnalysis}
-                                                disabled={savingAnalysis}
-                                                style={{ width: '100%', background: '#0ea5e9' }}
-                                            >
-                                                <Save size={16} />
-                                                {savingAnalysis ? 'Guardando...' : 'Guardar Análisis'}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Advanced Stats Inputs */}
-                                    <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-                                        <h4 style={{ margin: '0 0 1rem 0', color: 'var(--color-primary-blue)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <Activity size={16} /> Data Avanzada (Manual)
-                                        </h4>
-
-                                        {/* Possession */}
-                                        <div className="details-info-grid" style={{ marginBottom: '1rem' }}>
-                                            <div className="info-item">
-                                                <label>Posesión Local (%)</label>
-                                                <input type="number" className="squad-select" value={possessionHome} onChange={(e) => setPossessionHome(e.target.value)} />
-                                            </div>
-                                            <div className="info-item">
-                                                <label>Posesión Visita (%)</label>
-                                                <input type="number" className="squad-select" value={possessionAway} onChange={(e) => setPossessionAway(e.target.value)} />
-                                            </div>
-                                        </div>
-
-                                        {/* Tackles */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                                            <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.5rem', borderRadius: '8px' }}>
-                                                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textAlign: 'center' }}>Placajes Local</label>
-                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                    <div style={{ flex: 1 }}><label style={{ fontSize: '0.7rem' }}>Hechos</label><input type="number" className="squad-select" value={tacklesHomeMade} onChange={(e) => setTacklesHomeMade(e.target.value)} /></div>
-                                                    <div style={{ flex: 1 }}><label style={{ fontSize: '0.7rem' }}>Fallados</label><input type="number" className="squad-select" value={tacklesHomeMissed} onChange={(e) => setTacklesHomeMissed(e.target.value)} /></div>
+                                                <div className="info-item">
+                                                    <label>Sincronización (Offset seg.)</label>
+                                                    <input
+                                                        type="number"
+                                                        className="squad-select"
+                                                        placeholder="0"
+                                                        value={videoOffset}
+                                                        onChange={(e) => setVideoOffset(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="info-item" style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                                    <button
+                                                        className="btn-save-squad"
+                                                        onClick={handleSaveAnalysis}
+                                                        disabled={savingAnalysis}
+                                                        style={{ width: '100%', background: '#0ea5e9' }}
+                                                    >
+                                                        <Save size={16} />
+                                                        {savingAnalysis ? 'Guardando...' : 'Guardar Análisis'}
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.5rem', borderRadius: '8px' }}>
-                                                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textAlign: 'center' }}>Placajes Visita</label>
-                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                    <div style={{ flex: 1 }}><label style={{ fontSize: '0.7rem' }}>Hechos</label><input type="number" className="squad-select" value={tacklesAwayMade} onChange={(e) => setTacklesAwayMade(e.target.value)} /></div>
-                                                    <div style={{ flex: 1 }}><label style={{ fontSize: '0.7rem' }}>Fallados</label><input type="number" className="squad-select" value={tacklesAwayMissed} onChange={(e) => setTacklesAwayMissed(e.target.value)} /></div>
+
+                                            {/* Advanced Stats Inputs */}
+                                            <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
+                                                <h4 style={{ margin: '0 0 1rem 0', color: 'var(--color-primary-blue)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <Activity size={16} /> Data Avanzada (Manual)
+                                                </h4>
+
+                                                {/* Possession */}
+                                                <div className="details-info-grid" style={{ marginBottom: '1rem' }}>
+                                                    <div className="info-item">
+                                                        <label>Posesión Local (%)</label>
+                                                        <input type="number" className="squad-select" value={possessionHome} onChange={(e) => setPossessionHome(e.target.value)} />
+                                                    </div>
+                                                    <div className="info-item">
+                                                        <label>Posesión Visita (%)</label>
+                                                        <input type="number" className="squad-select" value={possessionAway} onChange={(e) => setPossessionAway(e.target.value)} />
+                                                    </div>
                                                 </div>
+
+                                                {/* Tackles */}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                                                    <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.5rem', borderRadius: '8px' }}>
+                                                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textAlign: 'center' }}>Placajes Local</label>
+                                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                            <div style={{ flex: 1 }}><label style={{ fontSize: '0.7rem' }}>Hechos</label><input type="number" className="squad-select" value={tacklesHomeMade} onChange={(e) => setTacklesHomeMade(e.target.value)} /></div>
+                                                            <div style={{ flex: 1 }}><label style={{ fontSize: '0.7rem' }}>Fallados</label><input type="number" className="squad-select" value={tacklesHomeMissed} onChange={(e) => setTacklesHomeMissed(e.target.value)} /></div>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.5rem', borderRadius: '8px' }}>
+                                                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textAlign: 'center' }}>Placajes Visita</label>
+                                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                            <div style={{ flex: 1 }}><label style={{ fontSize: '0.7rem' }}>Hechos</label><input type="number" className="squad-select" value={tacklesAwayMade} onChange={(e) => setTacklesAwayMade(e.target.value)} /></div>
+                                                            <div style={{ flex: 1 }}><label style={{ fontSize: '0.7rem' }}>Fallados</label><input type="number" className="squad-select" value={tacklesAwayMissed} onChange={(e) => setTacklesAwayMissed(e.target.value)} /></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Set Pieces */}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                                                    {/* Scrums */}
+                                                    <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.5rem', borderRadius: '8px' }}>
+                                                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textAlign: 'center' }}>Melés (Gan/Perd)</label>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                                            <div><label style={{ fontSize: '0.7rem' }}>Local G</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={scrumsHomeWon} onChange={(e) => setScrumsHomeWon(e.target.value)} /></div>
+                                                            <div><label style={{ fontSize: '0.7rem' }}>Local P</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={scrumsHomeLost} onChange={(e) => setScrumsHomeLost(e.target.value)} /></div>
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                            <div><label style={{ fontSize: '0.7rem' }}>Visita G</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={scrumsAwayWon} onChange={(e) => setScrumsAwayWon(e.target.value)} /></div>
+                                                            <div><label style={{ fontSize: '0.7rem' }}>Visita P</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={scrumsAwayLost} onChange={(e) => setScrumsAwayLost(e.target.value)} /></div>
+                                                        </div>
+                                                    </div>
+                                                    {/* Lineouts */}
+                                                    <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.5rem', borderRadius: '8px' }}>
+                                                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textAlign: 'center' }}>Touches (Gan/Perd)</label>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                                            <div><label style={{ fontSize: '0.7rem' }}>Local G</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={lineoutsHomeWon} onChange={(e) => setLineoutsHomeWon(e.target.value)} /></div>
+                                                            <div><label style={{ fontSize: '0.7rem' }}>Local P</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={lineoutsHomeLost} onChange={(e) => setLineoutsHomeLost(e.target.value)} /></div>
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                            <div><label style={{ fontSize: '0.7rem' }}>Visita G</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={lineoutsAwayWon} onChange={(e) => setLineoutsAwayWon(e.target.value)} /></div>
+                                                            <div><label style={{ fontSize: '0.7rem' }}>Visita P</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={lineoutsAwayLost} onChange={(e) => setLineoutsAwayLost(e.target.value)} /></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Analyst Report */}
+                                                <div style={{ marginBottom: '1rem' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                                        <ClipboardList size={14} /> Vista Previa del Informe (Markdown)
+                                                    </label>
+
+                                                    <textarea
+                                                        className="squad-select"
+                                                        rows="6"
+                                                        placeholder="Escribe aquí el análisis del partido..."
+                                                        value={analystReport}
+                                                        onChange={(e) => setAnalystReport(e.target.value)}
+                                                        style={{ width: '100%', minHeight: '150px', fontFamily: 'monospace', fontSize: '0.8rem', resize: 'vertical' }}
+                                                    />
+                                                </div>
+
+                                                {analysisMessage && <p className="squad-message" style={{ textAlign: 'center' }}>{analysisMessage}</p>}
+
+                                                {analysis && (
+                                                    <div style={{ marginTop: '10px', padding: '10px', background: 'rgba(0,0,0,0.03)', borderRadius: '8px' }}>
+                                                        <p style={{ fontSize: '12px', margin: 0 }}>
+                                                            <strong>Status:</strong> Conectado
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                <div style={{ marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
+                                                    <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                                        Subir Acta (PDF) para Generar Timeline
+                                                    </label>
+                                                    <input
+                                                        type="file"
+                                                        accept=".pdf"
+                                                        onChange={handlePdfUpload}
+                                                        disabled={processingPdf}
+                                                        style={{ fontSize: '12px', width: '100%' }}
+                                                    />
+                                                    {processingPdf && <p style={{ fontSize: '10px', color: 'blue' }}>Procesando...</p>}
+                                                </div>
+
+                                                {timeline && timeline.length > 0 && (
+                                                    <div className="analysis-timeline" style={{ marginTop: '15px' }}>
+                                                        <h4 style={{ fontSize: '12px', marginBottom: '5px' }}>Línea de Tiempo (Sincronizada)</h4>
+                                                        <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.75rem', background: '#f8fafc' }}>
+                                                            {timeline.map((item, idx) => {
+                                                                const getIcon = (type) => {
+                                                                    const t = type?.toLowerCase();
+                                                                    if (t?.includes('try') || t?.includes('ensayo')) return '🏉';
+                                                                    if (t?.includes('conversion') || t?.includes('transform')) return '🎯';
+                                                                    if (t?.includes('penalty') || t?.includes('puntapi')) return '👟';
+                                                                    if (t?.includes('yellow') || t?.includes('amarilla')) return '🟨';
+                                                                    if (t?.includes('red') || t?.includes('roja')) return '🟥';
+                                                                    if (t?.includes('sub')) return '🔄';
+                                                                    return '•';
+                                                                };
+
+                                                                return (
+                                                                    <div key={idx} style={{
+                                                                        padding: '8px 12px',
+                                                                        borderBottom: '1px solid #edf2f7',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '10px',
+                                                                        backgroundColor: item.videoSeconds < 0 ? '#fff5f5' : 'white'
+                                                                    }}>
+                                                                        <span style={{ fontWeight: '800', color: '#64748b', minWidth: '30px' }}>{item.minuto || item.min}'</span>
+                                                                        <span style={{
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            width: '24px',
+                                                                            height: '24px',
+                                                                            background: item.team_label === 'L' ? '#dcfce7' : '#fee2e2',
+                                                                            borderRadius: '4px',
+                                                                            fontSize: '0.7rem',
+                                                                            fontWeight: 'bold',
+                                                                            color: item.team_label === 'L' ? '#166534' : '#991b1b'
+                                                                        }}>
+                                                                            {item.team_label}
+                                                                        </span>
+                                                                        <span style={{ fontSize: '1rem' }}>{getIcon(item.type || item.description)}</span>
+                                                                        <span style={{ flex: 1, color: '#1e293b' }}>
+                                                                            {item.player ? (
+                                                                                <>
+                                                                                    <strong>{item.player}</strong>
+                                                                                    {item.dorsal && <span style={{ color: '#64748b', marginLeft: '4px' }}>(#{item.dorsal})</span>}
+                                                                                    <span style={{ display: 'block', fontSize: '0.7rem', color: '#64748b' }}>{item.type || item.description}</span>
+                                                                                </>
+                                                                            ) : (
+                                                                                <span>{item.description}</span>
+                                                                            )}
+                                                                        </span>
+                                                                        {item.videoTime || item.videoSeconds ? (
+                                                                            <a
+                                                                                href={videoUrl && videoUrl.includes('youtube') ?
+                                                                                    `${videoUrl.split('&')[0]}&t=${Math.max(0, (item.videoSeconds || 0) - 10)}` : '#'}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '600', fontSize: '0.7rem' }}
+                                                                            >
+                                                                                {item.videoTime || '🎬'}
+                                                                            </a>
+                                                                        ) : null}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-
-                                        {/* Set Pieces */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                                            {/* Scrums */}
-                                            <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.5rem', borderRadius: '8px' }}>
-                                                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textAlign: 'center' }}>Melés (Gan/Perd)</label>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                                    <div><label style={{ fontSize: '0.7rem' }}>Local G</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={scrumsHomeWon} onChange={(e) => setScrumsHomeWon(e.target.value)} /></div>
-                                                    <div><label style={{ fontSize: '0.7rem' }}>Local P</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={scrumsHomeLost} onChange={(e) => setScrumsHomeLost(e.target.value)} /></div>
-                                                </div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                    <div><label style={{ fontSize: '0.7rem' }}>Visita G</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={scrumsAwayWon} onChange={(e) => setScrumsAwayWon(e.target.value)} /></div>
-                                                    <div><label style={{ fontSize: '0.7rem' }}>Visita P</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={scrumsAwayLost} onChange={(e) => setScrumsAwayLost(e.target.value)} /></div>
-                                                </div>
-                                            </div>
-                                            {/* Lineouts */}
-                                            <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.5rem', borderRadius: '8px' }}>
-                                                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textAlign: 'center' }}>Touches (Gan/Perd)</label>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                                    <div><label style={{ fontSize: '0.7rem' }}>Local G</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={lineoutsHomeWon} onChange={(e) => setLineoutsHomeWon(e.target.value)} /></div>
-                                                    <div><label style={{ fontSize: '0.7rem' }}>Local P</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={lineoutsHomeLost} onChange={(e) => setLineoutsHomeLost(e.target.value)} /></div>
-                                                </div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                    <div><label style={{ fontSize: '0.7rem' }}>Visita G</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={lineoutsAwayWon} onChange={(e) => setLineoutsAwayWon(e.target.value)} /></div>
-                                                    <div><label style={{ fontSize: '0.7rem' }}>Visita P</label><input type="number" className="squad-select" style={{ padding: '0.25rem' }} value={lineoutsAwayLost} onChange={(e) => setLineoutsAwayLost(e.target.value)} /></div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Analyst Report */}
-                                        <div style={{ marginBottom: '1rem' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                                <ClipboardList size={14} /> Vista Previa del Informe (Markdown)
-                                            </label>
-
-                                            <textarea
-                                                className="squad-select"
-                                                rows="6"
-                                                placeholder="Escribe aquí el análisis del partido..."
-                                                value={analystReport}
-                                                onChange={(e) => setAnalystReport(e.target.value)}
-                                                style={{ width: '100%', minHeight: '150px', fontFamily: 'monospace', fontSize: '0.8rem', resize: 'vertical' }}
-                                            />
-                                        </div>
-
-                                        {analysisMessage && <p className="squad-message" style={{ textAlign: 'center' }}>{analysisMessage}</p>}
-
-                                        {analysis && (
-                                            <div style={{ marginTop: '10px', padding: '10px', background: 'rgba(0,0,0,0.03)', borderRadius: '8px' }}>
-                                                <p style={{ fontSize: '12px', margin: 0 }}>
-                                                    <strong>Status:</strong> Conectado
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        <div style={{ marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
-                                            <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                                Subir Acta (PDF) para Generar Timeline
-                                            </label>
-                                            <input
-                                                type="file"
-                                                accept=".pdf"
-                                                onChange={handlePdfUpload}
-                                                disabled={processingPdf}
-                                                style={{ fontSize: '12px', width: '100%' }}
-                                            />
-                                            {processingPdf && <p style={{ fontSize: '10px', color: 'blue' }}>Procesando...</p>}
-                                        </div>
-
-                                        {timeline && timeline.length > 0 && (
-                                            <div className="analysis-timeline" style={{ marginTop: '15px' }}>
-                                                <h4 style={{ fontSize: '12px', marginBottom: '5px' }}>Línea de Tiempo (Sincronizada)</h4>
-                                                <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.75rem', background: '#f8fafc' }}>
-                                                    {timeline.map((item, idx) => {
-                                                        const getIcon = (type) => {
-                                                            const t = type?.toLowerCase();
-                                                            if (t?.includes('try') || t?.includes('ensayo')) return '🏉';
-                                                            if (t?.includes('conversion') || t?.includes('transform')) return '🎯';
-                                                            if (t?.includes('penalty') || t?.includes('puntapi')) return '👟';
-                                                            if (t?.includes('yellow') || t?.includes('amarilla')) return '🟨';
-                                                            if (t?.includes('red') || t?.includes('roja')) return '🟥';
-                                                            if (t?.includes('sub')) return '🔄';
-                                                            return '•';
-                                                        };
-
-                                                        return (
-                                                            <div key={idx} style={{
-                                                                padding: '8px 12px',
-                                                                borderBottom: '1px solid #edf2f7',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '10px',
-                                                                backgroundColor: item.videoSeconds < 0 ? '#fff5f5' : 'white'
-                                                            }}>
-                                                                <span style={{ fontWeight: '800', color: '#64748b', minWidth: '30px' }}>{item.minuto || item.min}'</span>
-                                                                <span style={{
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    width: '24px',
-                                                                    height: '24px',
-                                                                    background: item.team_label === 'L' ? '#dcfce7' : '#fee2e2',
-                                                                    borderRadius: '4px',
-                                                                    fontSize: '0.7rem',
-                                                                    fontWeight: 'bold',
-                                                                    color: item.team_label === 'L' ? '#166534' : '#991b1b'
-                                                                }}>
-                                                                    {item.team_label}
-                                                                </span>
-                                                                <span style={{ fontSize: '1rem' }}>{getIcon(item.type || item.description)}</span>
-                                                                <span style={{ flex: 1, color: '#1e293b' }}>
-                                                                    {item.player ? (
-                                                                        <>
-                                                                            <strong>{item.player}</strong>
-                                                                            {item.dorsal && <span style={{ color: '#64748b', marginLeft: '4px' }}>(#{item.dorsal})</span>}
-                                                                            <span style={{ display: 'block', fontSize: '0.7rem', color: '#64748b' }}>{item.type || item.description}</span>
-                                                                        </>
-                                                                    ) : (
-                                                                        <span>{item.description}</span>
-                                                                    )}
-                                                                </span>
-                                                                {item.videoTime || item.videoSeconds ? (
-                                                                    <a
-                                                                        href={videoUrl && videoUrl.includes('youtube') ?
-                                                                            `${videoUrl.split('&')[0]}&t=${Math.max(0, (item.videoSeconds || 0) - 10)}` : '#'}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '600', fontSize: '0.7rem' }}
-                                                                    >
-                                                                        {item.videoTime || '🎬'}
-                                                                    </a>
-                                                                ) : null}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                                    )}
                                 </div>
                             )}
+                        </>
+                    ) : (
+                        <div className="attendance-tab" style={{ padding: '1rem' }}>
+                            <h3 className="detail-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary-blue)' }}>
+                                <Users size={20} /> Lista de Asistencia
+                            </h3>
+                            <AttendanceList
+                                players={players}
+                                attendance={attendance}
+                                onToggle={handleAttendanceToggle}
+                            />
+                            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+                                <button
+                                    onClick={handleSaveAttendance}
+                                    disabled={savingAttendance}
+                                    style={{
+                                        background: 'var(--color-primary-blue)',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '0.75rem 2rem',
+                                        borderRadius: '12px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        boxShadow: '0 4px 15px rgba(0, 51, 102, 0.3)'
+                                    }}
+                                >
+                                    <Save size={18} />
+                                    {savingAttendance ? 'Guardando...' : 'Guardar Asistencia'}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
 
-                <div className="match-details-footer">
-                    <button className="btn-close-modal" onClick={onClose}>Cerrar</button>
+                <div className="match-details-footer" style={{ borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '1rem', padding: '0 1.5rem 1.5rem' }}>
+                    <button className="btn-close-modal" onClick={onClose} style={{ width: '100%' }}>Cerrar</button>
                 </div>
             </div>
-        </div >
+        </div>
     );
 };
 

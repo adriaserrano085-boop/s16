@@ -13,9 +13,9 @@ import { matchService } from '../services/matchService';
 import { rivalService } from '../services/rivalService';
 import { trainingService } from '../services/trainingService';
 import playerService from '../services/playerService';
-import AttendanceModal from '../components/AttendanceModal';
 import AttendanceList from '../components/AttendanceList';
 import attendanceService from '../services/attendanceService';
+import MatchDetailsModal from '../components/MatchDetailsModal';
 import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Plus, Users, X, Info, Trash2, Activity, CheckCircle, XCircle, HelpCircle, Save } from 'lucide-react';
 import './CalendarPage.css';
 
@@ -1187,220 +1187,23 @@ const CalendarPage = ({ user }) => {
                 )
             }
             {/* Match Details Modal */}
-            {
-                showMatchModal && selectedMatch && (
-                    <div className="modal-overlay" onClick={() => setShowMatchModal(false)}>
-                        <div className="modal-content" onClick={e => e.stopPropagation()}>
+            {showMatchModal && selectedMatch && (
+                <MatchDetailsModal
+                    match={{ extendedProps: selectedMatch, start: selectedMatch.start, id: selectedMatch.id, }}
+                    currentUser={user}
+                    onClose={() => setShowMatchModal(false)}
+                    onEditMatch={(props) => handleEditClick(props)}
+                    isNextMatch={(() => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const nextMatch = events
+                            .filter(e => e.extendedProps.isMatch && new Date(e.start) >= today)
+                            .sort((a, b) => new Date(a.start) - new Date(b.start))[0];
 
-                            {/* Header / Banner */}
-                            <div className="modal-header-banner">
-                                <button
-                                    onClick={() => setShowMatchModal(false)}
-                                    className="modal-close-icon"
-                                >
-                                    <X size={20} />
-                                </button>
-
-                                <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.5rem', fontWeight: 'bold' }}>{selectedMatch.competicion || 'Partido'}</h2>
-                                <p style={{ margin: 0, opacity: 0.9, fontSize: '0.95rem' }}>Jornada {selectedMatch.jornada || '-'}</p>
-
-                                <div className="modal-tabs" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
-                                    <button
-                                        onClick={() => setActiveTab('details')}
-                                        className={`tab-link ${activeTab === 'details' ? 'active' : ''}`}
-                                        style={{ background: 'none', border: 'none', borderBottom: activeTab === 'details' ? '3px solid white' : 'none', color: 'white', padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: 'bold' }}
-                                    >
-                                        Detalles
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('attendance')}
-                                        className={`tab-link ${activeTab === 'attendance' ? 'active' : ''}`}
-                                        style={{ background: 'none', border: 'none', borderBottom: activeTab === 'attendance' ? '3px solid white' : 'none', color: 'white', padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: 'bold' }}
-                                    >
-                                        Asistencia
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="modal-body" style={{ padding: '2rem' }}>
-                                {activeTab === 'details' ? (
-                                    <>
-                                        {/* Date & Time Badge */}
-                                        <div className="match-info-badge">
-                                            <div className="badge-content">
-                                                <div className="badge-item">
-                                                    <CalendarIcon size={16} /> {new Date(selectedMatch.start).toLocaleDateString()}
-                                                </div>
-                                                <div style={{ width: '1px', background: '#ddd' }}></div>
-                                                <div className="badge-item">
-                                                    <Clock size={16} /> {selectedMatch.hora?.slice(0, 5)}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Matchup */}
-                                        <div className="matchup-container">
-                                            {/* Home Team */}
-                                            <div className="team-container">
-                                                <div className="team-shield-large-container">
-                                                    <img src={selectedMatch.homeTeamShield} alt={selectedMatch.homeTeamName} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                                </div>
-                                                <span style={{ fontWeight: '700', fontSize: '1rem', textAlign: 'center', lineHeight: '1.2', color: '#212529' }}>{selectedMatch.homeTeamName}</span>
-                                            </div>
-
-                                            {/* Score / VS */}
-                                            <div className="score-vs-container">
-                                                {selectedMatch.isFinished ? (
-                                                    <div className="score-large">
-                                                        {selectedMatch.scoreDisplay}
-                                                    </div>
-                                                ) : (
-                                                    <div className="vs-large">
-                                                        VS
-                                                    </div>
-                                                )}
-                                                <span className="match-status" style={{ color: selectedMatch.isFinished ? '#28a745' : '#adb5bd' }}>
-                                                    {selectedMatch.isFinished ? 'FINALIZADO' : 'PENDIENTE'}
-                                                </span>
-                                            </div>
-
-                                            {/* Away Team */}
-                                            <div className="team-container">
-                                                <div className="team-shield-large-container">
-                                                    <img src={selectedMatch.awayTeamShield} alt={selectedMatch.awayTeamName} className="team-shield-img" />
-                                                </div>
-                                                <span className="team-name-large">{selectedMatch.awayTeamName}</span>
-                                            </div>
-                                        </div>
-
-
-                                        {/* Details Grid */}
-                                        <div className="detail-grid">
-                                            <div>
-                                                <h4 className="detail-section-title">
-                                                    <Users size={18} /> Staff Técnico
-                                                </h4>
-                                                <div className="detail-text">
-                                                    <div className="detail-row">
-                                                        <span className="detail-label">Árbitro:</span>
-                                                        <span className="detail-value">{selectedMatch.arbitro || '-'}</span>
-                                                    </div>
-                                                    <div className="detail-row">
-                                                        <span className="detail-label">Delegado:</span>
-                                                        <span className="detail-value">{selectedMatch.delegado || '-'}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <h4 className="detail-section-title">
-                                                    <Info size={18} /> Observaciones
-                                                </h4>
-                                                <div className="detail-text">
-                                                    <p>{selectedMatch.observaciones || 'Sin información adicional.'}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Rival Analysis Button for Players - Only for NEXT match */}
-                                        {user?.role === 'JUGADOR' && (selectedMatch.homeTeamName !== 'RC HOSPITALET' || selectedMatch.awayTeamName !== 'RC HOSPITALET') && (() => {
-                                            const today = new Date();
-                                            today.setHours(0, 0, 0, 0);
-                                            const nextMatch = events
-                                                .filter(e => e.extendedProps.isMatch && new Date(e.start) >= today)
-                                                .sort((a, b) => new Date(a.start) - new Date(b.start))[0];
-                                            const isNextMatch = nextMatch && String(nextMatch.id) === String(selectedMatch.id);
-
-                                            return isNextMatch ? (
-                                                <div style={{ marginTop: '1.5rem' }}>
-                                                    <button
-                                                        onClick={() => {
-                                                            const rival = selectedMatch.homeTeamName === 'RC HOSPITALET' ? selectedMatch.awayTeamName : selectedMatch.homeTeamName;
-                                                            if (rival) {
-                                                                setShowMatchModal(false);
-                                                                navigate(`/analysis/rival/${encodeURIComponent(rival)}`);
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            width: '100%',
-                                                            padding: '0.75rem',
-                                                            borderRadius: '12px',
-                                                            border: 'none',
-                                                            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                                                            color: 'white',
-                                                            fontSize: '1rem',
-                                                            fontWeight: 'bold',
-                                                            cursor: 'pointer',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            gap: '0.5rem',
-                                                            boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.5)'
-                                                        }}
-                                                    >
-                                                        <Activity size={18} />
-                                                        Ver Análisis del Rival
-                                                    </button>
-                                                </div>
-                                            ) : null;
-                                        })()}
-                                    </>
-                                ) : (
-                                    <div className="attendance-tab">
-                                        <h3 className="detail-section-title">
-                                            <Users size={20} /> Lista de Asistencia
-                                        </h3>
-                                        <AttendanceList
-                                            players={players}
-                                            attendance={attendance}
-                                            onToggle={handleAttendanceToggle}
-                                        />
-                                        <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
-                                            <button
-                                                onClick={handleSaveAttendance}
-                                                disabled={savingAttendance}
-                                                style={{
-                                                    background: '#003366',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '0.75rem 2rem',
-                                                    borderRadius: '12px',
-                                                    fontWeight: 'bold',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '0.5rem',
-                                                    boxShadow: '0 4px 15px rgba(0, 51, 102, 0.3)'
-                                                }}
-                                            >
-                                                <Save size={18} />
-                                                {savingAttendance ? 'Guardando...' : 'Guardar Asistencia'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="modal-actions">
-                                    <button
-                                        onClick={() => setShowMatchModal(false)}
-                                        className="btn-close"
-                                    >
-                                        Cerrar
-                                    </button>
-                                    <button
-                                        onClick={() => handleEditClick(selectedMatch)}
-                                        className="btn-edit"
-                                    >
-                                        Editar Evento
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-
-
-                )
-            }
+                        return nextMatch && String(nextMatch.id) === String(selectedMatch.id || selectedMatch.match_id);
+                    })()}
+                />
+            )}
 
 
 
