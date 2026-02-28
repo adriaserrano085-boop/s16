@@ -571,12 +571,13 @@ const CalendarPage = ({ user }) => {
     };
 
     const fetchExistingAttendance = async (eventId) => {
+        console.log('[Attendance] Fetching for eventId:', eventId);
         try {
             const data = await attendanceService.getByEventId(eventId);
+            console.log('[Attendance] Records from API:', data?.length, data);
             const attendanceMap = {};
 
             // Start with Pendiente for ALL currently loaded players
-            // so the tab always shows every player, even if no record exists yet
             setPlayers(prev => {
                 prev.forEach(p => {
                     attendanceMap[p.id] = 'Pendiente';
@@ -591,8 +592,7 @@ const CalendarPage = ({ user }) => {
 
             setAttendance(attendanceMap);
         } catch (err) {
-            console.error('Error fetching attendance:', err);
-            // On error, still initialize all players as Pendiente
+            console.error('[Attendance] Error fetching attendance:', err);
             setPlayers(prev => {
                 const emptyMap = {};
                 prev.forEach(p => { emptyMap[p.id] = 'Pendiente'; });
