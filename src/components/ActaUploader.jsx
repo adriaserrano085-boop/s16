@@ -788,7 +788,10 @@ const ActaUploader = ({ onUploadComplete }) => {
 
         console.log(`Saving ${records.length} player stats records...`);
         for (const record of records) {
-            await apiPost('/estadisticas_jugador', record);
+            await apiPost('/estadisticas_jugador', record).catch(e => {
+                console.error("Error saving player stat:", record.nombre, e);
+                throw e; // Stop execution if critical
+            });
         }
     }
 
