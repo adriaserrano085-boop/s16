@@ -638,11 +638,11 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch, onEditMat
                             )}
 
                             {/* Rival Analysis Button for Players - Only for NEXT match */}
-                            {currentUser?.role === 'JUGADOR' && isNextMatch && (props.homeTeamName !== 'RC HOSPITALET' || props.awayTeamName !== 'RC HOSPITALET') && (
+                            {currentUser?.role === 'JUGADOR' && isNextMatch && (props.homeTeamName !== "RC L'HOSPITALET" || props.awayTeamName !== "RC L'HOSPITALET") && (
                                 <div style={{ marginTop: '1rem' }}>
                                     <button
                                         onClick={() => {
-                                            const rival = props.homeTeamName === 'RC HOSPITALET' ? props.awayTeamName : props.homeTeamName;
+                                            const rival = props.homeTeamName === "RC L'HOSPITALET" ? props.awayTeamName : props.homeTeamName;
                                             if (rival) {
                                                 onClose();
                                                 navigate(`/analysis/rival/${encodeURIComponent(rival)}`);

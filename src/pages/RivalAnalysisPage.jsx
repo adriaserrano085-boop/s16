@@ -14,7 +14,7 @@ const RivalAnalysisPage = ({ user }) => {
     const [matchResults, setMatchResults] = useState([]);
     const [playerStats, setPlayerStats] = useState([]);
     const [allAnalyses, setAllAnalyses] = useState([]);
-    const HOSPITALET_NAME = "RC HOSPITALET";
+    const HOSPITALET_NAME = "RC L'HOSPITALET";
 
     // Decoded rival name from URL (e.g., "RC Sitges")
     const rivalName = decodeURIComponent(rivalId);

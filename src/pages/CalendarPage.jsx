@@ -221,7 +221,7 @@ const CalendarPage = ({ user }) => {
                             const isHospitaletLocal = matchRecord.es_local === true ||
                                 (matchRecord.lugar && matchRecord.lugar.toLowerCase().includes('feixa llarga'));
 
-                            const hospitaletName = 'RC HOSPITALET';
+                            const hospitaletName = "RC L'HOSPITALET";
                             const rivalName = rival?.nombre_equipo || 'Rival';
                             const rivalShield = rival?.escudo;
 

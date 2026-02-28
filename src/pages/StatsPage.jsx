@@ -15,6 +15,9 @@ import { HospitaletAnalysis } from '../components/HospitaletAnalysis';
 import RivalAnalysis from '../components/RivalAnalysis';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { SeasonStatsPanel } from '../components/SeasonStatsPanel';
+import { PlayerStatsTab } from '../components/PlayerStatsTab';
+import TeamPlayerStatsTable from '../components/TeamPlayerStatsTable';
+import PlayerMatchHistory from '../components/PlayerMatchHistory';
 import './StatsPage.css';
 
 const TeamLogo = ({ url, name, size = 30 }) => {
@@ -44,33 +47,74 @@ const StatsPage = ({ user }) => {
     const [hospitaletMatchAnalysis, setHospitaletMatchAnalysis] = useState(null);
     const [allAnalyses, setAllAnalyses] = useState([]);
     const [allPlayers, setAllPlayers] = useState([]);
-    const HOSPITALET_NAME = "RC HOSPITALET";
-
-    const fetchAllAnalyses = async () => {
-        try {
-            const data = await analysisService.getAll();
-            if (data) setAllAnalyses(data);
-        } catch (err) {
-            console.error("Error fetching all analyses:", err);
-        }
+    const [selectedPlayerForHistory, setSelectedPlayerForHistory] = useState(null);
+    const HOSPITALET_NAME = "RC L'HOSPITALET";
+    const normalizeTeamName = (name) => {
+        if (!name) return "";
+        const n = name.toUpperCase().trim();
+        if (n.includes("HOSPITALET") || n.includes("HOSPI")) return HOSPITALET_NAME;
+        return name.trim();
     };
+
+    const normalizePlayerName = (s) => s?.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
+        .replace(/[^a-z0-9 ]/g, " ") // replace non-alphanumeric with spaces
+        .replace(/\s+/g, " ") // collapse multiple spaces
+        .trim() || "";
+
+    const findAggregatedPlayer = (aggregated, searchName, dorsal) => {
+        if (!searchName) return null;
+        const sName = normalizePlayerName(searchName);
+        const sParts = sName.split(" ").filter(p => p.length > 2);
+
+        // Try exact match or reverse name match ("Surname, Name")
+        for (const key in aggregated) {
+            const p = aggregated[key];
+            const pName = normalizePlayerName(p.name);
+            if (pName === sName) return p;
+
+            if (searchName.includes(",")) {
+                const parts = searchName.split(",").map(p => p.trim());
+                if (parts.length === 2) {
+                    const alt = normalizePlayerName(`${parts[1]} ${parts[0]}`);
+                    if (pName === alt) return p;
+                }
+            }
+        }
+
+        // Try fuzzy match
+        for (const key in aggregated) {
+            const p = aggregated[key];
+            const pName = normalizePlayerName(p.name);
+            const matchCount = sParts.filter(part => pName.includes(part)).length;
+            if (matchCount >= Math.max(1, Math.floor(sParts.length * 0.7))) {
+                return p;
+            }
+        }
+        return null;
+    };
+
+
 
     useEffect(() => {
         fetchData();
-        fetchAllAnalyses();
     }, []);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Fetch all necessary data in parallel
-            const [rivalsData, statsData, matchesData, matchesExternosData, rawStats] = await Promise.all([
+            const resultsData = await Promise.all([
                 apiGet('/rivales').catch(() => []),
                 apiGet('/estadisticas_partido').catch(() => []),
                 apiGet('/partidos').catch(() => []),
                 apiGet('/partidos_externos').catch(() => []),
-                apiGet('/estadisticas_jugador').catch(() => [])
+                apiGet('/estadisticas_jugador?limit=5000').catch(() => []),
+                analysisService.getAll().catch(() => [])
             ]);
+
+            const [rivalsData, statsData, matchesData, matchesExternosData, rawStats, analysesData] = resultsData;
+
+            if (analysesData) setAllAnalyses(analysesData);
 
             const teamShields = {};
             teamShields[HOSPITALET_NAME] = "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png";
@@ -121,8 +165,8 @@ const StatsPage = ({ user }) => {
                     } else if (stat.partido_externo) {
                         const pe = matchesExternosMap[stat.partido_externo];
                         if (pe) {
-                            homeName = pe.equipo_local;
-                            awayName = pe.equipo_visitante;
+                            homeName = normalizeTeamName(pe.equipo_local);
+                            awayName = normalizeTeamName(pe.equipo_visitante);
                             rivalsSet.add(homeName);
                             rivalsSet.add(awayName);
                         }
@@ -137,63 +181,82 @@ const StatsPage = ({ user }) => {
                         away: awayName,
                         scoreHome: stat.marcador_local,
                         scoreAway: stat.marcador_visitante,
+                        ensayosHome: stat.ensayos_local || 0,
+                        ensayosAway: stat.ensayos_visitante || 0,
                         date: date,
                         jornadaOriginal: jornada,
                         homeShield: teamShields[homeName],
-                        awayShield: teamShields[awayName]
+                        awayShield: teamShields[awayName],
+                        // Advanced metrics for charts/evolution
+                        posesion_local: stat.posesion_local,
+                        posesion_visitante: stat.posesion_visitante,
+                        placajes_hechos_local: stat.placajes_hechos_local,
+                        placajes_hechos_visitante: stat.placajes_hechos_visitante,
+                        placajes_fallados_local: stat.placajes_fallados_local,
+                        placajes_fallados_visitante: stat.placajes_fallados_visitante,
+                        mele_ganada_local: stat.mele_ganada_local,
+                        mele_ganada_visitante: stat.mele_ganada_visitante,
+                        mele_perdida_local: stat.mele_perdida_local,
+                        mele_perdida_visitante: stat.mele_perdida_visitante,
+                        touch_ganada_local: stat.touch_ganada_local,
+                        touch_ganada_visitante: stat.touch_ganada_visitante,
+                        touch_perdida_local: stat.touch_perdida_local,
+                        touch_perdida_visitante: stat.touch_perdida_visitante
                     });
                 });
-            }
 
-            const parseDate = (dateStr) => {
-                if (!dateStr) return null;
-                let d = new Date(dateStr);
-                if (!isNaN(d.getTime())) return d;
-                const parts = dateStr.split('/');
-                if (parts.length === 3) {
-                    d = new Date(parts[2], parts[1] - 1, parts[0]);
-                    if (!isNaN(d.getTime())) return d;
+                // Helper to get Sunday of the week for grouping matches
+                const getSundayForDate = (dateString) => {
+                    if (!dateString) return null;
+                    const d = new Date(dateString);
+                    if (isNaN(d.getTime())) return null;
+                    const day = d.getDay();
+                    const diff = d.getDate() - day + (day === 0 ? 0 : 7);
+                    return new Date(d.getFullYear(), d.getMonth(), diff);
+                };
+
+                // Assign a Sunday Date to each match
+                results.forEach(res => {
+                    res.sundayDate = getSundayForDate(res.date);
+                });
+
+                // Extract all valid, unique Sunday times to sort them chronologically
+                const validSundays = results.map(r => r.sundayDate?.getTime()).filter(t => t);
+                const uniqueSundayTimes = [...new Set(validSundays)].sort((a, b) => a - b);
+
+                // Re-assign a computed Jornada based on the chronological order of weekends
+                results.forEach(res => {
+                    if (res.sundayDate) {
+                        const index = uniqueSundayTimes.indexOf(res.sundayDate.getTime());
+                        res.jornadaCalculated = `Jornada ${index + 1}`;
+                    } else {
+                        res.jornadaCalculated = res.jornadaOriginal || "S/J";
+                    }
+                });
+
+                // Group by the computed Jornada
+                const grouped = {};
+                results.forEach(res => {
+                    const j = res.jornadaCalculated;
+                    if (!grouped[j]) grouped[j] = { jornada: j, matches: [] };
+                    grouped[j].matches.push(res);
+                });
+
+                // Sort the groups. Since keys are "Jornada 1", "Jornada 2", extract number for sorting
+                const sortedResults = Object.values(grouped).sort((a, b) => {
+                    const numA = parseInt(a.jornada.replace(/\D/g, '')) || 999;
+                    const numB = parseInt(b.jornada.replace(/\D/g, '')) || 999;
+                    return numA - numB;
+                });
+
+                setMatchResults(sortedResults);
+                if (!selectedJornada && sortedResults.length > 0) {
+                    setSelectedJornada(sortedResults[sortedResults.length - 1].jornada);
                 }
-                return null;
-            };
 
-            const validDateResults = results.filter(r => parseDate(r.date) !== null);
-            const noDateResults = results.filter(r => parseDate(r.date) === null);
+                setRivalsList(Array.from(rivalsSet).filter(r => normalizeTeamName(r) !== HOSPITALET_NAME).sort());
 
-            validDateResults.sort((a, b) => parseDate(a.date) - parseDate(b.date));
-
-            let currentJornada = 0;
-            let lastDate = null;
-            const groupWindowDays = 5;
-            const groupedResults = [];
-
-            validDateResults.forEach(match => {
-                const matchDate = parseDate(match.date);
-                if (!lastDate || Math.abs(matchDate - parseDate(lastDate)) > groupWindowDays * 24 * 60 * 60 * 1000) {
-                    currentJornada++;
-                    lastDate = match.date;
-                }
-                let group = groupedResults.find(g => g.jornada === currentJornada);
-                if (!group) {
-                    group = { jornada: currentJornada, matches: [] };
-                    groupedResults.push(group);
-                }
-                group.matches.push(match);
-            });
-
-            if (noDateResults.length > 0) {
-                groupedResults.push({ jornada: 'Pendiente', matches: noDateResults });
-            }
-
-            setMatchResults(groupedResults);
-            if (groupedResults.length > 0) {
-                const lastNum = groupedResults.filter(g => typeof g.jornada === 'number').pop();
-                setSelectedJornada(lastNum ? lastNum.jornada : groupedResults[0].jornada);
-            }
-
-            setRivalsList(Array.from(rivalsSet).filter(r => r !== HOSPITALET_NAME).sort());
-
-            if (rawStats) {
+                // Aggregated stats for players
                 const aggregated = {};
                 rawStats.forEach(stat => {
                     const key = stat.licencia || stat.jugador || (stat.nombre + '-' + stat.equipo);
@@ -202,9 +265,12 @@ const StatsPage = ({ user }) => {
                             player_id: stat.jugador,
                             licencia: stat.licencia,
                             name: stat.nombre,
-                            team: stat.equipo,
+                            team: normalizeTeamName(stat.equipo),
                             titular: 0, jugados: 0, minutos: 0,
-                            ensayos: 0, conversiones: 0, golpes: 0, amarillas: 0, rojas: 0
+                            ensayos: 0, conversiones: 0, golpes: 0, drops: 0, amarillas: 0, rojas: 0,
+                            tackles_made: 0, tackles_missed: 0,
+                            total_nota: 0, count_nota: 0,
+                            matchHistory: []
                         };
                     }
                     const p = aggregated[key];
@@ -213,11 +279,97 @@ const StatsPage = ({ user }) => {
                     p.ensayos += (stat.ensayos || 0);
                     p.conversiones += (stat.transformaciones || 0);
                     p.golpes += (stat.penales || 0);
+                    p.drops += (stat.drops || 0);
                     p.amarillas += (stat.tarjetas_amarillas || 0);
                     p.rojas += (stat.tarjetas_rojas || 0);
-                    p.minutos += (stat.minutos_jugados || (stat.es_titular ? 70 : 0));
-                    p.puntos = (p.ensayos * 5) + (p.conversiones * 2) + (p.golpes * 3);
+                    p.minutos += (stat.minutos_jugados || 0);
+                    p.puntos = (p.ensayos * 5) + (p.conversiones * 2) + (p.golpes * 3) + (p.drops * 3);
+
+                    // Add to match history
+                    const matchInfo = results.find(r => r.partido_id === stat.partido || r.partido_externo_id === stat.partido_externo);
+                    p.matchHistory.push({
+                        id: stat.id,
+                        partido: stat.partido || stat.partido_externo,
+                        opponent: p.team === HOSPITALET_NAME ? (matchInfo?.home === HOSPITALET_NAME ? matchInfo?.away : matchInfo?.home) : HOSPITALET_NAME,
+                        is_home: matchInfo?.home === p.team,
+                        score: `${matchInfo?.scoreHome || 0} - ${matchInfo?.scoreAway || 0}`,
+                        date: stat.fecha,
+                        minutos: stat.minutos_jugados || 0,
+                        ensayos: stat.ensayos || 0,
+                        conversiones: stat.transformaciones || 0,
+                        golpes: stat.penales || 0,
+                        drops: stat.drops || 0,
+                        amarillas: stat.tarjetas_amarillas || 0,
+                        rojas: stat.tarjetas_rojas || 0,
+                        puntos: (stat.ensayos || 0) * 5 + (stat.transformaciones || 0) * 2 + (stat.penales || 0) * 3 + (stat.drops || 0) * 3,
+                        nota: null,
+                        tackles_made: 0,
+                        tackles_missed: 0
+                    });
                 });
+
+                // Merge advanced stats from all analyses
+                if (Array.isArray(analysesData)) {
+                    analysesData.forEach(analysis => {
+                        const root = analysis.raw_json || {};
+
+                        // A. Extract Ratings (Notas)
+                        const informe = root.analisis_individual_plantilla || root.analisis_video_nac_sport?.analisis_individual_plantilla;
+                        if (informe && Array.isArray(informe.jugadores)) {
+                            informe.jugadores.forEach(j => {
+                                const pName = j.nombre || j.perfil?.nombre;
+                                if (!pName) return;
+                                const match = findAggregatedPlayer(aggregated, pName, j.dorsal);
+                                if (match) {
+                                    const nota = j.nota || j.valoracion?.nota || j.nota_media;
+                                    if (typeof nota === 'number' && nota > 0) {
+                                        match.total_nota += nota;
+                                        match.count_nota += 1;
+
+                                        // Apply to match history
+                                        const matchRecord = match.matchHistory?.find(mh => mh.partido === (analysis.partido_id || analysis.partido || analysis.evento_id || analysis.partido_externo_id));
+                                        if (matchRecord) matchRecord.nota = nota;
+                                    }
+                                }
+                            });
+                        }
+
+                        // B. Extract Defensive Stats (Tackles)
+                        const nac = root.analisis_video_nac_sport || {};
+                        const def = nac.rendimiento_individual_defensivo;
+                        if (def) {
+                            const processTacklers = (list) => {
+                                if (!Array.isArray(list)) return;
+                                list.forEach(t => {
+                                    const match = findAggregatedPlayer(aggregated, t.nombre, t.dorsal);
+                                    if (match) {
+                                        const made = (t.placajes_ganados || 0);
+                                        const missed = (t.placajes_perdidos || 0);
+                                        match.tackles_made += made;
+                                        match.tackles_missed += missed;
+
+                                        // Apply to match history
+                                        const matchRecord = match.matchHistory?.find(mh => mh.partido === (analysis.partido_id || analysis.partido || analysis.evento_id || analysis.partido_externo_id));
+                                        if (matchRecord) {
+                                            matchRecord.tackles_made += made;
+                                            matchRecord.tackles_missed += missed;
+                                        }
+                                    }
+                                });
+                            };
+                            processTacklers(def.top_tacklers_los_muros);
+                            processTacklers(def.alertas_rendimiento_focos_de_rotura);
+                        }
+                    });
+                }
+
+                // Final calculation of averages
+                Object.values(aggregated).forEach(p => {
+                    p.nota_media = p.count_nota > 0 ? (p.total_nota / p.count_nota).toFixed(1) : null;
+                    const totalTackles = p.tackles_made + p.tackles_missed;
+                    p.eficacia_placaje = totalTackles > 0 ? Math.round((p.tackles_made / totalTackles) * 100) : null;
+                });
+
                 setPlayerStats(Object.values(aggregated));
             }
 
@@ -330,7 +482,7 @@ const StatsPage = ({ user }) => {
             const m = matchResults.flatMap(g => g.matches).find(m => m.partido_id === location.state.targetMatchId || m.partido_externo_id === location.state.targetMatchId);
             if (m) { setActiveTab('hospitalet'); setHospitaletDetailTab('partidos'); setSelectedHospitaletMatch(m); }
         } else if (activeTab === 'hospitalet' && hospitaletDetailTab === 'partidos') {
-            const hospiMatches = matchResults.flatMap(g => g.matches).filter(m => m.home === HOSPITALET_NAME || m.away === HOSPITALET_NAME).sort((a, b) => new Date(b.date) - new Date(a.date));
+            const hospiMatches = matchResults.flatMap(g => g.matches).filter(m => normalizeTeamName(m.home) === HOSPITALET_NAME || normalizeTeamName(m.away) === HOSPITALET_NAME).sort((a, b) => new Date(b.date) - new Date(a.date));
             if (hospiMatches.length > 0 && !selectedHospitaletMatch) setSelectedHospitaletMatch(hospiMatches[0]);
         }
     }, [activeTab, hospitaletDetailTab, matchResults, location.state]);
@@ -385,11 +537,14 @@ const StatsPage = ({ user }) => {
                 </header>
 
                 {showUploader && (
-                    <div className="uploader-box">
-                        <h3 className="uploader-title">Subir Acta de Partido</h3>
-                        <ActaUploader onUploadComplete={() => { setShowUploader(false); fetchData(); }} />
+                    <div className="uploader-overlay">
+                        <div className="uploader-modal">
+                            <ActaUploader onClose={() => { setShowUploader(false); fetchData(); }} />
+                        </div>
                     </div>
                 )}
+
+
 
                 <div className="stats-tabs">
                     {[
@@ -466,7 +621,10 @@ const StatsPage = ({ user }) => {
                                             <div key={i} onClick={() => handleMatchClick(m)} className="match-result-row">
                                                 <div className="match-date">{m.date}</div>
                                                 <div className={`match-team match-team--home ${m.home === HOSPITALET_NAME ? 'match-team--hospi' : ''}`}>{m.home} <TeamLogo url={m.homeShield} name={m.home} size={32} /></div>
-                                                <span className="match-score">{m.scoreHome} - {m.scoreAway}</span>
+                                                <div className="match-score-container">
+                                                    <span className="match-score">{m.scoreHome} - {m.scoreAway}</span>
+                                                    <span className="match-tries">Ens: {m.ensayosHome} - {m.ensayosAway}</span>
+                                                </div>
                                                 <div className={`match-team match-team--away ${m.away === HOSPITALET_NAME ? 'match-team--hospi' : ''}`}><TeamLogo url={m.awayShield} name={m.away} size={32} /> {m.away}</div>
                                                 {user?.role !== 'JUGADOR' && (
                                                     <button onClick={(e) => { e.stopPropagation(); handleDeleteMatch(m); }} className="btn-delete-match"><Trash2 size={18} /></button>
@@ -516,20 +674,11 @@ const StatsPage = ({ user }) => {
                                             )}
                                             {rivalDetailTab === 'estadisticas' && <TeamEvolutionAnalysis matches={matchResults.flatMap(g => g.matches).filter(m => m.home === selectedRival || m.away === selectedRival)} analyses={allAnalyses} teamName={selectedRival} />}
                                             {rivalDetailTab === 'jugadores' && (
-                                                <div className="stats-table-card">
-                                                    <div className="table-wrapper">
-                                                        <table className="stats-table">
-                                                            <thead>
-                                                                <tr><th>Jugador</th><th className="text-center">PJ</th><th className="text-center">Ens</th><th className="text-center">Pts</th></tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {playerStats.filter(p => p.team === selectedRival).map((p, i) => (
-                                                                    <tr key={i}><td className="text-bold color-blue">{p.name}</td><td className="text-center">{p.jugados}</td><td className="text-center">{p.ensayos}</td><td className="text-center text-bold color-orange">{p.puntos}</td></tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </div>
+                                                <TeamPlayerStatsTable
+                                                    players={playerStats.filter(p => p.team === selectedRival)}
+                                                    teamName={selectedRival}
+                                                    onPlayerClick={setSelectedPlayerForHistory}
+                                                />
                                             )}
                                             {rivalDetailTab === 'analisis' && <RivalAnalysis rivalName={selectedRival} leagueStats={leagueStats} playerStats={playerStats} matchResults={matchResults} allAnalyses={allAnalyses} />}
                                         </div>
@@ -557,65 +706,27 @@ const StatsPage = ({ user }) => {
                                             {selectedHospitaletMatch && <MatchAnalysisView match={selectedHospitaletMatch} analysis={hospitaletMatchAnalysis} onMatchClick={handleMatchClick} MarkdownRenderer={MarkdownRenderer} allPlayers={allPlayers} />}
                                         </div>
                                     )}
-                                    {hospitaletDetailTab === 'estadisticas' && <TeamEvolutionAnalysis matches={matchResults.flatMap(g => g.matches).filter(m => m.home === HOSPITALET_NAME || m.away === HOSPITALET_NAME)} analyses={allAnalyses} teamName={HOSPITALET_NAME} />}
-                                    {hospitaletDetailTab === 'analisis' && <HospitaletAnalysis matches={matchResults.flatMap(g => g.matches).filter(m => m.home === HOSPITALET_NAME || m.away === HOSPITALET_NAME)} analyses={allAnalyses} playerStats={playerStats} leagueStats={leagueStats} />}
+                                    {hospitaletDetailTab === 'estadisticas' && <TeamEvolutionAnalysis matches={matchResults.flatMap(g => g.matches).filter(m => normalizeTeamName(m.home) === HOSPITALET_NAME || normalizeTeamName(m.away) === HOSPITALET_NAME)} analyses={allAnalyses} teamName={HOSPITALET_NAME} />}
+                                    {hospitaletDetailTab === 'analisis' && <HospitaletAnalysis matches={matchResults.flatMap(g => g.matches).filter(m => normalizeTeamName(m.home) === HOSPITALET_NAME || normalizeTeamName(m.away) === HOSPITALET_NAME)} analyses={allAnalyses} playerStats={playerStats} leagueStats={leagueStats} />}
                                     {hospitaletDetailTab === 'jugadores' && (
-                                        <div className="stats-table-card">
-                                            <div className="table-wrapper">
-                                                <table className="stats-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th onClick={() => handleSort('name')}>Jugador {renderSortIcon('name')}</th>
-                                                            <th onClick={() => handleSort('jugados')}>PJ {renderSortIcon('jugados')}</th>
-                                                            <th>Ens</th>
-                                                            <th>Pts</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {sortData(playerStats.filter(p => p.team?.toUpperCase().includes('HOSPITALET'))).map((p, i) => (
-                                                            <tr key={i} className="tr--hospi">
-                                                                <td className="text-bold">{p.name}</td>
-                                                                <td className="text-center">{p.jugados}</td>
-                                                                <td className="text-center">{p.ensayos}</td>
-                                                                <td className="text-center text-bold color-orange">{p.puntos}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
+                                        <TeamPlayerStatsTable
+                                            players={playerStats.filter(p => p.team === HOSPITALET_NAME)}
+                                            teamName={HOSPITALET_NAME}
+                                            highlightHospi={true}
+                                            onPlayerClick={setSelectedPlayerForHistory}
+                                        />
                                     )}
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'jugadores' && (
-                            <div className="stats-table-card">
-                                <div className="table-wrapper">
-                                    <table className="stats-table">
-                                        <thead>
-                                            <tr>
-                                                <th onClick={() => handleSort('name')}>Nombre {renderSortIcon('name')}</th>
-                                                <th>Equipo</th>
-                                                <th onClick={() => handleSort('jugados')}>PJ {renderSortIcon('jugados')}</th>
-                                                <th>Ens</th>
-                                                <th>Pts</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {sortData(playerStats).map((p, i) => (
-                                                <tr key={i} className={p.team?.toUpperCase().includes('HOSPITALET') ? 'tr--hospi' : ''}>
-                                                    <td className="text-bold">{p.name}</td>
-                                                    <td className="text-light">{p.team}</td>
-                                                    <td className="text-center">{p.jugados}</td>
-                                                    <td className="text-center">{p.ensayos}</td>
-                                                    <td className="text-center text-bold color-orange">{p.puntos}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                            <PlayerStatsTab
+                                playerStats={playerStats}
+                                allPlayers={allPlayers}
+                                leagueStats={leagueStats}
+                                onPlayerClick={setSelectedPlayerForHistory}
+                            />
                         )}
                     </div>
                 )}
@@ -628,6 +739,12 @@ const StatsPage = ({ user }) => {
                             await fetchData();
                             await fetchAllAnalyses();
                         }}
+                    />
+                )}
+                {selectedPlayerForHistory && (
+                    <PlayerMatchHistory
+                        player={selectedPlayerForHistory}
+                        onClose={() => setSelectedPlayerForHistory(null)}
                     />
                 )}
             </div>

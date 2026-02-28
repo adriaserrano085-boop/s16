@@ -11,50 +11,83 @@ const RivalAnalysis = ({ rivalName, leagueStats, playerStats, matchResults, allA
         if (!matches.length || !allAnalyses.length) return null;
 
         let totalPossession = 0;
-        let totalTacklesMade = 0;
-        let totalTacklesMissed = 0;
-        let totalScrumWon = 0;
-        let totalScrumLost = 0;
-        let totalLineoutWon = 0;
-        let totalLineoutLost = 0;
-        let matchesCount = 0;
-
-        matches.forEach(m => {
-            const analysis = m.partido_externo_id
-                ? allAnalyses.find(a => a.partido_externo_id === m.partido_externo_id)
-                : allAnalyses.find(a => a.evento_id === m.evento_id);
-
-            if (analysis?.raw_json) {
-                const raw = analysis.raw_json;
-                const isHome = m.home === rivalName;
-                const teamKey = isHome ? 'local' : 'visitante';
-                const teamKeyAlt = isHome ? 'local' : 'visitor';
-
-                const report = raw.match_report?.key_stats;
-                const legacy = raw.estadisticas;
-
-                totalPossession += (report?.posesion?.[teamKeyAlt] ?? legacy?.posesion?.[teamKey] ?? 50);
-                totalTacklesMade += (report?.placajes_exito?.[teamKeyAlt] ?? legacy?.placajes_hechos?.[teamKey] ?? 0);
-                totalTacklesMissed += (report?.placajes_fallados?.[teamKeyAlt] ?? legacy?.placajes_fallados?.[teamKey] ?? 0);
-
-                totalScrumWon += (report?.meles_ganadas?.[teamKeyAlt] ?? legacy?.mele?.[`${teamKey}_ganada`] ?? 0);
-                totalScrumLost += (report?.meles_perdidas?.[teamKeyAlt] ?? legacy?.mele?.[`${teamKey}_perdida`] ?? 0);
-
-                totalLineoutWon += (report?.touches_ganadas?.[teamKeyAlt] ?? legacy?.touch?.[`${teamKey}_ganada`] ?? 0);
-                totalLineoutLost += (report?.touches_perdidas?.[teamKeyAlt] ?? legacy?.touch?.[`${teamKey}_perdida`] ?? 0);
-
-                matchesCount++;
+        const analyzedMatches = matches.map(match => {
+            let analysis = null;
+            if (match.partido_externo_id) {
+                analysis = allAnalyses.find(a => a.partido_externo_id === match.partido_externo_id);
+            } else if (match.evento_id) {
+                analysis = allAnalyses.find(a => a.evento_id === match.evento_id);
             }
+
+            const isHome = match.home === rivalName;
+            const teamSfx = isHome ? 'local' : 'visitante';
+            const teamKeyAlt = isHome ? 'local' : 'visitor';
+            const raw = analysis?.raw_json;
+            const report = raw?.match_report?.key_stats;
+            const legacy = raw?.estadisticas;
+
+            // Extraction logic
+            const posesion = match[`posesion_${teamSfx}`] ?? report?.posesion?.[teamKeyAlt] ?? legacy?.posesion?.[teamSfx];
+            const placajes_hechos = match[`placajes_hechos_${teamSfx}`] ?? report?.placajes_exito?.[teamKeyAlt] ?? legacy?.placajes_hechos?.[teamSfx];
+            const placajes_fallados = match[`placajes_fallados_${teamSfx}`] ?? report?.placajes_fallados?.[teamKeyAlt] ?? legacy?.placajes_fallados?.[teamSfx];
+
+            let mele_ganada = match[`mele_ganada_${teamSfx}`];
+            let mele_perdida = match[`mele_perdida_${teamSfx}`];
+            if (mele_ganada === undefined || mele_ganada === null) {
+                mele_ganada = report?.meles_ganadas?.[teamKeyAlt] ?? legacy?.mele?.[`${teamSfx}_ganada`];
+                mele_perdida = report?.meles_perdidas?.[teamKeyAlt] ?? legacy?.mele?.[`${teamSfx}_perdida`];
+            }
+
+            let touch_ganada = match[`touch_ganada_${teamSfx}`];
+            let touch_perdida = match[`touch_perdida_${teamSfx}`];
+            if (touch_ganada === undefined || touch_ganada === null) {
+                touch_ganada = report?.touches_ganadas?.[teamKeyAlt] ?? legacy?.touch?.[`${teamSfx}_ganada`];
+                touch_perdida = report?.touches_perdidas?.[teamKeyAlt] ?? legacy?.touch?.[`${teamSfx}_perdida`];
+            }
+
+            return {
+                ...match,
+                analysis,
+                extractedStats: {
+                    posesion,
+                    placajes_hechos,
+                    placajes_fallados,
+                    mele_ganada,
+                    mele_perdida,
+                    touch_ganada,
+                    touch_perdida,
+                    marcador_local: match.scoreHome,
+                    marcador_visitante: match.scoreAway,
+                    ensayos_local: match.ensayosHome,
+                    ensayos_visitante: match.ensayosAway
+                }
+            };
+        }).filter(m => {
+            const s = m.extractedStats;
+            return s.posesion !== undefined || s.placajes_hechos !== undefined || s.mele_ganada !== undefined;
         });
 
-        if (matchesCount === 0) return null;
+        if (analyzedMatches.length === 0) return null;
 
+        const total = analyzedMatches.reduce((acc, m) => {
+            const s = m.extractedStats;
+            acc.possession += (s.posesion || 0);
+            acc.tacklesMade += (s.placajes_hechos || 0);
+            acc.tacklesMissed += (s.placajes_fallados || 0);
+            acc.scrumWon += (s.mele_ganada || 0);
+            acc.scrumLost += (s.mele_perdida || 0);
+            acc.lineoutWon += (s.touch_ganada || 0);
+            acc.lineoutLost += (s.touch_perdida || 0);
+            return acc;
+        }, { possession: 0, tacklesMade: 0, tacklesMissed: 0, scrumWon: 0, scrumLost: 0, lineoutWon: 0, lineoutLost: 0 });
+
+        const count = analyzedMatches.length;
         return {
-            avgPossession: Math.round(totalPossession / matchesCount),
-            tackleSuccess: Math.round((totalTacklesMade / ((totalTacklesMade + totalTacklesMissed) || 1)) * 100),
-            scrumSuccess: Math.round((totalScrumWon / ((totalScrumWon + totalScrumLost) || 1)) * 100),
-            lineoutSuccess: Math.round((totalLineoutWon / ((totalLineoutWon + totalLineoutLost) || 1)) * 100),
-            analyzedGames: matchesCount
+            avgPossession: Math.round(total.possession / count),
+            tackleSuccess: Math.round((total.tacklesMade / ((total.tacklesMade + total.tacklesMissed) || 1)) * 100),
+            scrumSuccess: Math.round((total.scrumWon / ((total.scrumWon + total.scrumLost) || 1)) * 100),
+            lineoutSuccess: Math.round((total.lineoutWon / ((total.lineoutWon + total.lineoutLost) || 1)) * 100),
+            analyzedGames: count
         };
     }, [matches, allAnalyses, rivalName]);
 

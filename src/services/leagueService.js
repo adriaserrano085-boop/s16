@@ -1,6 +1,6 @@
 import { apiGet } from '../lib/apiClient';
 
-const HOSPITALET_NAME = "RC HOSPITALET";
+const HOSPITALET_NAME = "RC L'HOSPITALET";
 const HOSPITALET_SHIELD = "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png";
 
 export const leagueService = {
@@ -99,6 +99,7 @@ export const leagueService = {
             // Process match statistics
             if (stats && stats.length > 0) {
                 stats.forEach(stat => {
+                    // Skip if score is missing
                     if (stat.marcador_local === null || stat.marcador_visitante === null) return;
 
                     let homeName = "Desconocido Local";

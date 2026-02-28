@@ -14,14 +14,14 @@ export const HospitaletAnalysis = ({ matches, analyses, playerStats, leagueStats
     // 0. DATA PREPARATION
     const teamStats = useMemo(() => {
         if (!leagueStats) return {};
-        return leagueStats.find(t => t.team === 'RC HOSPITALET') || {};
+        return leagueStats.find(t => t.team === "RC L'HOSPITALET") || {};
     }, [leagueStats]);
 
     // 1. RIVAL COMPARISON LOGIC (Double Headers)
     const rivalComparisons = useMemo(() => {
         const byRival = {};
         matches.forEach(m => {
-            const rival = m.home === 'RC HOSPITALET' ? m.away : m.home;
+            const rival = m.home === "RC L'HOSPITALET" ? m.away : m.home;
             if (!byRival[rival]) byRival[rival] = [];
             byRival[rival].push(m);
         });
@@ -34,8 +34,8 @@ export const HospitaletAnalysis = ({ matches, analyses, playerStats, leagueStats
                 const m1 = rivalMatches[0];
                 const m2 = rivalMatches[rivalMatches.length - 1]; // Compare first and last if more than 2
 
-                const getScore = (m) => m.home === 'RC HOSPITALET' ? m.scoreHome : m.scoreAway;
-                const getConceded = (m) => m.home === 'RC HOSPITALET' ? m.scoreAway : m.scoreHome;
+                const getScore = (m) => m.home === "RC L'HOSPITALET" ? m.scoreHome : m.scoreAway;
+                const getConceded = (m) => m.home === "RC L'HOSPITALET" ? m.scoreAway : m.scoreHome;
 
                 comparisons.push({
                     rival,

@@ -215,9 +215,9 @@ const Dashboard = ({ user: propUser }) => {
                                 isMatch: true,
                                 match_id: matchRecord.id,
                                 league: matchRecord.competicion || 'Liga',
-                                homeTeamName: isHospitaletLocal ? 'RC HOSPITALET' : rivalName,
+                                homeTeamName: isHospitaletLocal ? "RC L'HOSPITALET" : rivalName,
                                 homeTeamShield: isHospitaletLocal ? HOSPITALET_SHIELD : rivalShield,
-                                awayTeamName: isHospitaletLocal ? rivalName : 'RC HOSPITALET',
+                                awayTeamName: isHospitaletLocal ? rivalName : "RC L'HOSPITALET",
                                 awayTeamShield: isHospitaletLocal ? rivalShield : HOSPITALET_SHIELD,
                                 homeScore: matchRecord.marcador_local,
                                 awayScore: matchRecord.marcador_visitante,
@@ -541,7 +541,7 @@ const Dashboard = ({ user: propUser }) => {
                             </thead>
                             <tbody>
                                 {standings.map((team, idx) => (
-                                    <tr key={idx} className={team.team === 'RC HOSPITALET' ? 'row-highlight' : ''}>
+                                    <tr key={idx} className={team.team === "RC L'HOSPITALET" ? 'row-highlight' : ''}>
                                         <td className="td-rank">{team.ranking}</td>
                                         <td className="td-team">
                                             <div className="team-cell">

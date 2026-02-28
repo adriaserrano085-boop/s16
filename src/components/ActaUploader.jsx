@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { apiGet, apiPost, apiPut } from '../lib/apiClient';
+import { apiGet, apiPost, apiPut, API_BASE_URL } from '../lib/apiClient';
 const ActaUploader = ({ onUploadComplete }) => {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('');
@@ -20,7 +20,7 @@ const ActaUploader = ({ onUploadComplete }) => {
             const formData = new FormData();
             formData.append('file', file);
 
-            const uploadResponse = await fetch('/api/v1/upload', {
+            const uploadResponse = await fetch(`${API_BASE_URL}/upload`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('s16_auth_token')}`

@@ -33,12 +33,12 @@ const PhysicalTestsPage = ({ user }) => {
                 setResults(formatted);
             } else {
                 // Fallback to all mock data for the club team
-                const filtered = mockPhysicalTests.filter(test => test.team === "RC HOSPITALET");
+                const filtered = mockPhysicalTests.filter(test => test.team === "RC L'HOSPITALET");
                 setResults(filtered);
             }
         } catch (err) {
             console.error('Error fetching physical tests:', err);
-            setResults(mockPhysicalTests.filter(test => test.team === "RC HOSPITALET"));
+            setResults(mockPhysicalTests.filter(test => test.team === "RC L'HOSPITALET"));
         } finally {
             setLoading(false);
         }

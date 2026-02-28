@@ -50,8 +50,8 @@ const MatchReportPage = ({ user }) => {
                         matchData = {
                             id: data.id,
                             date: data.fecha,
-                            home: data.es_local ? "RC HOSPITALET" : rivalName,
-                            away: data.es_local ? rivalName : "RC HOSPITALET",
+                            home: data.es_local ? "RC L'HOSPITALET" : rivalName,
+                            away: data.es_local ? rivalName : "RC L'HOSPITALET",
                             homeShield: data.es_local ? "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png" : rivalShield,
                             awayShield: data.es_local ? rivalShield : "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png",
                             scoreHome: data.marcador_local,
@@ -71,7 +71,7 @@ const MatchReportPage = ({ user }) => {
                     if (data) {
                         // Simple shield fetch helper
                         const getShield = async (name) => {
-                            if (name === "RC HOSPITALET") return "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png";
+                            if (name === "RC L'HOSPITALET") return "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png";
                             const rivals = await apiGet('/rivales').catch(() => []);
                             const r = rivals.find(riv => riv.nombre_equipo === name);
                             return r?.escudo || null;

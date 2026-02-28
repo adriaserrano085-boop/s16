@@ -2,33 +2,47 @@ import { apiGet, apiPost, apiPut } from '../lib/apiClient';
 
 const BASE_URL = '/analisis_partido';
 
+const parseAnalysis = (item) => {
+    if (!item) return item;
+    if (item.raw_json && typeof item.raw_json === 'string') {
+        try {
+            item.raw_json = JSON.parse(item.raw_json);
+        } catch (e) {
+            console.error('Error parsing raw_json for analysis:', item.id, e);
+            item.raw_json = {};
+        }
+    }
+    return item;
+};
+
 export const analysisService = {
     // Get analysis by internal match event ID
     getByEventId: async (eventId) => {
         const data = await apiGet(`${BASE_URL}?evento=${eventId}`);
-        return data && data.length > 0 ? data[0] : null;
+        return data && data.length > 0 ? parseAnalysis(data[0]) : null;
     },
 
     // Get analysis by external match ID
     getByExternalMatchId: async (externalId) => {
         const data = await apiGet(`${BASE_URL}?partido_externo=${externalId}`);
-        return data && data.length > 0 ? data[0] : null;
+        return data && data.length > 0 ? parseAnalysis(data[0]) : null;
     },
 
     // Get analysis by internal partido ID
     getByPartidoId: async (partidoId) => {
         const data = await apiGet(`${BASE_URL}?partido=${partidoId}`);
-        return data && data.length > 0 ? data[0] : null;
+        return data && data.length > 0 ? parseAnalysis(data[0]) : null;
     },
 
     // Get all analyses
     getAll: async () => {
-        return apiGet(BASE_URL);
+        const data = await apiGet(BASE_URL);
+        return data ? data.map(parseAnalysis) : [];
     },
 
     // Save or update analysis (upsert)
     upsert: async (analysisData) => {
-        const { partido_id, partido_externo_id, evento_id, ...rest } = analysisData;
+        const { partido_id, partido_externo_id, evento_id, raw_json, ...rest } = analysisData;
 
         if (!partido_id && !partido_externo_id && !evento_id) {
             throw new Error('No se proporcionó ningún identificador de partido válido.');
@@ -56,11 +70,18 @@ export const analysisService = {
         if (partido_externo_id) payload.partido_externo_id = partido_externo_id;
         if (evento_id) payload.evento_id = evento_id;
 
-        if (existingRecord) {
-            return apiPut(`${BASE_URL}/${existingRecord.id}`, payload);
-        } else {
-            return apiPost(BASE_URL, payload);
+        // Ensure raw_json is a string for the backend text column
+        if (raw_json) {
+            payload.raw_json = typeof raw_json === 'object' ? JSON.stringify(raw_json) : raw_json;
         }
+
+        let saved = null;
+        if (existingRecord) {
+            saved = await apiPut(`${BASE_URL}/${existingRecord.id}`, payload);
+        } else {
+            saved = await apiPost(BASE_URL, payload);
+        }
+        return parseAnalysis(saved);
     }
 };
 

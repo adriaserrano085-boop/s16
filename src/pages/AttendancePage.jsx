@@ -208,7 +208,7 @@ const AttendancePage = ({ user }) => {
                             alt="Logo RCLH"
                             className="attendance-logo"
                         />
-                        <h1 className="attendance-title">Asistencia General RC HOSPITALET</h1>
+                        <h1 className="attendance-title">Asistencia General RC L'HOSPITALET</h1>
                     </div>
 
                     {loading ? (
