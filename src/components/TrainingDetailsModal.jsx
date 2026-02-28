@@ -234,28 +234,48 @@ const TrainingDetailsModal = ({ event, onClose, systemPlayers = [], currentUser 
                                         <div style={{ textAlign: 'center', padding: '1rem', color: '#666' }}>Cargando asistencia...</div>
                                     ) : attendanceList.length > 0 ? (
                                         attendanceList.map((player) => {
-                                            let statusClass = `badge-${player.statusLower.replace(/\s+/g, '-')}`; // Handle spaces like 'falta justificada' -> 'falta-justificada'
+                                            let statusClass = `badge-${player.statusLower.replace(/\s+/g, '-')}`;
 
-                                            // Fallback for unknown status classes
                                             const validClasses = [
-                                                'badge-presente',
-                                                'badge-retraso',
-                                                'badge-falta-justificada',
-                                                'badge-lesion',
-                                                'badge-emfermo',
-                                                'badge-catalana',
-                                                'badge-falta',
-                                                'badge-ausente',
-                                                'badge-no-registrado'
+                                                'badge-presente', 'badge-retraso', 'badge-falta-justificada',
+                                                'badge-lesion', 'badge-emfermo', 'badge-catalana',
+                                                'badge-falta', 'badge-ausente', 'badge-no-registrado'
                                             ];
+                                            if (!validClasses.includes(statusClass)) statusClass = 'badge-unknown';
 
-                                            if (!validClasses.includes(statusClass)) {
-                                                statusClass = 'badge-unknown';
-                                            }
+                                            const fullName = [player.nombre, player.apellidos].filter(Boolean).join(' ') || player.name || 'Jugador';
+                                            const initials = fullName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
                                             return (
                                                 <div key={player.id} className="attendance-item">
-                                                    <span className="player-name">{player.name}</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                                        {player.foto ? (
+                                                            <img
+                                                                src={player.foto}
+                                                                alt={fullName}
+                                                                style={{
+                                                                    width: '36px', height: '36px',
+                                                                    borderRadius: '50%', objectFit: 'cover',
+                                                                    border: '2px solid #e2e8f0'
+                                                                }}
+                                                                onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                                                            />
+                                                        ) : null}
+                                                        <div
+                                                            style={{
+                                                                width: '36px', height: '36px',
+                                                                borderRadius: '50%',
+                                                                background: 'linear-gradient(135deg, #003366, #FF6600)',
+                                                                color: 'white', fontSize: '0.75rem', fontWeight: 'bold',
+                                                                display: player.foto ? 'none' : 'flex',
+                                                                alignItems: 'center', justifyContent: 'center',
+                                                                flexShrink: 0
+                                                            }}
+                                                        >
+                                                            {initials}
+                                                        </div>
+                                                        <span className="player-name">{fullName}</span>
+                                                    </div>
                                                     <span className={`attendance-badge ${statusClass}`}>
                                                         {player.status}
                                                     </span>
