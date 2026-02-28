@@ -1,14 +1,13 @@
 --- Schema Dump ---
 
 Table: eventos
-Keys: ["id","tipo","fecha","hora","estado","observaciones","equip_id","id_eventos","created_at","updated_at"]
+Keys: ["id","tipo","fecha","hora","estado","observaciones","created_at","updated_at"]
 
 Table: partidos
-Keys: ["id","evento","es_local","lugar","marcador_local","marcador_visitante","observaciones","Rival"]
+Keys: ["id","es_local","lugar","marcador_local","marcador_visitante","observaciones","Rival","Evento","ensayos_local","ensayos_visitante","jornada","acta_url"]
 
 Table: entrenamientos
-(Empty Table)
-Probe Error: new row violates row-level security policy for table "entrenamientos"
+Keys: ["id_entrenamiento","calentamiento","trabajo_separado","trabajo_conjunto","creado_en","actualizado_en","evento"]
 
 Table: asistencia
 Keys: ["id","entrenamiento","jugador","asistencia"]
@@ -16,13 +15,6 @@ Keys: ["id","entrenamiento","jugador","asistencia"]
 Table: jugadores_propios
 (Empty Table)
 Probe Error: new row violates row-level security policy for table "jugadores_propios"
-
-Table: staff
-(Empty Table)
-Probe Error: new row violates row-level security policy for table "staff"
-
-Table: usuarios
-Keys: ["id","auth_id","email","nombre","apellidos","telefono","fecha_nacimiento","foto_url","direccion","activo","fecha_alta","fecha_baja","motivo_baja","created_at","updated_at","tipo_usuario"]
 
 Table: rivales
 Keys: ["id_equipo","nombre_equipo","ciudad","fecha_creacion","categoria","temporada","escudo"]

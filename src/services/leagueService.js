@@ -8,7 +8,6 @@ export const leagueService = {
         try {
             // 0. Fetch necessary data in parallel
             const [rivalsData, statsData, matchesData, matchesExternosData, playerStats] = await Promise.all([
-            const [rivalsData, statsData, matchesData, matchesExternosData, playerStats] = await Promise.all([
                 apiGet('/rivales').catch(() => []),
                 apiGet('/estadisticas_partido').catch(() => []),
                 apiGet('/partidos').catch(() => []),
