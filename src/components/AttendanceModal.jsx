@@ -80,7 +80,7 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
     const fetchEvents = async () => {
         try {
             // 1. Fetch relevant Eventos sorted by date
-            const eventos = await apiGet(`/eventos/?tipo=Entrenamiento${filterDate ? `&fecha=${filterDate}` : ''}`);
+            const eventos = await apiGet(`/eventos?tipo=Entrenamiento${filterDate ? `&fecha=${filterDate}` : ''}`);
 
             if (!eventos || eventos.length === 0) {
                 console.log('No training events found');

@@ -400,7 +400,7 @@ const ActaUploader = ({ onUploadComplete }) => {
         // 1. Try to find in standard 'eventos'/'partidos'
         // Using our new API endpoints
         try {
-            const eventData = await apiGet(`/eventos/?fecha=${formattedDate}`);
+            const eventData = await apiGet(`/eventos?fecha=${formattedDate}`);
 
             if (eventData && eventData.length > 0) {
                 // Fetch matches for these events
@@ -459,8 +459,8 @@ const ActaUploader = ({ onUploadComplete }) => {
 
     async function resolvePlayers(playerLists, metadata) {
         // 1. Fetch Internal Players (Hospitalet)
-        const dbPlayers = await apiGet('/jugadores_propios/').catch(() => []);
-        const externalPlayersAll = await apiGet('/jugadores_externos/').catch(() => []);
+        const dbPlayers = await apiGet('/jugadores_propios').catch(() => []);
+        const externalPlayersAll = await apiGet('/jugadores_externos').catch(() => []);
 
         const playerMap = { LOCAL: {}, VISITOR: {} };
 

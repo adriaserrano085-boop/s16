@@ -37,10 +37,10 @@ const QuickAttendanceModal = ({ onClose, players }) => {
                 const pastDateStr = pastDate.toISOString().split('T')[0];
 
                 // Fetch events
-                const events = await apiGet(`/eventos/?tipo=Entrenamiento&fecha_gte=${pastDateStr}`);
+                const events = await apiGet(`/eventos?tipo=Entrenamiento&fecha_gte=${pastDateStr}`);
 
                 // Fetch trainings
-                const allTrainings = await apiGet('/entrenamientos/');
+                const allTrainings = await apiGet('/entrenamientos');
 
                 // Filter valid trainings
                 const validTrainings = (events || [])

@@ -172,7 +172,7 @@ const Dashboard = ({ user: propUser }) => {
 
             // Fetch average stats for players
             if (user?.role === 'JUGADOR' && user.playerId) {
-                const playerStatsData = await apiGet(`/estadisticas_jugador/?jugador=${user.playerId}`).catch(() => []);
+                const playerStatsData = await apiGet(`/estadisticas_jugador?jugador=${user.playerId}`).catch(() => []);
 
                 if (playerStatsData && playerStatsData.length > 0) {
                     const playedMatches = playerStatsData.filter(s => (s.minutos_jugados || 0) > 0 || s.es_titular);
