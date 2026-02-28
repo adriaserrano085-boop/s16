@@ -79,7 +79,7 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
 
     const fetchEvents = async () => {
         try {
-            // 1. Fetch relevant Eventos sorted by date
+            // Fetch training events — just events, no nested training data
             const eventos = await apiGet(`/eventos?tipo=Entrenamiento${filterDate ? `&fecha=${filterDate}` : ''}`);
 
             if (!eventos || eventos.length === 0) {
@@ -88,43 +88,27 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
                 return;
             }
 
-            // 2. Fetch corresponding Entrenamientos
-            const trainings = await apiGet('/entrenamientos');
+            // Sort by date descending, take the most recent 20
+            const sorted = [...eventos]
+                .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+                .slice(0, 20);
 
-            // 3. Map Eventos to their Trainings
-            const trainingMap = {};
-            (trainings || []).forEach(t => {
-                trainingMap[t.evento] = t;
-            });
-
-            // 4. Combine and Format
-            const formattedEvents = eventos
-                .filter(e => trainingMap[e.id])
-                .map(e => {
-                    const training = trainingMap[e.id];
-                    return {
-                        trainingId: training.id_entrenamiento,
-                        eventId: e.id,
-                        title: e.tipo || 'Entrenamiento',
-                        date: e.fecha,
-                        time: e.hora
-                    };
-                });
-
-            // Ensure initial selection is handled/preserved if needed
-            if (initialEventId && !formattedEvents.find(e => e.eventId === initialEventId || e.trainingId === initialEventId)) {
-                // Logic to fetch single missing event if needed, but keeping it simple for now as requested.
-            }
+            // Format for display — trainingId will be resolved lazily
+            const formattedEvents = sorted.map(e => ({
+                trainingId: null, // resolved on demand
+                eventId: e.id,
+                title: e.tipo || 'Entrenamiento',
+                date: e.fecha,
+                time: e.hora
+            }));
 
             setEvents(formattedEvents);
 
-            // Auto-select the event closest to today's date
-            if (formattedEvents.length > 0) {
-
+            // Auto-select the event closest to today
+            if (formattedEvents.length > 0 && !initialEventId) {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
 
-                // Find the event closest to today
                 let closestEvent = formattedEvents[0];
                 let minDiff = Math.abs(new Date(formattedEvents[0].date) - today);
 
@@ -132,24 +116,38 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
                     const eventDate = new Date(event.date);
                     eventDate.setHours(0, 0, 0, 0);
                     const diff = Math.abs(eventDate - today);
-
                     if (diff < minDiff) {
                         minDiff = diff;
                         closestEvent = event;
                     }
                 });
 
-                // Auto-select if no initial selection or if we want to enforce it?
-                // Only if !initialEventId.
-                if (!initialEventId) {
-                    setSelectedEventId(closestEvent.eventId);
-                    console.log('Auto-selected closest event:', closestEvent);
-                }
+                setSelectedEventId(closestEvent.eventId);
             }
         } catch (err) {
             console.error('Error fetching events:', err);
-            alert('Error al cargar eventos: ' + err.message);
         }
+    };
+
+    // Resolve training ID for selected event on demand (lightweight)
+    const resolveTrainingId = async (eventId) => {
+        const existing = events.find(e => e.eventId === eventId);
+        if (existing?.trainingId) return existing.trainingId;
+
+        try {
+            const trainings = await apiGet(`/entrenamientos?evento=${eventId}`);
+            if (trainings && trainings.length > 0) {
+                const tid = trainings[0].id_entrenamiento;
+                // Cache it in the events list
+                setEvents(prev => prev.map(e =>
+                    e.eventId === eventId ? { ...e, trainingId: tid } : e
+                ));
+                return tid;
+            }
+        } catch (e) {
+            console.error('[Attendance] Error resolving training ID:', e);
+        }
+        return null;
     };
 
     const fetchPlayers = async () => {
@@ -172,31 +170,32 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
     const fetchExistingAttendance = async () => {
         setLoading(true);
         try {
-            const selectedEvent = events.find(e => e.eventId === selectedEventId);
-            if (!selectedEvent) return;
+            // Resolve training ID lazily (fetches /entrenamientos?evento=X only once per event)
+            const trainingId = await resolveTrainingId(selectedEventId);
 
-            const data = await attendanceService.getByTrainingId(selectedEvent.trainingId);
+            if (!trainingId) {
+                console.warn('[Attendance] No training record found for event:', selectedEventId);
+                // Still show all players as Pendiente so staff can take attendance
+                const initialAttendance = {};
+                players.forEach(player => { initialAttendance[player.id] = 'Pendiente'; });
+                setAttendance(initialAttendance);
+                return;
+            }
 
-            // Convert to attendance map
+            const data = await attendanceService.getByTrainingId(trainingId);
+
+            // Build map from existing records, default rest to Pendiente
             const attendanceMap = {};
-            data.forEach(record => {
+            players.forEach(player => { attendanceMap[player.id] = 'Pendiente'; });
+            (data || []).forEach(record => {
                 attendanceMap[record.jugador] = mapStatusToSpanish(record.asistencia);
             });
 
-            // Initialize all players with 'Pendiente' if not in map
-            const initialAttendance = {};
-            players.forEach(player => {
-                initialAttendance[player.id] = attendanceMap[player.id] || 'Pendiente';
-            });
-
-            setAttendance(initialAttendance);
+            setAttendance(attendanceMap);
         } catch (err) {
             console.error('Error fetching attendance:', err);
-            // Initialize all as Pendiente
             const initialAttendance = {};
-            players.forEach(player => {
-                initialAttendance[player.id] = 'Pendiente';
-            });
+            players.forEach(player => { initialAttendance[player.id] = 'Pendiente'; });
             setAttendance(initialAttendance);
         } finally {
             setLoading(false);
@@ -236,18 +235,19 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
             return;
         }
 
-        const selectedEvent = events.find(e => e.eventId === selectedEventId);
-        if (!selectedEvent) {
-            alert('Evento no encontrado');
-            return;
-        }
-
         setSaving(true);
         try {
+            const trainingId = await resolveTrainingId(selectedEventId);
+            if (!trainingId) {
+                alert('No se encontró el registro de entrenamiento para este evento.');
+                setSaving(false);
+                return;
+            }
+
             const records = Object.entries(attendance)
                 .filter(([_, status]) => status !== 'Pendiente')
                 .map(([playerId, status]) => ({
-                    entrenamiento: selectedEvent.trainingId,
+                    entrenamiento: trainingId,
                     jugador: playerId,
                     asistencia: status
                 }));
