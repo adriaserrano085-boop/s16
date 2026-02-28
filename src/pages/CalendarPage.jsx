@@ -574,12 +574,31 @@ const CalendarPage = ({ user }) => {
         try {
             const data = await attendanceService.getByEventId(eventId);
             const attendanceMap = {};
-            data.forEach(record => {
+
+            // Start with Pendiente for ALL currently loaded players
+            // so the tab always shows every player, even if no record exists yet
+            setPlayers(prev => {
+                prev.forEach(p => {
+                    attendanceMap[p.id] = 'Pendiente';
+                });
+                return prev;
+            });
+
+            // Override with real values from the server
+            (data || []).forEach(record => {
                 attendanceMap[record.jugador] = record.asistencia;
             });
+
             setAttendance(attendanceMap);
         } catch (err) {
             console.error('Error fetching attendance:', err);
+            // On error, still initialize all players as Pendiente
+            setPlayers(prev => {
+                const emptyMap = {};
+                prev.forEach(p => { emptyMap[p.id] = 'Pendiente'; });
+                setAttendance(emptyMap);
+                return prev;
+            });
         }
     };
 
