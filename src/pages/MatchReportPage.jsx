@@ -30,7 +30,7 @@ const MatchReportPage = ({ user }) => {
 
                 // 1. Fetch Match Details
                 if (type === 'internal') {
-                    const data = await apiGet(`/partidos/${id}/`).catch(() => null);
+                    const data = await apiGet(`/partidos/${id}`).catch(() => null);
 
                     if (data) {
                         // Fetch rival for name and shield
@@ -39,7 +39,7 @@ const MatchReportPage = ({ user }) => {
                         let rivalShield = null;
 
                         if (rivalId) {
-                            const rivals = await apiGet('/rivales/').catch(() => []);
+                            const rivals = await apiGet('/rivales').catch(() => []);
                             const rival = rivals.find(r => r.id === rivalId || r.nombre_equipo === rivalId);
                             if (rival) {
                                 rivalName = rival.nombre_equipo;
@@ -66,13 +66,13 @@ const MatchReportPage = ({ user }) => {
                         }
                     }
                 } else if (type === 'external') {
-                    const data = await apiGet(`/partidos_externos/${id}/`).catch(() => null);
+                    const data = await apiGet(`/partidos_externos/${id}`).catch(() => null);
 
                     if (data) {
                         // Simple shield fetch helper
                         const getShield = async (name) => {
                             if (name === "RC HOSPITALET") return "https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Escudo_Hospi_3D-removebg-preview.png";
-                            const rivals = await apiGet('/rivales/').catch(() => []);
+                            const rivals = await apiGet('/rivales').catch(() => []);
                             const r = rivals.find(riv => riv.nombre_equipo === name);
                             return r?.escudo || null;
                         };
@@ -101,7 +101,7 @@ const MatchReportPage = ({ user }) => {
 
                 // 2. Fetch Personal Stats if User is a Player
                 if (user?.role === 'JUGADOR' && user.playerId) {
-                    const allStats = await apiGet('/estadisticas_jugador/').catch(() => []);
+                    const allStats = await apiGet('/estadisticas_jugador').catch(() => []);
                     const pStats = allStats.find(s =>
                         s.jugador === user.playerId &&
                         (type === 'internal' ? s.partido === id : s.partido_externo === id)

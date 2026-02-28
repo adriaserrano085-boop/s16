@@ -28,10 +28,10 @@ const RivalAnalysisPage = ({ user }) => {
                 setLeagueStats(standings);
 
                 // 2. Fetch Match Stats
-                const statsData = await apiGet('/estadisticas_partido/').catch(() => []);
-                const allPartidos = await apiGet('/partidos/').catch(() => []);
-                const allPartidosExternos = await apiGet('/partidos_externos/').catch(() => []);
-                const allRivales = await apiGet('/rivales/').catch(() => []);
+                const statsData = await apiGet('/estadisticas_partido').catch(() => []);
+                const allPartidos = await apiGet('/partidos').catch(() => []);
+                const allPartidosExternos = await apiGet('/partidos_externos').catch(() => []);
+                const allRivales = await apiGet('/rivales').catch(() => []);
 
                 const results = [];
                 // Process matches similarly to StatsPage but simpler
@@ -82,7 +82,7 @@ const RivalAnalysisPage = ({ user }) => {
 
 
                 // 3. Fetch Player Stats (Needed for top scorers etc.)
-                const rawStats = await apiGet('/estadisticas_jugador/').catch(() => []);
+                const rawStats = await apiGet('/estadisticas_jugador').catch(() => []);
                 if (rawStats) {
                     const aggregated = {};
                     rawStats.forEach(stat => {

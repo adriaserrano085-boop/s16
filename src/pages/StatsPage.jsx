@@ -65,11 +65,11 @@ const StatsPage = ({ user }) => {
         try {
             // Fetch all necessary data in parallel
             const [rivalsData, statsData, matchesData, matchesExternosData, rawStats] = await Promise.all([
-                apiGet('/rivales/').catch(() => []),
-                apiGet('/estadisticas_partido/').catch(() => []),
-                apiGet('/partidos/').catch(() => []),
-                apiGet('/partidos_externos/').catch(() => []),
-                apiGet('/estadisticas_jugador/').catch(() => [])
+                apiGet('/rivales').catch(() => []),
+                apiGet('/estadisticas_partido').catch(() => []),
+                apiGet('/partidos').catch(() => []),
+                apiGet('/partidos_externos').catch(() => []),
+                apiGet('/estadisticas_jugador').catch(() => [])
             ]);
 
             const teamShields = {};
@@ -244,7 +244,7 @@ const StatsPage = ({ user }) => {
             setLoading(true);
 
             // Delete player stats for this match
-            const pStats = await apiGet('/estadisticas_jugador/');
+            const pStats = await apiGet('/estadisticas_jugador');
             const toDelete = pStats.filter(s =>
                 (match.partido_externo_id && s.partido_externo === match.partido_externo_id) ||
                 (match.partido_id && s.partido === match.partido_id)

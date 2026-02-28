@@ -404,8 +404,8 @@ const ActaUploader = ({ onUploadComplete }) => {
 
             if (eventData && eventData.length > 0) {
                 // Fetch matches for these events
-                const matchesData = await apiGet('/partidos/').catch(() => []);
-                const rivalsData = await apiGet('/rivales/').catch(() => []);
+                const matchesData = await apiGet('/partidos').catch(() => []);
+                const rivalsData = await apiGet('/rivales').catch(() => []);
 
                 const matchFound = eventData.find(e => {
                     const p = matchesData.find(m => m.Evento == e.id);
@@ -431,7 +431,7 @@ const ActaUploader = ({ onUploadComplete }) => {
 
         // 2. If not found, check if already exists in 'partidos_externos'
         try {
-            const existingExternals = await apiGet(`/partidos_externos/?fecha=${formattedDate}`);
+            const existingExternals = await apiGet(`/partidos_externos?fecha=${formattedDate}`);
             const match = (existingExternals || []).find(m =>
                 m.equipo_local.toLowerCase() === metadata.localTeam.toLowerCase() &&
                 m.equipo_visitante.toLowerCase() === metadata.visitorTeam.toLowerCase()
@@ -446,7 +446,7 @@ const ActaUploader = ({ onUploadComplete }) => {
         }
 
         console.log("Match not found in calendar. Creating External Match...");
-        const newMatch = await apiPost('/partidos_externos/', {
+        const newMatch = await apiPost('/partidos_externos', {
             fecha: formattedDate,
             equipo_local: metadata.localTeam,
             equipo_visitante: metadata.visitorTeam,
@@ -710,13 +710,13 @@ const ActaUploader = ({ onUploadComplete }) => {
             await apiPut(`/partidos/${id}`, partidosPayload).catch(e => console.error(e));
 
             // Upsert ESTADISTICAS_PARTIDO
-            const existingStatsAll = await apiGet('/estadisticas_partido/').catch(() => []);
+            const existingStatsAll = await apiGet('/estadisticas_partido').catch(() => []);
             const existingStats = existingStatsAll.filter(s => s.partido == id);
 
             if (existingStats && existingStats.length > 0) {
                 await apiPut(`/estadisticas_partido/${existingStats[0].id}`, centralizedStats);
             } else {
-                await apiPost('/estadisticas_partido/', centralizedStats);
+                await apiPost('/estadisticas_partido', centralizedStats);
             }
         } else {
             // External Match
@@ -729,19 +729,19 @@ const ActaUploader = ({ onUploadComplete }) => {
 
             await apiPut(`/partidos_externos/${id}`, externalPayload).catch(e => console.error(e));
 
-            const existingStatsAll = await apiGet('/estadisticas_partido/').catch(() => []);
+            const existingStatsAll = await apiGet('/estadisticas_partido').catch(() => []);
             const existingStats = existingStatsAll.filter(s => s.partido_externo == id);
 
             if (existingStats && existingStats.length > 0) {
                 await apiPut(`/estadisticas_partido/${existingStats[0].id}`, centralizedStats);
             } else {
-                await apiPost('/estadisticas_partido/', centralizedStats);
+                await apiPost('/estadisticas_partido', centralizedStats);
             }
         }
 
         // 2. Insert Player Stats
         // Delete existing stats for this match
-        const allPlayerStats = await apiGet('/estadisticas_jugador/').catch(() => []);
+        const allPlayerStats = await apiGet('/estadisticas_jugador').catch(() => []);
         const toDelete = allPlayerStats.filter(s =>
             (isExternal && s.partido_externo == id) || (!isExternal && s.partido == id)
         );
@@ -788,7 +788,7 @@ const ActaUploader = ({ onUploadComplete }) => {
 
         console.log(`Saving ${records.length} player stats records...`);
         for (const record of records) {
-            await apiPost('/estadisticas_jugador/', record);
+            await apiPost('/estadisticas_jugador', record);
         }
     }
 
