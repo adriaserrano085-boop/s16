@@ -15,26 +15,7 @@ const Login = ({ setUser }) => {
 
     const handleResetPassword = async (e) => {
         e.preventDefault();
-        if (!email) {
-            setError('Introduce tu correo electrónico.');
-            return;
-        }
-        setLoading(true);
-        setError('');
-        try {
-            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/login`,
-            });
-            if (resetError) {
-                setError(resetError.message);
-            } else {
-                setResetSent(true);
-            }
-        } catch {
-            setError('Error al enviar el correo de recuperación.');
-        } finally {
-            setLoading(false);
-        }
+        setError('La recuperación de contraseña debe ser gestionada por el administrador del sistema.');
     };
 
     const handleSubmit = async (e) => {
@@ -42,60 +23,50 @@ const Login = ({ setUser }) => {
         setLoading(true);
         setError('');
 
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ timeout: true }), 10000));
-
         try {
-            console.log('Login: Attempting sign in for:', email);
-            // 1. Sign in with Supabase Auth (with 10s timeout)
-            const signinPromise = supabase.auth.signInWithPassword({
-                email,
-                password,
+            console.log('Login: Attempting sign in to FastAPI for:', email);
+
+            // 1. Prepare form data for OAuth2PasswordRequestForm
+            const formData = new FormData();
+            formData.append('username', email);
+            formData.append('password', password);
+
+            const loginResponse = await fetch('/api/v1/token', {
+                method: 'POST',
+                body: formData
             });
 
-            const result = await Promise.race([signinPromise, timeoutPromise]);
-
-            if (result.timeout) {
-                console.error('Login: Auth request timed out.');
-                setError('El servicio está tardando demasiado. Por favor, intenta de nuevo.');
-                setLoading(false);
-                return;
+            if (!loginResponse.ok) {
+                const errorData = await loginResponse.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Credenciales incorrectas o error en el servidor');
             }
 
-            const { data: authData, error: authError } = result;
+            const tokenData = await loginResponse.json();
+            console.log('Login: Success. Token received.');
 
-            if (authError) {
-                console.error('Login: Auth error:', authError.message);
-                setError(authError.message);
-                setLoading(false);
-                return;
-            }
+            // Store token
+            localStorage.setItem('s16_auth_token', tokenData.access_token);
 
-            if (authData?.user) {
-                console.log('Login: Success. Redirection to dashboard...');
-
-                // Store session for the new API client
-                const session = authData.session;
-                if (session) {
-                    localStorage.setItem('s16_auth_token', session.access_token);
+            // 2. Fetch profile from /users/me to ensure we have full context
+            const profileResponse = await fetch(`/api/v1/users/me`, {
+                headers: {
+                    'Authorization': `Bearer ${tokenData.access_token}`
                 }
+            });
 
-                // Temporary user object with role for initial UI
-                // In a full implementation, we'd fetch the role from the backend here
-                const userObj = {
-                    id: authData.user.id,
-                    email: authData.user.email,
-                    role: authData.user.email.includes('admin') || authData.user.email.includes('staff') ? 'STAFF' : 'JUGADOR'
-                };
+            if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                console.log('Login: Profile fetched successfully:', profileData);
 
-                localStorage.setItem('s16_cached_role', JSON.stringify(userObj));
-                setUser(userObj);
-
-                console.log("Login: Triggering navigation to dashboard.");
+                localStorage.setItem('s16_cached_role', JSON.stringify(profileData));
+                setUser(profileData);
                 navigate('/dashboard');
+            } else {
+                throw new Error('Error al obtener el perfil de usuario tras el login');
             }
         } catch (err) {
-            console.error('Login: Unexpected error:', err);
-            setError('Ocurrió un error inesperado al conectar con el servidor.');
+            console.error('Login Error:', err);
+            setError(err.message || 'Ocurrió un error inesperado al iniciar sesión.');
         } finally {
             setLoading(false);
         }

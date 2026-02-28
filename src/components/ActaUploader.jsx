@@ -1,15 +1,6 @@
 
 import React, { useState } from 'react';
 import { apiGet, apiPost, apiPut } from '../lib/apiClient';
-import { supabase } from '../lib/supabaseClient'; // Keep for Storage only for now
-import * as pdfjsLib from 'pdfjs-dist';
-// Set worker using CDN to avoid Vite build issues with worker files, or use local if configured
-// For simplicity in this environment, we'll try the CDN approach often used in simple React setups
-// or standard import if the bundler handles it. Given Vite 7, standard import might work if worker is set.
-import workerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-
 const ActaUploader = ({ onUploadComplete }) => {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('');
@@ -24,29 +15,27 @@ const ActaUploader = ({ onUploadComplete }) => {
         setError(null);
 
         try {
-            // 1. Upload File to Supabase Storage 'Actas' bucket
-            setStatus('Subiendo archivo PDF...');
-            const timestamp = Date.now();
-            // Sanitize filename
-            const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const filePath = `${timestamp}_${cleanName}`;
+            // 1. Upload File to our Backend
+            setStatus('Subiendo archivo PDF al servidor...');
+            const formData = new FormData();
+            formData.append('file', file);
 
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('Actas')
-                .upload(filePath, file);
+            const uploadResponse = await fetch('/api/v1/upload', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('s16_auth_token')}`
+                },
+                body: formData
+            });
 
-            if (uploadError) {
-                console.error("Upload Error:", uploadError);
-                throw new Error("Error al subir el archivo: " + uploadError.message);
+            if (!uploadResponse.ok) {
+                const errorData = await uploadResponse.json().catch(() => ({}));
+                throw new Error(errorData.detail || "Error al subir el archivo al servidor");
             }
 
-            // Get Public URL
-            const { data: publicUrlData } = supabase.storage
-                .from('Actas')
-                .getPublicUrl(filePath);
-
-            const publicUrl = publicUrlData.publicUrl;
-            console.log("File uploaded to:", publicUrl);
+            const uploadData = await uploadResponse.json();
+            const publicUrl = uploadData.full_url || uploadData.url;
+            console.log("File uploaded successfully to:", publicUrl);
 
             setStatus('Leyendo PDF...');
             const arrayBuffer = await file.arrayBuffer();

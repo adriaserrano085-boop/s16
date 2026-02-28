@@ -85,32 +85,34 @@ function App() {
 
       console.log("Auth State Change: Detected Token");
 
-      // Check for cached role first
-      const cachedRoleStr = localStorage.getItem('s16_cached_role');
-      if (cachedRoleStr) {
-        try {
-          const cached = JSON.parse(cachedRoleStr);
-          // Note: In custom API, we might not have a session.user.id immediately 
-          // but we can trust the cache for now or wait for validation.
-          setUser(cached);
-        } catch (e) {
-          console.error("Error parsing cached role", e);
-        }
-      }
-
       try {
-        console.log("Auth State: Querying role from new API...");
+        console.log("Auth State: Querying latest profile from backend...");
+        const response = await fetch(`/api/v1/users/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
 
-        // A. Identify who I am (e.g. GET /users/me or similar)
-        // For now, we'll try to find the player/staff record.
-        // If we don't have a /users/me, we might have to store the user info during login.
-
-        // This is a placeholder since we don't have /users/me yet.
-        // We'll rely on what was stored during login if possible.
-        if (cachedRoleStr) return;
-
+        if (response.ok) {
+          const profileData = await response.json();
+          console.log("Auth State: Profile refreshed successfully:", profileData);
+          localStorage.setItem('s16_cached_role', JSON.stringify(profileData));
+          setUser(profileData);
+        } else {
+          console.warn("Auth State: Token invalid or expired. Cleaning up.");
+          localStorage.removeItem('s16_auth_token');
+          localStorage.removeItem('s16_cached_role');
+          setUser(null);
+        }
       } catch (err) {
         console.error("Auth Logic Error:", err);
+        // On network error, we can try to use the cache if it exists
+        const cachedRoleStr = localStorage.getItem('s16_cached_role');
+        if (cachedRoleStr) {
+          try {
+            setUser(JSON.parse(cachedRoleStr));
+          } catch (e) { }
+        }
       }
     };
 
