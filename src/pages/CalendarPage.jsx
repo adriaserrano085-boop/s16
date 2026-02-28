@@ -630,7 +630,7 @@ const CalendarPage = ({ user }) => {
                 const eventData = await apiGet(`/eventos/${eventId}`);
 
                 if (eventData) {
-                    const allTrainings = await apiGet('/entrenamientos/').catch(() => []);
+                    const allTrainings = await apiGet('/entrenamientos').catch(() => []);
                     const trainingData = allTrainings.find(t => t.evento === eventId);
 
                     if (trainingData) {

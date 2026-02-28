@@ -4,7 +4,7 @@ const BASE_URL = '/entrenamientos';
 
 export const trainingService = {
     getAll: async () => {
-        return apiGet(`${BASE_URL}/`).catch(() => []);
+        return apiGet(BASE_URL).catch(() => []);
     },
 
     getById: async (id) => {

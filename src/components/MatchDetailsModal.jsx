@@ -406,7 +406,7 @@ const MatchDetailsModal = ({ match, onClose, currentUser, isNextMatch, onEditMat
             if (!trainingId) {
                 // Determine the correct API module to fetch training using apiClient
                 const { apiGet } = await import('../lib/apiClient');
-                const allTrainings = await apiGet('/entrenamientos/').catch(() => []);
+                const allTrainings = await apiGet('/entrenamientos').catch(() => []);
                 const trainingData = allTrainings.find(t => t.evento === eventId);
 
                 if (trainingData) {

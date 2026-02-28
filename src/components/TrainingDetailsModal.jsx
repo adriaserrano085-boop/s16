@@ -28,7 +28,7 @@ const TrainingDetailsModal = ({ event, onClose, systemPlayers = [], currentUser 
 
             if (!trainingId) {
                 try {
-                    const allTrainings = await apiGet('/entrenamientos/').catch(() => []);
+                    const allTrainings = await apiGet('/entrenamientos').catch(() => []);
                     const found = allTrainings.find(t => t.evento === event.id);
                     if (found) {
                         trainingId = found.id_entrenamiento;
@@ -45,7 +45,7 @@ const TrainingDetailsModal = ({ event, onClose, systemPlayers = [], currentUser 
             }
 
             // 2. Fetch Attendance
-            const attendanceData = await apiGet(`/asistencia/?entrenamiento=${trainingId}`).catch(() => []);
+            const attendanceData = await apiGet(`/asistencia?entrenamiento=${trainingId}`).catch(() => []);
 
             // 3. Merge with Player Names
             // We use systemPlayers passed from props if available to get names. 

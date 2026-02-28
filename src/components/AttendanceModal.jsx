@@ -89,7 +89,7 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
             }
 
             // 2. Fetch corresponding Entrenamientos
-            const trainings = await apiGet('/entrenamientos/');
+            const trainings = await apiGet('/entrenamientos');
 
             // 3. Map Eventos to their Trainings
             const trainingMap = {};
