@@ -15,6 +15,7 @@ import { trainingService } from '../services/trainingService';
 import playerService from '../services/playerService';
 import AttendanceList from '../components/AttendanceList';
 import attendanceService from '../services/attendanceService';
+import AttendanceModal from '../components/AttendanceModal';
 import MatchDetailsModal from '../components/MatchDetailsModal';
 import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Plus, Users, X, Info, Trash2, Activity, CheckCircle, XCircle, HelpCircle, Save } from 'lucide-react';
 import './CalendarPage.css';
@@ -333,129 +334,30 @@ const CalendarPage = ({ user }) => {
         e.preventDefault();
         setLoading(true);
         try {
-            // 1. Prepare Observaciones based on Type
-            let finalObservaciones = newEvent.observaciones;
+            const payload = {
+                id: isEditing ? currentEventId : undefined,
+                tipo: newEvent.Tipo,
+                fecha: newEvent.fecha,
+                hora: newEvent.hora,
+                estado: newEvent.Estado,
+                observaciones: newEvent.observaciones,
+                // Details
+                calentamiento: newEvent.calentamiento,
+                trabajo_separado: newEvent.trabajo_separado,
+                trabajo_conjunto: newEvent.trabajo_conjunto,
+                // Match
+                rival_id: newEvent.rival_id,
+                es_local: newEvent.es_local,
+                lugar: newEvent.location,
+                marcador_local: newEvent.marcador_local !== '' ? parseInt(newEvent.marcador_local) : null,
+                marcador_visitante: newEvent.marcador_visitante !== '' ? parseInt(newEvent.marcador_visitante) : null
+            };
+
             if (newEvent.Tipo === 'Entrenamiento' && newEvent.objetivos) {
-                // If editing, we might be appending duplicates if we aren't careful.
-                // But for now, let's assume valid formatted input or just overwrite.
-                // Ideally, we should parse it back when loading, which we will do in handleEditClick.
-                finalObservaciones = `[OBJETIVOS]: ${newEvent.objetivos}\n\n${newEvent.observaciones}`;
+                payload.observaciones = `[OBJETIVOS]: ${newEvent.objetivos}\n\n${newEvent.observaciones || ''}`;
             }
 
-            if (isEditing && currentEventId) {
-                // UPDATE Logic
-                await eventService.update(currentEventId, {
-                    tipo: newEvent.Tipo, // FIXED: lower case
-                    fecha: newEvent.fecha,
-                    hora: newEvent.hora,
-                    // location: newEvent.location, // REMOVED: Not in 'eventos' schema
-                    observaciones: finalObservaciones,
-                    // equip_id: newEvent.equip_id, // REMOVED: Not in schema
-                    estado: newEvent.Estado // FIXED: lower case
-                });
-
-                // Use Legacy ID for Detail Tables if available, otherwise fallback (though should match)
-                const detailId = currentEventLegacyId || currentEventId;
-
-                if (newEvent.Tipo === 'Entrenamiento') {
-                    // Check if training record exists? It should if event exists.
-                    // But update method filters by event ID, so it's safe.
-                    const existingEvent = events.find(ev => ev.id === currentEventId);
-                    if (existingEvent && existingEvent.extendedProps.training_id) {
-                        try {
-                            await trainingService.update(detailId, {
-                                calentamiento: newEvent.calentamiento,
-                                trabajo_separado: newEvent.trabajo_separado,
-                                trabajo_conjunto: newEvent.trabajo_conjunto
-                            });
-                        } catch (err) {
-                            console.warn("Training update failed, trying create...", err);
-                            // Fallback create if it didn't exist
-                            await trainingService.create({
-                                evento: detailId,
-                                calentamiento: newEvent.calentamiento,
-                                trabajo_separado: newEvent.trabajo_separado,
-                                trabajo_conjunto: newEvent.trabajo_conjunto
-                            });
-                        }
-                    } else {
-                        // If for some reason training record doesn't exist, create it.
-                        await trainingService.create({
-                            evento: detailId,
-                            calentamiento: newEvent.calentamiento,
-                            trabajo_separado: newEvent.trabajo_separado,
-                            trabajo_conjunto: newEvent.trabajo_conjunto
-                        });
-                    }
-                } else if (newEvent.Tipo === 'Partido') {
-                    const matchPayload = {
-                        Rival: newEvent.rival_id, // Check casing? inspect-match showed 'Rival' capitalized in some outputs? Wait.
-                        // inspect-match output: "Rival" was in keys? No, keys were truncated.
-                        // But previous code used 'Rival'. 
-                        // inspect-columns.js output for partidos showed: "Rival" capital R?
-                        // "Columns for partidos: [ ... 'Rival' ... ]" -> Yes, earlier output showed 'Rival'.
-                        es_local: newEvent.es_local,
-                        lugar: newEvent.location,
-                        marcador_local: newEvent.marcador_local !== '' ? parseInt(newEvent.marcador_local) : null,
-                        marcador_visitante: newEvent.marcador_visitante !== '' ? parseInt(newEvent.marcador_visitante) : null
-                    };
-
-                    try {
-                        await matchService.update(detailId, matchPayload);
-                    } catch (err) {
-                        console.warn("Match update failed, trying create...", err);
-                        await matchService.create({
-                            Evento: detailId,
-                            ...matchPayload
-                        });
-                    }
-                }
-            } else {
-                // CREATE Logic (Existing)
-                const createdEvent = await eventService.create({
-                    tipo: newEvent.Tipo, // FIXED: lower case
-                    fecha: newEvent.fecha,
-                    hora: newEvent.hora,
-                    // location: newEvent.location, // REMOVED
-                    observaciones: finalObservaciones,
-                    // equip_id: newEvent.equip_id, // REMOVED: Not in schema
-                    estado: newEvent.Estado // FIXED: lower case
-                });
-
-                if (!createdEvent || !createdEvent[0]?.id) { // FIXED: id_eventos -> id
-                    throw new Error('No se pudo obtener el ID del evento creado.');
-                }
-                const eventId = createdEvent[0].id; // UUID
-                // const eventLegacyId = createdEvent[0].id_eventos; // Integer/Legacy - NOT USED ANYMORE for linking
-
-                if (newEvent.Tipo === 'Entrenamiento') {
-                    await trainingService.create({
-                        evento: eventId, // Use UUID
-                        calentamiento: newEvent.calentamiento,
-                        trabajo_separado: newEvent.trabajo_separado,
-                        trabajo_conjunto: newEvent.trabajo_conjunto
-                    });
-                } else if (newEvent.Tipo === 'Partido') {
-                    const matchPayload = {
-                        evento: eventId, // Use UUID
-                        Rival: newEvent.rival_id,
-                        es_local: newEvent.es_local,
-                        lugar: newEvent.location
-                    };
-
-                    if (newEvent.marcador_local !== '') matchPayload.marcador_local = parseInt(newEvent.marcador_local);
-                    if (newEvent.marcador_visitante !== '') matchPayload.marcador_visitante = parseInt(newEvent.marcador_visitante);
-
-                    await matchService.create({
-                        Evento: eventId, // Use UUID
-                        Rival: newEvent.rival_id,
-                        es_local: newEvent.es_local,
-                        lugar: newEvent.location,
-                        marcador_local: newEvent.marcador_local !== '' ? parseInt(newEvent.marcador_local) : null,
-                        marcador_visitante: newEvent.marcador_visitante !== '' ? parseInt(newEvent.marcador_visitante) : null
-                    });
-                }
-            }
+            await eventService.createOrUpdate(payload);
 
             setShowModal(false);
             resetForm();
@@ -870,7 +772,7 @@ const CalendarPage = ({ user }) => {
                                             return eventDate >= today;
                                         })
                                         .sort((a, b) => new Date(a.start) - new Date(b.start))
-                                        .slice(0, 5)
+                                        .slice(0, 8) // Show more in horizontal scroll
                                         .map(event => {
                                             const props = event.extendedProps;
                                             return (
@@ -878,23 +780,19 @@ const CalendarPage = ({ user }) => {
                                                     key={event.id}
                                                     className="upcoming-event-item"
                                                     onClick={() => openEventDetails(props, event.start, event.title)}
-                                                    style={{
-                                                        border: `1px solid ${event.color}33`,
-                                                        borderLeft: `5px solid ${event.color}`
-                                                    }}>
+                                                    style={{ '--event-color': event.color }}
+                                                >
                                                     {/* Show team shields for matches */}
                                                     {props.isMatch && props.homeTeamShield && props.awayTeamShield ? (
                                                         <React.Fragment>
                                                             <div className="upcoming-event-teams">
-                                                                {/* Home Team */}
                                                                 <div className="team-info">
                                                                     <img src={props.homeTeamShield} alt={props.homeTeamName} className="team-logo" />
                                                                     <span className="team-name">{props.homeTeamName}</span>
                                                                 </div>
 
-                                                                <div className="vs-text" style={{ color: event.color }}>VS</div>
+                                                                <div className="vs-text">VS</div>
 
-                                                                {/* Away Team */}
                                                                 <div className="team-info">
                                                                     <img src={props.awayTeamShield} alt={props.awayTeamName} className="team-logo" />
                                                                     <span className="team-name">{props.awayTeamName}</span>
@@ -907,32 +805,36 @@ const CalendarPage = ({ user }) => {
                                                             )}
                                                         </React.Fragment>
                                                     ) : (
-                                                        <div className="event-title-simple" style={{ color: event.color }}>
+                                                        <div className="event-title-simple" style={{ color: event.color, fontSize: '1.2rem', marginBottom: '1rem' }}>
                                                             {getEventTitle(event)}
                                                         </div>
                                                     )}
-                                                    <div className="event-meta">
-                                                        <Clock size={14} /> {new Date(event.start).toLocaleDateString()} a las {props.hora?.slice(0, 5)}
+
+                                                    <div className="event-details-footer">
+                                                        <div className="event-meta">
+                                                            <CalendarIcon size={14} /> {new Date(event.start).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                                        </div>
+                                                        <div className="event-meta">
+                                                            <Clock size={14} /> {props.hora?.slice(0, 5)}
+                                                        </div>
+                                                        <div className="event-meta">
+                                                            <MapPin size={14} />
+                                                            {props.displayTipo?.toLowerCase().includes('training') ||
+                                                                props.displayTipo?.toLowerCase().includes('entrenamiento') ? (
+                                                                <span className="location-text">Feixa Llarga</span>
+                                                            ) : (
+                                                                <span className="location-text">{props.location || 'RC HOSPITALET'}</span>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <div className="event-meta">
-                                                        <MapPin size={14} />
-                                                        {props.displayTipo?.toLowerCase().includes('training') ||
-                                                            props.displayTipo?.toLowerCase().includes('entrenamiento') ? (
-                                                            <a
-                                                                href={TRAINING_MAP_LINK}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="location-link"
-                                                            >
-                                                                Feixa Llarga
-                                                            </a>
-                                                        ) : (
-                                                            props.location || 'RC HOSPITALET'
-                                                        )}
-                                                    </div>
+
                                                     <button
-                                                        onClick={() => handleDeleteEvent(event.id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteEvent(event.id);
+                                                        }}
                                                         className="delete-button"
+                                                        style={{ opacity: 0.3 }}
                                                     >
                                                         <Trash2 size={16} />
                                                     </button>
@@ -948,263 +850,197 @@ const CalendarPage = ({ user }) => {
                 </div>
             </div>
 
-            {/* Modal */}
-            {
-                showModal && (
-                    <div className="modal-overlay">
-                        <div className="modal-content">
+            {/* New Premium Modal */}
+            {showModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <header className="modal-header">
                             <h2 className="modal-title">
                                 {isEditing ? 'Editar Evento' : 'Nuevo Registro'}
                             </h2>
+                            <button onClick={() => setShowModal(false)} className="modal-close-icon">
+                                <X size={24} />
+                            </button>
+                        </header>
 
-                            {/* Tabs for Training Editing */}
-                            {isEditing && newEvent.Tipo === 'Entrenamiento' && (
-                                <div className="tab-container">
+                        <div className="modal-body">
+                            {!isEditing && (
+                                <div className="tab-selector">
                                     <button
-                                        onClick={() => setActiveTab('details')}
-                                        className={`tab-button ${activeTab === 'details' ? 'active' : 'inactive'}`}
+                                        type="button"
+                                        className={`tab-option ${newEvent.Tipo === 'Entrenamiento' ? 'active' : ''}`}
+                                        onClick={() => setNewEvent({ ...newEvent, Tipo: 'Entrenamiento' })}
                                     >
-                                        Detalles
+                                        <Activity size={18} /> Entrenamiento
                                     </button>
                                     <button
-                                        onClick={() => setActiveTab('attendance')}
-                                        className={`tab-button ${activeTab === 'attendance' ? 'active' : 'inactive'}`}
+                                        type="button"
+                                        className={`tab-option ${newEvent.Tipo === 'Partido' ? 'active' : ''}`}
+                                        onClick={() => setNewEvent({ ...newEvent, Tipo: 'Partido' })}
                                     >
-                                        Asistencia
+                                        <Trophy size={18} /> Partido
                                     </button>
                                 </div>
                             )}
 
-                            {activeTab === 'details' ? (
-                                <form onSubmit={handleCreateEvent} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                                    <div className="form-group">
-                                        <label className="form-label">Tipo de Evento</label>
-                                        <select
-                                            value={newEvent.Tipo}
-                                            onChange={e => setNewEvent({ ...newEvent, Tipo: e.target.value })}
-                                            className="form-select"
-                                            disabled={isEditing}
-                                        >
-                                            <option value="Entrenamiento">Entrenamiento</option>
-                                            <option value="Partido">Partido</option>
-                                            <option value="other">Otro</option>
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Lugar</label>
-                                        <input
-                                            type="text"
-                                            value={newEvent.location}
-                                            onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
-                                            placeholder="Estadi Municipal"
-                                            className="form-input"
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Fecha</label>
-                                        <input
-                                            type="date"
-                                            required
-                                            value={newEvent.fecha}
-                                            onChange={e => setNewEvent({ ...newEvent, fecha: e.target.value })}
-                                            className="form-input"
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Hora</label>
-                                        <input
-                                            type="time"
-                                            required
-                                            value={newEvent.hora}
-                                            onChange={e => setNewEvent({ ...newEvent, hora: e.target.value })}
-                                            className="form-input"
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">Estado</label>
-                                        <select
-                                            value={newEvent.Estado}
-                                            onChange={e => setNewEvent({ ...newEvent, Estado: e.target.value })}
-                                            className="form-select"
-                                        >
-                                            <option value="Programado">Programado</option>
-                                            <option value="Finalizado">Finalizado</option>
-                                            <option value="Pendiente">Pendiente</option>
-                                            <option value="Cancelado">Cancelado</option>
-                                        </select>
-                                    </div>
-
-                                    {/* Match Specific Fields */}
-                                    {newEvent.Tipo === 'Partido' && (
-                                        <div className="match-details-container">
-                                            <h4 className="match-details-title">Detalles del Partido</h4>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '1rem' }}>
-                                                <div>
-                                                    <label className="form-label">Rival</label>
-                                                    <select
-                                                        required
-                                                        value={newEvent.rival_id}
-                                                        onChange={e => setNewEvent({ ...newEvent, rival_id: e.target.value })}
-                                                        className="form-select"
-                                                    >
-                                                        <option value="">Seleccionar Rival</option>
-                                                        {rivals.map(r => (
-                                                            <option key={r.id_rivales} value={r.id_equipo}>{r.nombre_equipo}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                                                <div>
-                                                    <label className="form-label">Puntos Local</label>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        value={newEvent.marcador_local}
-                                                        onChange={e => setNewEvent({ ...newEvent, marcador_local: e.target.value })}
-                                                        placeholder="0"
-                                                        className="form-input"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="form-label">Puntos Visitante</label>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        value={newEvent.marcador_visitante}
-                                                        onChange={e => setNewEvent({ ...newEvent, marcador_visitante: e.target.value })}
-                                                        placeholder="0"
-                                                        className="form-input"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={newEvent.es_local}
-                                                        onChange={e => setNewEvent({ ...newEvent, es_local: e.target.checked })}
-                                                        style={{ width: '20px', height: '20px' }}
-                                                    />
-                                                    Es Local
-                                                </label>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Training Specific Fields */}
-                                    {newEvent.Tipo === 'Entrenamiento' && (
-                                        <div className="training-details-container">
-                                            <h4 className="training-details-title">Detalles del Entrenamiento</h4>
-                                            <div className="form-group">
-                                                <label className="form-label">Objetivos</label>
-                                                <input
-                                                    type="text"
-                                                    value={newEvent.objetivos}
-                                                    onChange={e => setNewEvent({ ...newEvent, objetivos: e.target.value })}
-                                                    placeholder="Objetivo principal..."
-                                                    className="form-input"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Calentamiento</label>
-                                                <textarea
-                                                    value={newEvent.calentamiento}
-                                                    onChange={e => setNewEvent({ ...newEvent, calentamiento: e.target.value })}
-                                                    placeholder="Detalles del calentamiento..."
-                                                    rows="2"
-                                                    className="form-textarea"
-                                                />
-                                            </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                                <div>
-                                                    <label className="form-label">Trabajo Separado</label>
-                                                    <textarea
-                                                        value={newEvent.trabajo_separado}
-                                                        onChange={e => setNewEvent({ ...newEvent, trabajo_separado: e.target.value })}
-                                                        placeholder="Forwards / Backs..."
-                                                        rows="3"
-                                                        className="form-textarea"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="form-label">Trabajo Conjunto</label>
-                                                    <textarea
-                                                        value={newEvent.trabajo_conjunto}
-                                                        onChange={e => setNewEvent({ ...newEvent, trabajo_conjunto: e.target.value })}
-                                                        placeholder="Ejercicios conjuntos..."
-                                                        rows="3"
-                                                        className="form-textarea"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="form-group">
-                                        <label className="form-label">Observaciones Generales</label>
-                                        <textarea
-                                            value={newEvent.observaciones}
-                                            onChange={e => setNewEvent({ ...newEvent, observaciones: e.target.value })}
-                                            className="form-textarea"
-                                            style={{ minHeight: '80px' }}
-                                            placeholder="Notas adicionales..."
-                                        />
-                                    </div>
-                                    <div className="modal-actions">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowModal(false)}
-                                            className="btn-cancel"
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={loading}
-                                            className="btn-submit"
-                                        >
-                                            {loading ? 'Guardando...' : (isEditing ? 'Actualizar Evento' : 'Guardar Evento')}
-                                        </button>
-                                    </div>
-                                </form>
-                            ) : (
-                                <div className="attendance-tab" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    <AttendanceList
-                                        players={players}
-                                        attendance={attendance}
-                                        onToggle={handleAttendanceToggle}
+                            <form id="event-form" onSubmit={handleCreateEvent} className="form-grid">
+                                <div className="form-field full">
+                                    <label className="field-label">Lugar / Ubicación</label>
+                                    <input
+                                        type="text"
+                                        className="field-input"
+                                        value={newEvent.location}
+                                        onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+                                        placeholder={newEvent.Tipo === 'Entrenamiento' ? TRAINING_LOCATION : "Estadi Municipal"}
                                     />
-
-                                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowModal(false)}
-                                            style={{ flex: 1, padding: '1rem', border: 'none', background: '#e9ecef', color: '#495057', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-                                        >
-                                            Cerrar
-                                        </button>
-                                        <button
-                                            onClick={handleSaveAttendance}
-                                            style={{
-                                                flex: 2, padding: '1rem', border: 'none', background: '#003366', color: 'white',
-                                                borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer',
-                                                boxShadow: '0 4px 15px rgba(0, 51, 102, 0.3)'
-                                            }}
-                                        >
-                                            Guardar Asistencia
-                                        </button>
-                                    </div>
                                 </div>
-                            )
-                            }
-                        </div >
-                    </div >
-                )
-            }
+
+                                <div className="form-field">
+                                    <label className="field-label">Fecha</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        className="field-input"
+                                        value={newEvent.fecha}
+                                        onChange={e => setNewEvent({ ...newEvent, fecha: e.target.value })}
+                                    />
+                                </div>
+
+                                <div className="form-field">
+                                    <label className="field-label">Hora</label>
+                                    <input
+                                        type="time"
+                                        required
+                                        className="field-input"
+                                        value={newEvent.hora}
+                                        onChange={e => setNewEvent({ ...newEvent, hora: e.target.value })}
+                                    />
+                                </div>
+
+                                <div className="form-field">
+                                    <label className="field-label">Estado</label>
+                                    <select
+                                        className="field-select"
+                                        value={newEvent.Estado}
+                                        onChange={e => setNewEvent({ ...newEvent, Estado: e.target.value })}
+                                    >
+                                        <option value="Programado">Programado</option>
+                                        <option value="Finalizado">Finalizado</option>
+                                        <option value="Pendiente">Pendiente</option>
+                                        <option value="Cancelado">Cancelado</option>
+                                    </select>
+                                </div>
+
+                                {newEvent.Tipo === 'Partido' ? (
+                                    <>
+                                        <div className="form-field full">
+                                            <h3 className="form-section-title">Información del Rival</h3>
+                                        </div>
+                                        <div className="form-field full">
+                                            <label className="field-label">Rival</label>
+                                            <select
+                                                required
+                                                className="field-select"
+                                                value={newEvent.rival_id}
+                                                onChange={e => setNewEvent({ ...newEvent, rival_id: e.target.value })}
+                                            >
+                                                <option value="">Seleccionar Rival</option>
+                                                {rivals.map(r => (
+                                                    <option key={r.id_rivales} value={r.id_equipo}>{r.nombre_equipo}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="form-field">
+                                            <label className="field-label">Marcador Local</label>
+                                            <input
+                                                type="number"
+                                                className="field-input"
+                                                value={newEvent.marcador_local}
+                                                onChange={e => setNewEvent({ ...newEvent, marcador_local: e.target.value })}
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <div className="form-field">
+                                            <label className="field-label">Marcador Visitante</label>
+                                            <input
+                                                type="number"
+                                                className="field-input"
+                                                value={newEvent.marcador_visitante}
+                                                onChange={e => setNewEvent({ ...newEvent, marcador_visitante: e.target.value })}
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <div className="form-field full">
+                                            <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={newEvent.es_local}
+                                                    onChange={e => setNewEvent({ ...newEvent, es_local: e.target.checked })}
+                                                    style={{ width: '18px', height: '18px' }}
+                                                />
+                                                RC Hospitalet juega como Local
+                                            </label>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="form-field full">
+                                            <h3 className="form-section-title">Contenido del Entrenamiento</h3>
+                                        </div>
+                                        <div className="form-field full">
+                                            <label className="field-label">Objetivos</label>
+                                            <input
+                                                type="text"
+                                                className="field-input"
+                                                value={newEvent.objetivos}
+                                                onChange={e => setNewEvent({ ...newEvent, objetivos: e.target.value })}
+                                                placeholder="Ej: Defensa individual, Rucks..."
+                                            />
+                                        </div>
+                                        <div className="form-field full">
+                                            <label className="field-label">Parte Técnica (Separados)</label>
+                                            <textarea
+                                                className="field-textarea"
+                                                rows="2"
+                                                value={newEvent.trabajo_separado}
+                                                onChange={e => setNewEvent({ ...newEvent, trabajo_separado: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="form-field full">
+                                            <label className="field-label">Parte Táctica (Conjunto)</label>
+                                            <textarea
+                                                className="field-textarea"
+                                                rows="2"
+                                                value={newEvent.trabajo_conjunto}
+                                                onChange={e => setNewEvent({ ...newEvent, trabajo_conjunto: e.target.value })}
+                                            />
+                                        </div>
+                                    </>
+                                )}
+
+                                <div className="form-field full">
+                                    <label className="field-label">Observaciones Generales</label>
+                                    <textarea
+                                        className="field-textarea"
+                                        rows="3"
+                                        value={newEvent.observaciones}
+                                        onChange={e => setNewEvent({ ...newEvent, observaciones: e.target.value })}
+                                    />
+                                </div>
+                            </form>
+                        </div>
+
+                        <footer className="modal-footer">
+                            <button type="button" onClick={() => setShowModal(false)} className="btn-cancel">
+                                Cancelar
+                            </button>
+                            <button type="submit" form="event-form" className="btn-submit" disabled={loading}>
+                                {loading ? 'Guardando...' : (isEditing ? 'Actualizar Evento' : 'Crear Evento')}
+                            </button>
+                        </footer>
+                    </div>
+                </div>
+            )}
             {/* Match Details Modal */}
             {showMatchModal && selectedMatch && (
                 <MatchDetailsModal
@@ -1350,15 +1186,13 @@ const CalendarPage = ({ user }) => {
                 )
             }
 
-            {
-                showAttendanceModal && (
-                    <AttendanceModal
-                        initialEventId={attendanceEventId}
-                        onClose={() => setShowAttendanceModal(false)}
-                        user={user}
-                    />
-                )
-            }
+            {showAttendanceModal && (
+                <AttendanceModal
+                    initialEventId={attendanceEventId}
+                    onClose={() => setShowAttendanceModal(false)}
+                    user={user}
+                />
+            )}
         </div>
     );
 };

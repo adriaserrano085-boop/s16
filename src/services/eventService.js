@@ -17,6 +17,10 @@ export const eventService = {
 
     delete: async (id) => {
         return apiDelete(`${BASE_URL}/${id}`);
+    },
+
+    createOrUpdate: async (data) => {
+        return apiPost('/crear_o_actualizar_evento', data);
     }
 };
 

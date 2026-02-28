@@ -389,33 +389,23 @@ const StatsPage = ({ user }) => {
     };
 
     const handleDeleteMatch = async (match) => {
-        if (!match.id) return alert("ID no encontrado.");
+        if (!match.partido_id && !match.partido_externo_id) return alert("ID no encontrado.");
         if (!window.confirm("¿Borrar partido y todas sus estadísticas?")) return;
 
         try {
             setLoading(true);
+            const match_id = match.partido_externo_id || match.partido_id;
+            const match_type = match.partido_externo_id ? 'external' : 'standard';
 
-            // Delete player stats for this match
-            const pStats = await apiGet('/estadisticas_jugador');
-            const toDelete = pStats.filter(s =>
-                (match.partido_externo_id && s.partido_externo === match.partido_externo_id) ||
-                (match.partido_id && s.partido === match.partido_id)
-            );
+            await apiPost('/borrar_datos_partido', {
+                match_id: match_id,
+                type: match_type
+            });
 
-            for (const s of toDelete) {
-                await apiDelete(`/estadisticas_jugador/${s.id}`);
-            }
-
-            await apiDelete(`/estadisticas_partido/${match.id}`);
-
-            if (match.partido_externo_id) {
-                await apiDelete(`/partidos_externos/${match.partido_externo_id}`);
-            } else if (match.partido_id) {
-                await apiPut(`/partidos/${match.partido_id}`, { marcador_local: null, marcador_visitante: null });
-            }
             await fetchData();
         } catch (err) {
             console.error(err);
+            alert("Error al borrar los datos del partido");
         } finally {
             setLoading(false);
         }
