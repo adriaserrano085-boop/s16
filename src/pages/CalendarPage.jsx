@@ -17,7 +17,7 @@ import AttendanceList from '../components/AttendanceList';
 import attendanceService from '../services/attendanceService';
 import AttendanceModal from '../components/AttendanceModal';
 import MatchDetailsModal from '../components/MatchDetailsModal';
-import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Plus, Users, X, Info, Trash2, Activity, CheckCircle, XCircle, HelpCircle, Save } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight, Plus, Users, X, Info, Trash2, Activity, CheckCircle, XCircle, HelpCircle, Save, Trophy } from 'lucide-react';
 import './CalendarPage.css';
 
 const TRAINING_LOCATION = 'Feixa Llarga Hospitalet';
