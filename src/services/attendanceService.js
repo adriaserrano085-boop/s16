@@ -58,29 +58,14 @@ const getByPlayerId = async (playerId) => {
 
 const upsert = async (attendanceData) => {
     const records = Array.isArray(attendanceData) ? attendanceData : [attendanceData];
-    const results = [];
 
-    for (const record of records) {
-        try {
-            // Check if record already exists (manual check because of no native upsert in simple CRUD API)
-            const existing = await apiGet(`${BASE_URL}?entrenamiento=${record.entrenamiento}&jugador=${record.jugador}`);
-
-            if (existing && existing.length > 0) {
-                // Update existing record
-                const updated = await apiPut(`${BASE_URL}/${existing[0].id}`, { asistencia: record.asistencia });
-                results.push(updated);
-            } else {
-                // Insert new record
-                const inserted = await apiPost(`${BASE_URL}`, record);
-                results.push(inserted);
-            }
-        } catch (err) {
-            console.error('Error processing attendance record:', err);
-            throw err;
-        }
+    try {
+        // Use the new bulk endpoint for better performance and to handle upserts in backend
+        return await apiPost(`${BASE_URL}/bulk`, records);
+    } catch (err) {
+        console.error('Error processing bulk attendance:', err);
+        throw err;
     }
-
-    return { message: 'Asistencia guardada correctamente', data: results };
 };
 
 const update = async (id, attendanceData) => {
