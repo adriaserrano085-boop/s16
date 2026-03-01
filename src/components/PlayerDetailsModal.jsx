@@ -5,10 +5,13 @@ import attendanceService from '../services/attendanceService';
 import playerService from '../services/playerService';
 import './PlayerDetailsModal.css';
 
-const PlayerDetailsModal = ({ player, onClose, onPlayerUpdated }) => {
+const PlayerDetailsModal = ({ player: initialPlayer, onClose, onPlayerUpdated }) => {
     const [activeTab, setActiveTab] = useState('details');
     const [history, setHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
+
+    // Local state for the player data to ensure instant refresh
+    const [player, setPlayer] = useState(initialPlayer);
 
     // Edit Mode State
     const [isEditing, setIsEditing] = useState(false);
@@ -21,21 +24,23 @@ const PlayerDetailsModal = ({ player, onClose, onPlayerUpdated }) => {
         }
     }, [activeTab, player]);
 
+    // Keep local state in sync with props if parent changes it
     useEffect(() => {
-        if (player) {
+        if (initialPlayer) {
+            setPlayer(initialPlayer);
             setFormData({
-                nombre: player.nombre,
-                apellidos: player.apellidos,
-                posiciones: player.posiciones,
-                talla: player.talla,
-                licencia: player.licencia,
-                foto: player.foto,
-                email: player.email,
-                Telefono: player.Telefono,
-                fecha_nacimiento: player.fecha_nacimiento
+                nombre: initialPlayer.nombre,
+                apellidos: initialPlayer.apellidos,
+                posiciones: initialPlayer.posiciones,
+                talla: initialPlayer.talla,
+                licencia: initialPlayer.licencia,
+                foto: initialPlayer.foto,
+                email: initialPlayer.email,
+                Telefono: initialPlayer.Telefono,
+                fecha_nacimiento: initialPlayer.fecha_nacimiento
             });
         }
-    }, [player]);
+    }, [initialPlayer]);
 
     const fetchHistory = async () => {
         setLoadingHistory(true);
@@ -60,8 +65,12 @@ const PlayerDetailsModal = ({ player, onClose, onPlayerUpdated }) => {
     const handleSave = async () => {
         setSaving(true);
         try {
-            await playerService.update(player.id, formData);
+            const updatedData = await playerService.update(player.id, formData);
+
+            // Update local state immediately
+            setPlayer(updatedData);
             setIsEditing(false);
+
             if (onPlayerUpdated) {
                 onPlayerUpdated(); // Refresh parent list
             }
