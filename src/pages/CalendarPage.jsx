@@ -759,7 +759,7 @@ const CalendarPage = ({ user }) => {
                                 <img
                                     src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/proximos%20eventos.png"
                                     alt="Próximos Eventos"
-                                    style={{ width: '28px', height: '28px', objectFit: 'contain' }}
+                                    style={{ width: '44px', height: '44px', objectFit: 'contain' }}
                                 /> Próximos Eventos
                             </h3>
                             <div className="upcoming-list">
