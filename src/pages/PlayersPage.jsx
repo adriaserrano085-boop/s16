@@ -38,6 +38,12 @@ const PlayersPage = ({ user }) => {
             });
 
             setPlayers(sortedData);
+
+            // Sync selected player if modal is open
+            setSelectedPlayer(prev => {
+                if (!prev) return null;
+                return sortedData.find(p => p.id === prev.id) || prev;
+            });
         } catch (error) {
             console.error("Error fetching players:", error);
         } finally {
