@@ -140,6 +140,7 @@ const PlayersPage = ({ user }) => {
                 <PlayerDetailsModal
                     player={selectedPlayer}
                     onClose={() => setSelectedPlayer(null)}
+                    onPlayerUpdated={fetchPlayers}
                 />
             )}
         </div>
