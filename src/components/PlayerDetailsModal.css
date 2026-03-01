@@ -42,13 +42,70 @@
     align-items: center;
 }
 
-.player-header-photo {
+.player-header-photo-container {
+    position: relative;
     width: 80px;
     height: 80px;
+}
+
+.player-header-photo-container.editable {
+    cursor: pointer;
+}
+
+.player-header-photo {
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     object-fit: cover;
     border: 3px solid white;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transition: filter 0.2s;
+}
+
+.player-header-photo.placeholder {
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.player-header-photo-container.editable:hover .player-header-photo {
+    filter: brightness(0.8);
+}
+
+.photo-edit-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+
+.player-header-photo-container.editable:hover .photo-edit-overlay {
+    opacity: 1;
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .player-header-text h2 {
