@@ -1134,7 +1134,7 @@
 }
 
 /* Mobile Responsiveness */
-@media (max-width: 900px) {
+@media (max-width: 700px) {
     .content-grid {
         grid-template-columns: 1fr;
         /* Stack calendar and upcoming events */
