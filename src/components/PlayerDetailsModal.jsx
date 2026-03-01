@@ -194,187 +194,188 @@ const PlayerDetailsModal = ({ player: initialPlayer, onClose, onPlayerUpdated })
                                 style={{ display: 'none' }}
                             />
                         </div>
+                        <div className="player-header-text">
+                            {isEditing ? (
+                                <div className="edit-header-inputs">
+                                    <input
+                                        name="nombre"
+                                        value={formData.nombre || ''}
+                                        onChange={handleInputChange}
+                                        placeholder="Nombre"
+                                        className="edit-input header-input"
+                                    />
+                                    <input
+                                        name="apellidos"
+                                        value={formData.apellidos || ''}
+                                        onChange={handleInputChange}
+                                        placeholder="Apellidos"
+                                        className="edit-input header-input"
+                                    />
+                                </div>
+                            ) : (
+                                <>
+                                    <h2>{player.nombre} {player.apellidos}</h2>
+                                    <p>{player.posiciones ? player.posiciones.replace(/\r\n/g, ', ') : 'Sin posición'}</p>
+                                </>
+                            )}
+                        </div>
                     </div>
-                    <div className="player-header-text">
-                        {isEditing ? (
-                            <div className="edit-header-inputs">
-                                <input
-                                    name="nombre"
-                                    value={formData.nombre || ''}
-                                    onChange={handleInputChange}
-                                    placeholder="Nombre"
-                                    className="edit-input header-input"
-                                />
-                                <input
-                                    name="apellidos"
-                                    value={formData.apellidos || ''}
-                                    onChange={handleInputChange}
-                                    placeholder="Apellidos"
-                                    className="edit-input header-input"
-                                />
-                            </div>
+
+                    <div className="header-actions">
+                        {!isEditing ? (
+                            <button className="icon-button edit-button" onClick={() => setIsEditing(true)} title="Editar">
+                                <Edit2 size={20} />
+                            </button>
                         ) : (
-                            <>
-                                <h2>{player.nombre} {player.apellidos}</h2>
-                                <p>{player.posiciones ? player.posiciones.replace(/\r\n/g, ', ') : 'Sin posición'}</p>
-                            </>
+                            <div className="edit-actions">
+                                <button className="icon-button save-button" onClick={handleSave} disabled={saving} title="Guardar">
+                                    <Save size={20} />
+                                </button>
+                                <button className="icon-button cancel-button" onClick={() => setIsEditing(false)} disabled={saving} title="Cancelar">
+                                    <XCircle size={20} />
+                                </button>
+                            </div>
                         )}
+                        <button className="close-button" onClick={onClose}>
+                            <X size={24} />
+                        </button>
                     </div>
                 </div>
 
-                <div className="header-actions">
-                    {!isEditing ? (
-                        <button className="icon-button edit-button" onClick={() => setIsEditing(true)} title="Editar">
-                            <Edit2 size={20} />
-                        </button>
-                    ) : (
-                        <div className="edit-actions">
-                            <button className="icon-button save-button" onClick={handleSave} disabled={saving} title="Guardar">
-                                <Save size={20} />
-                            </button>
-                            <button className="icon-button cancel-button" onClick={() => setIsEditing(false)} disabled={saving} title="Cancelar">
-                                <XCircle size={20} />
-                            </button>
-                        </div>
-                    )}
-                    <button className="close-button" onClick={onClose}>
-                        <X size={24} />
+
+                {/* Tabs */}
+                <div className="player-tabs">
+                    <button
+                        className={`tab-button ${activeTab === 'details' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('details')}
+                    >
+                        Detalles
+                    </button>
+                    <button
+                        className={`tab-button ${activeTab === 'attendance' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('attendance')}
+                    >
+                        Historial de Asistencia
                     </button>
                 </div>
-            </div>
 
-            {/* Tabs */}
-            <div className="player-tabs">
-                <button
-                    className={`tab-button ${activeTab === 'details' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('details')}
-                >
-                    Detalles
-                </button>
-                <button
-                    className={`tab-button ${activeTab === 'attendance' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('attendance')}
-                >
-                    Historial de Asistencia
-                </button>
-            </div>
-
-            {/* Body */}
-            <div className="player-details-body">
-                {activeTab === 'details' && (
-                    <div className="details-grid">
-                        <div className="detail-group full-width">
-                            <label>Posiciones</label>
-                            {isEditing ? (
-                                <textarea
-                                    name="posiciones"
-                                    value={formData.posiciones || ''}
-                                    onChange={handleInputChange}
-                                    className="edit-input"
-                                    rows={2}
-                                />
-                            ) : (
-                                <p>{player.posiciones || '-'}</p>
-                            )}
-                        </div>
-
-                        <div className="detail-group">
-                            <label><CalendarDays size={14} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} /> Fecha Nacimiento</label>
-                            {isEditing ? (
-                                <input
-                                    type="date"
-                                    name="fecha_nacimiento"
-                                    value={formData.fecha_nacimiento || ''}
-                                    onChange={handleInputChange}
-                                    className="edit-input"
-                                />
-                            ) : (
-                                <p>{player.fecha_nacimiento ? new Date(player.fecha_nacimiento).toLocaleDateString() : '-'}</p>
-                            )}
-                        </div>
-
-                        <div className="detail-group">
-                            <label><Hash size={14} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} /> Licencia</label>
-                            {isEditing ? (
-                                <input
-                                    name="licencia"
-                                    value={formData.licencia || ''}
-                                    onChange={handleInputChange}
-                                    className="edit-input"
-                                />
-                            ) : (
-                                <p>{player.licencia || '-'}</p>
-                            )}
-                        </div>
-
-                        <div className="detail-group">
-                            <label><Ruler size={14} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} /> Talla</label>
-                            {isEditing ? (
-                                <input
-                                    name="talla"
-                                    value={formData.talla || ''}
-                                    onChange={handleInputChange}
-                                    className="edit-input"
-                                />
-                            ) : (
-                                <p>{player.talla || '-'}</p>
-                            )}
-                        </div>
-
-                        <div className="detail-group">
-                            <label><Phone size={14} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} /> Móvil</label>
-                            {isEditing ? (
-                                <input
-                                    name="Telefono"
-                                    value={formData.Telefono || ''}
-                                    onChange={handleInputChange}
-                                    className="edit-input"
-                                />
-                            ) : (
-                                <p>{player.Telefono || '-'}</p>
-                            )}
-                        </div>
-
-                        <div className="detail-group full-width">
-                            <label><Mail size={14} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} /> Email</label>
-                            {isEditing ? (
-                                <input
-                                    name="email"
-                                    type="email"
-                                    value={formData.email || ''}
-                                    onChange={handleInputChange}
-                                    className="edit-input"
-                                />
-                            ) : (
-                                <p>{player.email || '-'}</p>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'attendance' && (
-                    <div>
-                        {loadingHistory ? (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>Cargando historial...</div>
-                        ) : history.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No se encontraron registros de asistencia.</div>
-                        ) : (
-                            <div className="attendance-history-list">
-                                {history.map((record) => (
-                                    <div key={record.id} className="history-item">
-                                        <div className="history-date">
-                                            <span className="history-date-main">{formatDate(record.date)}</span>
-                                            <span className="history-type">{record.type}</span>
-                                        </div>
-                                        <span className={`history-badge ${getBadgeClass(record.asistencia)}`}>
-                                            {record.asistencia}
-                                        </span>
-                                    </div>
-                                ))}
+                {/* Body */}
+                <div className="player-details-body">
+                    {activeTab === 'details' && (
+                        <div className="details-grid">
+                            <div className="detail-group full-width">
+                                <label>Posiciones</label>
+                                {isEditing ? (
+                                    <textarea
+                                        name="posiciones"
+                                        value={formData.posiciones || ''}
+                                        onChange={handleInputChange}
+                                        className="edit-input"
+                                        rows={2}
+                                    />
+                                ) : (
+                                    <p>{player.posiciones || '-'}</p>
+                                )}
                             </div>
-                        )}
-                    </div>
-                )}
+
+                            <div className="detail-group">
+                                <label><CalendarDays size={14} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} /> Fecha Nacimiento</label>
+                                {isEditing ? (
+                                    <input
+                                        type="date"
+                                        name="fecha_nacimiento"
+                                        value={formData.fecha_nacimiento || ''}
+                                        onChange={handleInputChange}
+                                        className="edit-input"
+                                    />
+                                ) : (
+                                    <p>{player.fecha_nacimiento ? new Date(player.fecha_nacimiento).toLocaleDateString() : '-'}</p>
+                                )}
+                            </div>
+
+                            <div className="detail-group">
+                                <label><Hash size={14} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} /> Licencia</label>
+                                {isEditing ? (
+                                    <input
+                                        name="licencia"
+                                        value={formData.licencia || ''}
+                                        onChange={handleInputChange}
+                                        className="edit-input"
+                                    />
+                                ) : (
+                                    <p>{player.licencia || '-'}</p>
+                                )}
+                            </div>
+
+                            <div className="detail-group">
+                                <label><Ruler size={14} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} /> Talla</label>
+                                {isEditing ? (
+                                    <input
+                                        name="talla"
+                                        value={formData.talla || ''}
+                                        onChange={handleInputChange}
+                                        className="edit-input"
+                                    />
+                                ) : (
+                                    <p>{player.talla || '-'}</p>
+                                )}
+                            </div>
+
+                            <div className="detail-group">
+                                <label><Phone size={14} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} /> Móvil</label>
+                                {isEditing ? (
+                                    <input
+                                        name="Telefono"
+                                        value={formData.Telefono || ''}
+                                        onChange={handleInputChange}
+                                        className="edit-input"
+                                    />
+                                ) : (
+                                    <p>{player.Telefono || '-'}</p>
+                                )}
+                            </div>
+
+                            <div className="detail-group full-width">
+                                <label><Mail size={14} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} /> Email</label>
+                                {isEditing ? (
+                                    <input
+                                        name="email"
+                                        type="email"
+                                        value={formData.email || ''}
+                                        onChange={handleInputChange}
+                                        className="edit-input"
+                                    />
+                                ) : (
+                                    <p>{player.email || '-'}</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'attendance' && (
+                        <div>
+                            {loadingHistory ? (
+                                <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>Cargando historial...</div>
+                            ) : history.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No se encontraron registros de asistencia.</div>
+                            ) : (
+                                <div className="attendance-history-list">
+                                    {history.map((record) => (
+                                        <div key={record.id} className="history-item">
+                                            <div className="history-date">
+                                                <span className="history-date-main">{formatDate(record.date)}</span>
+                                                <span className="history-type">{record.type}</span>
+                                            </div>
+                                            <span className={`history-badge ${getBadgeClass(record.asistencia)}`}>
+                                                {record.asistencia}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
