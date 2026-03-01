@@ -154,12 +154,17 @@ const AttendanceModal = ({ onClose, initialEventId, user }) => {
         try {
             const data = await playerService.getAll();
 
+            // Sort by apellidos (last name) alphabetically
+            const sortedData = (data || []).sort((a, b) =>
+                (a.apellidos || "").localeCompare(b.apellidos || "", 'es', { sensitivity: 'base' })
+            );
+
             // RBAC: If user is a Player, only show themselves
             if (user?.role === 'JUGADOR' && user.playerId) {
-                const myself = data.find(p => p.id === user.playerId);
+                const myself = sortedData.find(p => p.id === user.playerId);
                 setPlayers(myself ? [myself] : []);
             } else {
-                setPlayers(data || []);
+                setPlayers(sortedData);
             }
         } catch (err) {
             console.error('Error fetching players:', err);
