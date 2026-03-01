@@ -16,6 +16,8 @@ const StatsPage = React.lazy(() => import('./pages/StatsPage'));
 const PhysicalTestsPage = React.lazy(() => import('./pages/PhysicalTestsPage'));
 const RivalAnalysisPage = React.lazy(() => import('./pages/RivalAnalysisPage'));
 const MatchReportPage = React.lazy(() => import('./pages/MatchReportPage'));
+const UserManagement = React.lazy(() => import('./pages/UserManagement'));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 
 // Shared loading fallback
 const PageLoader = () => (
@@ -54,6 +56,10 @@ function AuthLayout({ user, setUser }) {
                 <Route path="/statistics" element={<StatsPage user={user} />} />
                 <Route path="/physical-tests" element={<PhysicalTestsPage user={user} />} />
               </>
+            )}
+
+            {user?.role === 'ADMIN' && (
+              <Route path="/admin/usuarios" element={<UserManagement user={user} />} />
             )}
 
             <Route path="*" element={<Navigate to="/dashboard" />} />
@@ -157,6 +163,7 @@ function App() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login setUser={setUser} />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           {user ? (
             <Route path="/*" element={<AuthLayout user={user} setUser={setUser} />} />
           ) : (

@@ -15,7 +15,28 @@ const Login = ({ setUser }) => {
 
     const handleResetPassword = async (e) => {
         e.preventDefault();
-        setError('La recuperación de contraseña debe ser gestionada por el administrador del sistema.');
+        setLoading(true);
+        setError('');
+
+        try {
+            const response = await fetch('/api/v1/auth/request-reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                setResetSent(true);
+            } else {
+                throw new Error(data.detail || 'Error al solicitar el restablecimiento');
+            }
+        } catch (err) {
+            setError(err.message || 'Error de conexión con el servidor.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSubmit = async (e) => {

@@ -33,6 +33,12 @@ const NAV_ITEMS = [
         // Or I can use a placeholder URL from a public icon set if I'm unsure. 
         // Let's stick to the pattern.
     },
+    {
+        path: '/admin/usuarios',
+        label: 'GESTIÓN USUARIOS',
+        icon: 'https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Ajustes%20ICON.png',
+        isAdminOnly: true
+    },
 ];
 
 export default function Sidebar({ user, onLogout }) {
@@ -49,6 +55,10 @@ export default function Sidebar({ user, onLogout }) {
         // If user is a Player, ONLY show Dashboard
         if (user?.role === 'JUGADOR') {
             return item.path === '/dashboard';
+        }
+        // If item is Admin only, check role
+        if (item.isAdminOnly) {
+            return user?.role === 'ADMIN';
         }
         return true;
     });
