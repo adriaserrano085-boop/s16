@@ -1,0 +1,103 @@
+.create-modal {
+    max-width: 550px;
+    overflow: hidden;
+}
+
+.create-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+}
+
+.create-footer {
+    padding: 1.25rem 1.5rem;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    border-radius: 0 0 1rem 1rem;
+}
+
+.btn-cancel {
+    padding: 0.6rem 1.2rem;
+    border-radius: 0.5rem;
+    border: 1px solid #cbd5e1;
+    background: white;
+    color: #64748b;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-cancel:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.btn-save-new {
+    padding: 0.6rem 1.5rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: #003366;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(0, 51, 102, 0.2);
+}
+
+.btn-save-new:hover:not(:disabled) {
+    background: #002244;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 10px -1px rgba(0, 51, 102, 0.3);
+}
+
+.btn-save-new:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Reusing grid system from DetailsModal if needed, 
+   but since we are in the same environment, 
+   the global/shared styles might apply or we can define them here */
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+}
+
+.full-width {
+    grid-column: 1 / -1;
+}
+
+.detail-group label {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.edit-input {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    color: #1e293b;
+    transition: all 0.2s;
+}
+
+.edit-input:focus {
+    outline: none;
+    border-color: #003366;
+    box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.1);
+}
+
+textarea.edit-input {
+    min-height: 80px;
+    resize: none;
+}

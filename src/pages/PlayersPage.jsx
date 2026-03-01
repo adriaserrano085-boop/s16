@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, Shield, User } from 'lucide-react';
 import playerService from '../services/playerService';
 import PlayerDetailsModal from '../components/PlayerDetailsModal';
+import CreatePlayerModal from '../components/CreatePlayerModal';
 import './PlayersPage.css';
 
 const PlayersPage = ({ user }) => {
@@ -11,6 +12,7 @@ const PlayersPage = ({ user }) => {
     const [players, setPlayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedPlayer, setSelectedPlayer] = useState(null);
+    const [showCreateModal, setShowCreateModal] = useState(false);
 
     useEffect(() => {
         if (user?.role === 'JUGADOR') {
@@ -63,9 +65,14 @@ const PlayersPage = ({ user }) => {
                         />
                         Plantilla S16
                     </h1>
-                    <button onClick={() => navigate('/dashboard')} className="btn-back-dashboard">
-                        &larr; Volver al Dashboard
-                    </button>
+                    <div className="header-actions-main">
+                        <button onClick={() => setShowCreateModal(true)} className="btn-add-player">
+                            + Añadir Jugador
+                        </button>
+                        <button onClick={() => navigate('/dashboard')} className="btn-back-dashboard">
+                            &larr; Volver al Dashboard
+                        </button>
+                    </div>
                 </header>
 
                 {loading ? (
@@ -147,6 +154,17 @@ const PlayersPage = ({ user }) => {
                     player={selectedPlayer}
                     onClose={() => setSelectedPlayer(null)}
                     onPlayerUpdated={fetchPlayers}
+                />
+            )}
+
+            {/* Create Player Modal */}
+            {showCreateModal && (
+                <CreatePlayerModal
+                    onClose={() => setShowCreateModal(false)}
+                    onPlayerCreated={() => {
+                        setShowCreateModal(false);
+                        fetchPlayers();
+                    }}
                 />
             )}
         </div>
