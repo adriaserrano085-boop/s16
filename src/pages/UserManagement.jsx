@@ -127,32 +127,46 @@ const UserManagement = () => {
                                     </select>
                                 </td>
                                 <td>
-                                    {user.role === 'STAFF' && (
-                                        <select
-                                            className="admin-role-select"
-                                            value={staffList.find(s => s.auth_id === user.id)?.id || ''}
-                                            onChange={(e) => handleLinkProfile(user.id, 'STAFF', e.target.value)}
-                                            disabled={updatingUserId === user.id}
-                                        >
-                                            <option value="">-- Seleccionar Miembro Staff --</option>
-                                            {staffList.map(s => (
-                                                <option key={s.id} value={s.id}>{s.nombre} {s.apellidos || ''}</option>
-                                            ))}
-                                        </select>
-                                    )}
-                                    {user.role === 'JUGADOR' && (
-                                        <select
-                                            className="admin-role-select"
-                                            value={playerList.find(p => p.email?.toLowerCase() === user.email.toLowerCase())?.id || ''}
-                                            onChange={(e) => handleLinkProfile(user.id, 'JUGADOR', e.target.value)}
-                                            disabled={updatingUserId === user.id}
-                                        >
-                                            <option value="">-- Seleccionar Jugador --</option>
-                                            {playerList.map(p => (
-                                                <option key={p.id} value={p.id}>{p.nombre} {p.apellidos || ''}</option>
-                                            ))}
-                                        </select>
-                                    )}
+                                    {user.role === 'STAFF' && (() => {
+                                        const linkedStaff = staffList.find(s => s.auth_id === user.id);
+                                        const linkedId = linkedStaff?.id || '';
+                                        return (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <select
+                                                    className="admin-role-select"
+                                                    value={linkedId}
+                                                    onChange={(e) => handleLinkProfile(user.id, 'STAFF', e.target.value)}
+                                                    disabled={updatingUserId === user.id}
+                                                >
+                                                    <option value="">-- Seleccionar Miembro Staff --</option>
+                                                    {staffList.map(s => (
+                                                        <option key={s.id} value={s.id}>{s.nombre} {s.apellidos || ''}</option>
+                                                    ))}
+                                                </select>
+                                                {linkedId && <span style={{ color: '#28a745', fontSize: '0.8rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>✅ Vinculado al Staff</span>}
+                                            </div>
+                                        );
+                                    })()}
+                                    {user.role === 'JUGADOR' && (() => {
+                                        const linkedPlayer = playerList.find(p => p.email?.toLowerCase() === user.email.toLowerCase());
+                                        const linkedId = linkedPlayer?.id || '';
+                                        return (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <select
+                                                    className="admin-role-select"
+                                                    value={linkedId}
+                                                    onChange={(e) => handleLinkProfile(user.id, 'JUGADOR', e.target.value)}
+                                                    disabled={updatingUserId === user.id}
+                                                >
+                                                    <option value="">-- Seleccionar Jugador --</option>
+                                                    {playerList.map(p => (
+                                                        <option key={p.id} value={p.id}>{p.nombre} {p.apellidos || ''}</option>
+                                                    ))}
+                                                </select>
+                                                {linkedId && <span style={{ color: '#28a745', fontSize: '0.8rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>✅ Vinculado al Jugador</span>}
+                                            </div>
+                                        );
+                                    })()}
                                     {user.role === 'ADMIN' && <span style={{ color: '#aaa', fontSize: '0.85rem' }}>N/A</span>}
                                     {user.role === 'FAMILIA' && <span style={{ color: '#aaa', fontSize: '0.85rem' }}>Usa el gestor de familias</span>}
                                 </td>
