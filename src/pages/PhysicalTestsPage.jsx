@@ -19,7 +19,8 @@ const inferiorKeys = [
     { key: 'salto_sj', label: 'Salto SJ' },
     { key: 'salto_cmj', label: 'Salto CMJ' },
     { key: 'salto_rebote', label: 'Salto Rebote' },
-    { key: 'salto_horizontal', label: 'Salto Horizontal' }
+    { key: 'salto_horizontal', label: 'Salto Horizontal' },
+    { key: 'sentadillas_1m', label: 'Sentadillas (1m)' }
 ];
 
 const superiorKeys = [
@@ -63,12 +64,19 @@ const PhysicalTestsPage = ({ user }) => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [testsData, playersData] = await Promise.all([
+            const [testsData, playersDataUnsorted] = await Promise.all([
                 apiGet('/pruebas_fisicas/').catch(() => []),
                 apiGet('/jugadores_propios/').catch(() => [])
             ]);
 
-            setPlayers(playersData || []);
+            // Sort players alphabetically
+            const playersData = (playersDataUnsorted || []).sort((a, b) => {
+                const nameA = `${a.nombre} ${a.apellidos}`.toLowerCase();
+                const nameB = `${b.nombre} ${b.apellidos}`.toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+
+            setPlayers(playersData);
 
             if (testsData && testsData.length > 0) {
                 // Enrich test data with player names
@@ -76,9 +84,10 @@ const PhysicalTestsPage = ({ user }) => {
                     const player = playersData.find(p => p.id === test.jugador_id);
                     return {
                         ...test,
-                        playerName: player ? `${player.nombre} ${player.apellidos} ` : 'Desconocido'
+                        playerName: player ? `${player.nombre} ${player.apellidos}` : 'Desconocido',
+                        photoUrl: player ? player.foto : null
                     };
-                });
+                }).sort((a, b) => a.playerName.localeCompare(b.playerName)); // Sort by playerName
 
                 setResults(formatted);
 
@@ -212,6 +221,7 @@ const PhysicalTestsPage = ({ user }) => {
 
                 evolution.push({
                     playerName: playerData.playerName,
+                    photoUrl: playerData.tests[0].photoUrl,
                     firstDate: first.fecha,
                     lastDate: last.fecha,
                     first,
@@ -252,7 +262,18 @@ const PhysicalTestsPage = ({ user }) => {
 
                                 return (
                                     <tr key={idx}>
-                                        <td style={{ fontWeight: 'bold' }}>{row.playerName}</td>
+                                        <td style={{ fontWeight: 'bold' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                {row.photoUrl ? (
+                                                    <img src={row.photoUrl} alt={row.playerName} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <span style={{ fontSize: '0.8rem', color: '#999' }}>?</span>
+                                                    </div>
+                                                )}
+                                                {row.playerName}
+                                            </div>
+                                        </td>
                                         {keys.map(k => (
                                             <td key={k.key}>{row[k.key] !== null && row[k.key] !== undefined ? row[k.key] : '-'}</td>
                                         ))}
@@ -296,7 +317,18 @@ const PhysicalTestsPage = ({ user }) => {
 
                                 return (
                                     <tr key={idx}>
-                                        <td style={{ fontWeight: 'bold' }}>{row.playerName}</td>
+                                        <td style={{ fontWeight: 'bold' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                {row.photoUrl ? (
+                                                    <img src={row.photoUrl} alt={row.playerName} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <span style={{ fontSize: '0.8rem', color: '#999' }}>?</span>
+                                                    </div>
+                                                )}
+                                                {row.playerName}
+                                            </div>
+                                        </td>
                                         <td style={{ fontSize: '0.85rem', color: '#666' }}>
                                             {formatDateStr(row.firstDate)} → {formatDateStr(row.lastDate)}
                                         </td>
@@ -543,7 +575,16 @@ const PhysicalTestsPage = ({ user }) => {
                                             return (
                                                 <tr key={player.id}>
                                                     <td style={{ fontWeight: '500', backgroundColor: '#fdfdfd' }}>
-                                                        {player.nombre} {player.apellidos}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                            {player.foto ? (
+                                                                <img src={player.foto} alt={`${player.nombre}`} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <span style={{ fontSize: '0.7rem', color: '#999' }}>?</span>
+                                                                </div>
+                                                            )}
+                                                            {player.nombre} {player.apellidos}
+                                                        </div>
                                                     </td>
                                                     {categoryFields.map(f => {
                                                         const isTextType = ['broncotest', 'plancha'].includes(f.key);
