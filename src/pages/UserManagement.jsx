@@ -137,7 +137,10 @@ const UserManagement = ({ user: currentUser }) => {
                                 </td>
                                 <td>
                                     {user.role === 'STAFF' && (() => {
-                                        const linkedStaff = staffList.find(s => s.auth_id === user.id);
+                                        const linkedStaff = staffList.find(s =>
+                                            s.auth_id === user.id ||
+                                            (s.nombre && s.nombre.toLowerCase() === user.email.toLowerCase())
+                                        );
                                         const linkedId = linkedStaff?.id || '';
                                         return (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
