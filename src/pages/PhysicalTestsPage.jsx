@@ -1,23 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../lib/apiClient';
-import { ArrowLeft, Activity, Zap, Heart, Shield, Dumbbell, Plus, X, TrendingUp } from 'lucide-react';
-import './PhysicalTestsPage.css'; // Add a CSS file if needed, or inline. Let's use standard classes
+import { ArrowLeft, Activity, Zap, Heart, Shield, Dumbbell, Plus, X, TrendingUp, Save } from 'lucide-react';
+import './PhysicalTestsPage.css';
 
-const InputField = ({ label, name, type = "number", step = "0.01", value, onChange, placeholder }) => (
-    <div style={{ marginBottom: '1rem' }}>
-        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary-blue)', marginBottom: '0.25rem' }}>{label}</label>
-        <input
-            type={type}
-            name={name}
-            step={step}
-            value={value}
-            onChange={onChange}
-            placeholder={placeholder}
-            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-        />
-    </div>
-);
+const speedKeys = [
+    { key: 'velocidad_10m', label: '10m (s)' },
+    { key: 'velocidad_30m', label: '30m (s)' },
+    { key: 'velocidad_80m', label: '80m (s)' }
+];
+
+const resistKeys = [
+    { key: 'broncotest', label: 'Broncotest' },
+    { key: 'course_navette', label: 'Course Navette' }
+];
+
+const inferiorKeys = [
+    { key: 'salto_sj', label: 'Salto SJ' },
+    { key: 'salto_cmj', label: 'Salto CMJ' },
+    { key: 'salto_rebote', label: 'Salto Rebote' },
+    { key: 'salto_horizontal', label: 'Salto Horizontal' }
+];
+
+const superiorKeys = [
+    { key: 'flexiones', label: 'Flexiones' },
+    { key: 'lanzamiento_pecho', label: 'Lanz. Pecho' },
+    { key: 'lanzamiento_encima_cabeza', label: 'Lanz. Encima Cabeza' }
+];
+
+const coreKeys = [
+    { key: 'plancha', label: 'Plancha (t)' },
+    { key: 'abdominales', label: 'Abdominales' }
+];
+
+const CATEGORIES = [
+    { id: 'velocidad', label: 'Velocidad', fields: speedKeys },
+    { id: 'resistencia', label: 'Resistencia', fields: resistKeys },
+    { id: 'inferior', label: 'Fuerza Inferior', fields: inferiorKeys },
+    { id: 'superior', label: 'Fuerza Superior', fields: superiorKeys },
+    { id: 'core', label: 'Fuerza Core', fields: coreKeys }
+];
 
 const PhysicalTestsPage = ({ user }) => {
     const navigate = useNavigate();
@@ -28,26 +50,11 @@ const PhysicalTestsPage = ({ user }) => {
     const [activeSession, setActiveSession] = useState(null);
     const [isEvolutionMode, setIsEvolutionMode] = useState(false);
 
-    // Modal state
+    // Bulk Modal state
     const [showModal, setShowModal] = useState(false);
-    const [formData, setFormData] = useState({
-        jugador_id: '',
-        fecha: new Date().toISOString().split('T')[0],
-        velocidad_10m: '',
-        velocidad_30m: '',
-        velocidad_80m: '',
-        broncotest: '',
-        course_navette: '',
-        salto_sj: '',
-        salto_cmj: '',
-        salto_rebote: '',
-        salto_horizontal: '',
-        flexiones: '',
-        lanzamiento_pecho: '',
-        lanzamiento_encima_cabeza: '',
-        plancha: '',
-        abdominales: ''
-    });
+    const [testDate, setTestDate] = useState(new Date().toISOString().split('T')[0]);
+    const [testCategory, setTestCategory] = useState('velocidad');
+    const [bulkData, setBulkData] = useState({});
 
     useEffect(() => {
         fetchData();
@@ -69,7 +76,7 @@ const PhysicalTestsPage = ({ user }) => {
                     const player = playersData.find(p => p.id === test.jugador_id);
                     return {
                         ...test,
-                        playerName: player ? `${player.nombre} ${player.apellidos}` : 'Desconocido'
+                        playerName: player ? `${player.nombre} ${player.apellidos} ` : 'Desconocido'
                     };
                 });
 
@@ -92,44 +99,83 @@ const PhysicalTestsPage = ({ user }) => {
         }
     };
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
+    // Pre-fill existing data into bulkData when modal opens or configurations change
+    useEffect(() => {
+        if (!showModal) return;
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+        const existingDataForDate = results.filter(r => r.fecha === testDate);
+        const newBulkData = {};
 
-        if (!formData.jugador_id || !formData.fecha) {
-            alert('Por favor, selecciona un jugador y una fecha.');
-            return;
-        }
-
-        // Clean up empty strings to null for numbers/floats
-        const payload = { ...formData };
-        Object.keys(payload).forEach(key => {
-            if (payload[key] === '') payload[key] = null;
-            if (payload[key] !== null && !['jugador_id', 'fecha', 'broncotest', 'plancha'].includes(key)) {
-                payload[key] = parseFloat(payload[key]);
+        players.forEach(p => {
+            const existing = existingDataForDate.find(r => r.jugador_id === p.id);
+            if (existing) {
+                newBulkData[p.id] = { ...existing };
+            } else {
+                newBulkData[p.id] = {};
             }
         });
 
-        try {
-            await apiPost('/pruebas_fisicas/', payload);
-            setShowModal(false);
-            setFormData({
-                ...formData,
-                jugador_id: '', // Reset player, keep date
-                velocidad_10m: '', velocidad_30m: '', velocidad_80m: '',
-                broncotest: '', course_navette: '',
-                salto_sj: '', salto_cmj: '', salto_rebote: '', salto_horizontal: '',
-                flexiones: '', lanzamiento_pecho: '', lanzamiento_encima_cabeza: '',
-                plancha: '', abdominales: ''
+        setBulkData(newBulkData);
+    }, [showModal, testDate, results, players]);
+
+    const handleBulkInputChange = (playerId, field, value) => {
+        setBulkData(prev => ({
+            ...prev,
+            [playerId]: {
+                ...(prev[playerId] || {}),
+                [field]: value
+            }
+        }));
+    };
+
+    const handleBulkSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!testDate) {
+            alert('Por favor, selecciona una fecha.');
+            return;
+        }
+
+        const promises = [];
+
+        Object.keys(bulkData).forEach(playerId => {
+            const data = bulkData[playerId];
+            let hasData = false;
+
+            const payload = { jugador_id: playerId, fecha: testDate };
+
+            // Only examine fields for the currently selected category to know if we should update
+            const categoryFields = CATEGORIES.find(c => c.id === testCategory).fields.map(f => f.key);
+
+            categoryFields.forEach(key => {
+                let val = data[key];
+                if (val !== '' && val !== null && val !== undefined) {
+                    hasData = true;
+                    if (!['broncotest', 'plancha'].includes(key)) {
+                        payload[key] = parseFloat(val);
+                    } else {
+                        payload[key] = val;
+                    }
+                }
             });
+
+            if (hasData) {
+                promises.push(apiPost('/pruebas_fisicas/', payload));
+            }
+        });
+
+        if (promises.length === 0) {
+            alert('No has introducido ningún dato nuevo o modificado en esta categoría.');
+            return;
+        }
+
+        try {
+            await Promise.all(promises);
+            setShowModal(false);
             fetchData();
         } catch (err) {
-            console.error('Error saving test:', err);
-            alert('Error al guardar los resultados.');
+            console.error('Error saving tests:', err);
+            alert('Error al guardar algunos resultados. Puede que algún campo contenga formatos inválidos.');
         }
     };
 
@@ -178,7 +224,8 @@ const PhysicalTestsPage = ({ user }) => {
     };
 
     const renderTestCategory = (title, icon, keys, data) => {
-        if (!data || data.length === 0) return null;
+        const hasAnyData = data.some(row => keys.some(k => row[k.key] !== null && row[k.key] !== undefined));
+        if (!hasAnyData) return null;
 
         return (
             <div style={{ marginBottom: '2rem' }}>
@@ -188,25 +235,30 @@ const PhysicalTestsPage = ({ user }) => {
                     </div>
                     <h3 style={{ margin: 0, color: 'var(--color-primary-blue)', fontSize: '1.2rem' }}>{title}</h3>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                <div className="data-table-container">
+                    <table className="data-table">
                         <thead>
-                            <tr style={{ backgroundColor: 'rgba(0,51,102,0.05)', textAlign: 'left' }}>
-                                <th style={{ padding: '0.75rem', borderBottom: '1px solid #ddd' }}>Jugador</th>
+                            <tr>
+                                <th>Jugador</th>
                                 {keys.map(k => (
-                                    <th key={k.key} style={{ padding: '0.75rem', borderBottom: '1px solid #ddd' }}>{k.label}</th>
+                                    <th key={k.key}>{k.label}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
-                            {data.map((row, idx) => (
-                                <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                                    <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{row.playerName}</td>
-                                    {keys.map(k => (
-                                        <td key={k.key} style={{ padding: '0.75rem' }}>{row[k.key] !== null && row[k.key] !== undefined ? row[k.key] : '-'}</td>
-                                    ))}
-                                </tr>
-                            ))}
+                            {data.map((row, idx) => {
+                                const rowHasData = keys.some(k => row[k.key] !== null && row[k.key] !== undefined);
+                                if (!rowHasData) return null;
+
+                                return (
+                                    <tr key={idx}>
+                                        <td style={{ fontWeight: 'bold' }}>{row.playerName}</td>
+                                        {keys.map(k => (
+                                            <td key={k.key}>{row[k.key] !== null && row[k.key] !== undefined ? row[k.key] : '-'}</td>
+                                        ))}
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -215,7 +267,8 @@ const PhysicalTestsPage = ({ user }) => {
     };
 
     const renderEvolutionCategory = (title, icon, keys, evolutionData) => {
-        if (!evolutionData || evolutionData.length === 0) return null;
+        const hasAnyData = evolutionData.some(row => keys.some(k => row.first[k.key] !== null && row.last[k.key] !== null && row.first[k.key] !== undefined && row.last[k.key] !== undefined));
+        if (!hasAnyData) return null;
 
         return (
             <div style={{ marginBottom: '2rem' }}>
@@ -225,80 +278,56 @@ const PhysicalTestsPage = ({ user }) => {
                     </div>
                     <h3 style={{ margin: 0, color: 'var(--color-primary-orange)', fontSize: '1.2rem' }}>{title} (Evolución)</h3>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                <div className="data-table-container">
+                    <table className="data-table">
                         <thead>
-                            <tr style={{ backgroundColor: 'rgba(0,51,102,0.05)', textAlign: 'left' }}>
-                                <th style={{ padding: '0.75rem', borderBottom: '1px solid #ddd' }}>Jugador</th>
-                                <th style={{ padding: '0.75rem', borderBottom: '1px solid #ddd', fontSize: '0.8rem', color: '#666' }}>Fechas (1ª → Última)</th>
+                            <tr>
+                                <th>Jugador</th>
+                                <th style={{ fontSize: '0.85rem' }}>Fechas (1ª → Última)</th>
                                 {keys.map(k => (
-                                    <th key={k.key} style={{ padding: '0.75rem', borderBottom: '1px solid #ddd', textAlign: 'center' }}>{k.label}</th>
+                                    <th key={k.key} style={{ textAlign: 'center' }}>{k.label}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
-                            {evolutionData.map((row, idx) => (
-                                <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                                    <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{row.playerName}</td>
-                                    <td style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
-                                        {formatDateStr(row.firstDate)} → {formatDateStr(row.lastDate)}
-                                    </td>
-                                    {keys.map(k => {
-                                        const val1 = row.first[k.key];
-                                        const val2 = row.last[k.key];
-                                        const hasBoth = val1 !== null && val2 !== null && val1 !== undefined && val2 !== undefined;
+                            {evolutionData.map((row, idx) => {
+                                const rowHasData = keys.some(k => row.first[k.key] !== null && row.last[k.key] !== null && row.first[k.key] !== undefined && row.last[k.key] !== undefined);
+                                if (!rowHasData) return null;
 
-                                        // For running (speed/resistance), lower is usually better, but let's just show absolute difference and color it
-                                        // A simple display: Val1 -> Val2
-                                        return (
-                                            <td key={k.key} style={{ padding: '0.75rem', textAlign: 'center' }}>
-                                                {hasBoth ? (
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
-                                                        <span style={{ color: '#666' }}>{val1}</span>
-                                                        <TrendingUp size={14} style={{ opacity: 0.5 }} />
-                                                        <span style={{ fontWeight: 'bold' }}>{val2}</span>
-                                                    </div>
-                                                ) : '-'}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))}
+                                return (
+                                    <tr key={idx}>
+                                        <td style={{ fontWeight: 'bold' }}>{row.playerName}</td>
+                                        <td style={{ fontSize: '0.85rem', color: '#666' }}>
+                                            {formatDateStr(row.firstDate)} → {formatDateStr(row.lastDate)}
+                                        </td>
+                                        {keys.map(k => {
+                                            const val1 = row.first[k.key];
+                                            const val2 = row.last[k.key];
+                                            const hasBoth = val1 !== null && val2 !== null && val1 !== undefined && val2 !== undefined;
+
+                                            // For running (speed/resistance), lower is usually better, but let's just show absolute difference and color it
+                                            // A simple display: Val1 -> Val2
+                                            return (
+                                                <td key={k.key} style={{ textAlign: 'center' }}>
+                                                    {hasBoth ? (
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                                            <span style={{ color: '#888' }}>{val1}</span>
+                                                            <TrendingUp size={14} style={{ color: 'var(--color-primary-orange)' }} />
+                                                            <span style={{ fontWeight: 'bold' }}>{val2}</span>
+                                                        </div>
+                                                    ) : '-'}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
             </div>
         );
     };
-
-    const speedKeys = [
-        { key: 'velocidad_10m', label: '10m (s)' },
-        { key: 'velocidad_30m', label: '30m (s)' },
-        { key: 'velocidad_80m', label: '80m (s)' }
-    ];
-
-    const resistKeys = [
-        { key: 'broncotest', label: 'Broncotest' },
-        { key: 'course_navette', label: 'Course Navette' }
-    ];
-
-    const inferiorKeys = [
-        { key: 'salto_sj', label: 'Salto SJ' },
-        { key: 'salto_cmj', label: 'Salto CMJ' },
-        { key: 'salto_rebote', label: 'Salto Rebote' },
-        { key: 'salto_horizontal', label: 'Salto Horizontal' }
-    ];
-
-    const superiorKeys = [
-        { key: 'flexiones', label: 'Flexiones' },
-        { key: 'lanzamiento_pecho', label: 'Lanz. Pecho' },
-        { key: 'lanzamiento_encima_cabeza', label: 'Lanz. Encima Cabeza' }
-    ];
-
-    const coreKeys = [
-        { key: 'plancha', label: 'Plancha (t)' },
-        { key: 'abdominales', label: 'Abdominales' }
-    ];
 
     return (
         <div className="physical-tests-page-container" style={{ minHeight: '100vh', backgroundColor: '#f4f7f6' }}>
@@ -342,33 +371,23 @@ const PhysicalTestsPage = ({ user }) => {
                 </header>
 
                 {/* Tabs */}
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', borderBottom: '2px solid #ddd', paddingBottom: '0.5rem' }}>
+                <div className="tabs-container">
                     <button
+                        className="tab-button"
                         onClick={() => setIsEvolutionMode(false)}
                         style={{
-                            padding: '0.5rem 1rem',
-                            border: 'none',
-                            background: 'none',
                             borderBottom: !isEvolutionMode ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
                             color: !isEvolutionMode ? 'var(--color-primary-blue)' : '#666',
-                            fontWeight: 'bold',
-                            fontSize: '1.1rem',
-                            cursor: 'pointer'
                         }}
                     >
                         Resultados por Fecha
                     </button>
                     <button
+                        className="tab-button"
                         onClick={() => setIsEvolutionMode(true)}
                         style={{
-                            padding: '0.5rem 1rem',
-                            border: 'none',
-                            background: 'none',
                             borderBottom: isEvolutionMode ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
                             color: isEvolutionMode ? 'var(--color-primary-blue)' : '#666',
-                            fontWeight: 'bold',
-                            fontSize: '1.1rem',
-                            cursor: 'pointer'
                         }}
                     >
                         Evolución Individual
@@ -381,7 +400,7 @@ const PhysicalTestsPage = ({ user }) => {
                         <p style={{ fontSize: '1.2rem' }}>Cargando datos...</p>
                     </div>
                 ) : isEvolutionMode ? (
-                    <div className="card" style={{ padding: '1.5rem', borderRadius: '12px', background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <div className="card">
                         {getEvolutionData().length > 0 ? (
                             <>
                                 {renderEvolutionCategory('Velocidad', <Zap size={20} />, speedKeys, getEvolutionData())}
@@ -389,6 +408,13 @@ const PhysicalTestsPage = ({ user }) => {
                                 {renderEvolutionCategory('Fuerza Tren Superior', <Shield size={20} />, superiorKeys, getEvolutionData())}
                                 {renderEvolutionCategory('Fuerza Tren Inferior', <Dumbbell size={20} />, inferiorKeys, getEvolutionData())}
                                 {renderEvolutionCategory('Fuerza Core', <Heart size={20} />, coreKeys, getEvolutionData())}
+
+                                {!CATEGORIES.some(cat => renderEvolutionCategory(cat.label, React.createElement(Activity), cat.fields, getEvolutionData()) !== null) && (
+                                    <div style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
+                                        <TrendingUp size={48} style={{ marginBottom: '1rem', opacity: 0.3, margin: '0 auto' }} />
+                                        <p style={{ fontSize: '1.1rem' }}>Hay sesiones registradas, pero ningún jugador cuenta con suficientes datos pareados para mostrar su evolución completa.</p>
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <div style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
@@ -424,7 +450,7 @@ const PhysicalTestsPage = ({ user }) => {
                             </div>
                         ) : null}
 
-                        <div className="card" style={{ padding: '1.5rem', borderRadius: '12px', background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                        <div className="card">
                             {getSessionData().length > 0 ? (
                                 <>
                                     {renderTestCategory('Velocidad', <Zap size={20} />, speedKeys, getSessionData())}
@@ -432,6 +458,13 @@ const PhysicalTestsPage = ({ user }) => {
                                     {renderTestCategory('Fuerza Tren Superior', <Shield size={20} />, superiorKeys, getSessionData())}
                                     {renderTestCategory('Fuerza Tren Inferior', <Dumbbell size={20} />, inferiorKeys, getSessionData())}
                                     {renderTestCategory('Fuerza Core', <Heart size={20} />, coreKeys, getSessionData())}
+
+                                    {!CATEGORIES.some(cat => renderTestCategory(cat.label, React.createElement(Activity), cat.fields, getSessionData()) !== null) && (
+                                        <div style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
+                                            <Activity size={48} style={{ marginBottom: '1rem', opacity: 0.3, margin: '0 auto' }} />
+                                            <p style={{ fontSize: '1.1rem' }}>Hay jugadores registrados en esta fecha, pero sus datos físicos están vacíos.</p>
+                                        </div>
+                                    )}
                                 </>
                             ) : (
                                 <div style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
@@ -444,72 +477,98 @@ const PhysicalTestsPage = ({ user }) => {
                 )}
             </div>
 
-            {/* Modal for Inserting Data */}
+            {/* Modal for Inserting Data in Bulk */}
             {showModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-                    <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                <div className="modal-overlay">
+                    <div className="modal-content">
                         <div style={{ padding: '1.5rem', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10 }}>
-                            <h2 style={{ margin: 0, color: 'var(--color-primary-blue)' }}>Añadir Resultados Físicos</h2>
+                            <h2 style={{ margin: 0, color: 'var(--color-primary-blue)' }}>Añadir Resultados por Prueba</h2>
                             <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                                 <X size={24} color="#666" />
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} style={{ padding: '1.5rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary-blue)', marginBottom: '0.25rem' }}>Jugador *</label>
-                                    <select
-                                        name="jugador_id"
-                                        value={formData.jugador_id}
-                                        onChange={handleInputChange}
-                                        required
-                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                                    >
-                                        <option value="">Selecciona un jugador...</option>
-                                        {players.map(p => (
-                                            <option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>
-                                        ))}
-                                    </select>
+                        <div style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', borderBottom: '1px solid #eee', backgroundColor: '#f9fbfd' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary-blue)', marginBottom: '0.25rem' }}>Fecha de Evaluación *</label>
+                                <input
+                                    type="date"
+                                    value={testDate}
+                                    onChange={(e) => setTestDate(e.target.value)}
+                                    style={{ padding: '0.6rem', borderRadius: '6px', border: '1px solid #ccc', minWidth: '200px' }}
+                                />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary-blue)', marginBottom: '0.25rem' }}>Tipo de Prueba *</label>
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    {CATEGORIES.map(cat => (
+                                        <button
+                                            key={cat.id}
+                                            onClick={() => setTestCategory(cat.id)}
+                                            style={{
+                                                padding: '0.5rem 1rem',
+                                                borderRadius: '8px',
+                                                border: '1px solid',
+                                                borderColor: testCategory === cat.id ? 'var(--color-primary-blue)' : '#ddd',
+                                                backgroundColor: testCategory === cat.id ? 'var(--color-primary-blue)' : 'white',
+                                                color: testCategory === cat.id ? 'white' : '#666',
+                                                fontWeight: 'bold',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                        >
+                                            {cat.label}
+                                        </button>
+                                    ))}
                                 </div>
-                                <InputField label="Fecha de Evaluación *" name="fecha" type="date" value={formData.fecha} onChange={handleInputChange} />
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleBulkSubmit} style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <div className="data-table-container" style={{ flex: 1, maxHeight: '50vh' }}>
+                                <table className="data-table" style={{ margin: 0 }}>
+                                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 5, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                                        <tr>
+                                            <th style={{ width: '250px' }}>Jugador</th>
+                                            {CATEGORIES.find(c => c.id === testCategory).fields.map(f => (
+                                                <th key={f.key} style={{ textAlign: 'center' }}>
+                                                    {f.label}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {players.map(player => {
+                                            const categoryFields = CATEGORIES.find(c => c.id === testCategory).fields;
+                                            return (
+                                                <tr key={player.id}>
+                                                    <td style={{ fontWeight: '500', backgroundColor: '#fdfdfd' }}>
+                                                        {player.nombre} {player.apellidos}
+                                                    </td>
+                                                    {categoryFields.map(f => {
+                                                        const isTextType = ['broncotest', 'plancha'].includes(f.key);
+                                                        return (
+                                                            <td key={f.key} style={{ padding: '0.5rem' }}>
+                                                                <input
+                                                                    type={isTextType ? "text" : "number"}
+                                                                    step="0.01"
+                                                                    placeholder={isTextType ? "Ej: 5:30" : "0.00"}
+                                                                    value={bulkData[player.id]?.[f.key] || ''}
+                                                                    onChange={(e) => handleBulkInputChange(player.id, f.key, e.target.value)}
+                                                                    className="input-field"
+                                                                    style={{ textAlign: 'center' }}
+                                                                />
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
 
-                            <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', color: 'var(--color-primary-orange)' }}>Velocidad</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                                <InputField label="10m (s)" name="velocidad_10m" value={formData.velocidad_10m} onChange={handleInputChange} />
-                                <InputField label="30m (s)" name="velocidad_30m" value={formData.velocidad_30m} onChange={handleInputChange} />
-                                <InputField label="80m (s)" name="velocidad_80m" value={formData.velocidad_80m} onChange={handleInputChange} />
-                            </div>
-
-                            <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', color: 'var(--color-primary-orange)' }}>Resistencia</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                                <InputField label="Broncotest (Ej: 5:30)" name="broncotest" type="text" value={formData.broncotest} onChange={handleInputChange} placeholder="MM:SS" />
-                                <InputField label="Course Navette (Palier/Nivel)" name="course_navette" value={formData.course_navette} onChange={handleInputChange} />
-                            </div>
-
-                            <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', color: 'var(--color-primary-orange)' }}>Fuerza Tren Inferior</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                                <InputField label="Salto SJ (cm)" name="salto_sj" value={formData.salto_sj} onChange={handleInputChange} />
-                                <InputField label="Salto CMJ (cm)" name="salto_cmj" value={formData.salto_cmj} onChange={handleInputChange} />
-                                <InputField label="Salto Rebote (cm)" name="salto_rebote" value={formData.salto_rebote} onChange={handleInputChange} />
-                                <InputField label="Salto Horizontal (cm)" name="salto_horizontal" value={formData.salto_horizontal} onChange={handleInputChange} />
-                            </div>
-
-                            <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', color: 'var(--color-primary-orange)' }}>Fuerza Tren Superior</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                                <InputField label="Flexiones (reps)" name="flexiones" type="number" step="1" value={formData.flexiones} onChange={handleInputChange} />
-                                <InputField label="Lanzamiento Pecho (m)" name="lanzamiento_pecho" value={formData.lanzamiento_pecho} onChange={handleInputChange} />
-                                <InputField label="Lanz. Encima Cabeza (m)" name="lanzamiento_encima_cabeza" value={formData.lanzamiento_encima_cabeza} onChange={handleInputChange} />
-                            </div>
-
-                            <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', color: 'var(--color-primary-orange)' }}>Fuerza Core</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                                <InputField label="Plancha (tiempo)" name="plancha" type="text" value={formData.plancha} onChange={handleInputChange} placeholder="e.g. 2m 15s" />
-                                <InputField label="Abdominales (reps)" name="abdominales" type="number" step="1" value={formData.abdominales} onChange={handleInputChange} />
-                            </div>
-
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', position: 'sticky', bottom: 0, backgroundColor: 'white', padding: '1rem 0', borderTop: '1px solid #eee' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
                                 <button
                                     type="button"
                                     onClick={() => setShowModal(false)}
@@ -519,9 +578,10 @@ const PhysicalTestsPage = ({ user }) => {
                                 </button>
                                 <button
                                     type="submit"
-                                    style={{ padding: '0.75rem 1.5rem', borderRadius: '8px', border: 'none', background: 'var(--color-primary-blue)', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', borderRadius: '8px', border: 'none', background: 'var(--color-primary-blue)', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}
                                 >
-                                    Guardar Resultados
+                                    <Save size={18} />
+                                    Guardar Resultados de {CATEGORIES.find(c => c.id === testCategory).label}
                                 </button>
                             </div>
                         </form>
