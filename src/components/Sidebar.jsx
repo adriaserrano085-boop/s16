@@ -34,6 +34,11 @@ const NAV_ITEMS = [
         // Let's stick to the pattern.
     },
     {
+        path: '/physical-tests',
+        label: 'PRUEBAS FÍSICAS',
+        icon: 'https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Centro%20de%20estadisticas%20ICON.png',
+    },
+    {
         path: '/admin/usuarios',
         label: 'GESTIÓN USUARIOS',
         icon: 'https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Iconos/Ajustes%20ICON.png',
