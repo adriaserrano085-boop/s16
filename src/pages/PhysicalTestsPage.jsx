@@ -5,9 +5,12 @@ import { ArrowLeft, Activity, Zap, Heart, Shield, Dumbbell, Plus, X, TrendingUp,
 import './PhysicalTestsPage.css';
 
 const speedKeys = [
-    { key: 'velocidad_10m', label: '10m (s)' },
-    { key: 'velocidad_30m', label: '30m (s)' },
-    { key: 'velocidad_80m', label: '80m (s)' }
+    { key: 'velocidad_10m', label: '10m (1)' },
+    { key: 'velocidad_10m_2', label: '10m (2)' },
+    { key: 'velocidad_30m', label: '30m (1)' },
+    { key: 'velocidad_30m_2', label: '30m (2)' },
+    { key: 'velocidad_80m', label: '80m (1)' },
+    { key: 'velocidad_80m_2', label: '80m (2)' }
 ];
 
 const resistKeys = [
@@ -16,17 +19,23 @@ const resistKeys = [
 ];
 
 const inferiorKeys = [
-    { key: 'salto_sj', label: 'Salto SJ' },
-    { key: 'salto_cmj', label: 'Salto CMJ' },
-    { key: 'salto_rebote', label: 'Salto Rebote' },
-    { key: 'salto_horizontal', label: 'Salto Horizontal' },
+    { key: 'salto_sj', label: 'Salto SJ (1)' },
+    { key: 'salto_sj_2', label: 'Salto SJ (2)' },
+    { key: 'salto_cmj', label: 'Salto CMJ (1)' },
+    { key: 'salto_cmj_2', label: 'Salto CMJ (2)' },
+    { key: 'salto_rebote', label: 'Salto Rebote (1)' },
+    { key: 'salto_rebote_2', label: 'Salto Rebote (2)' },
+    { key: 'salto_horizontal', label: 'Salto Horiz. (1)' },
+    { key: 'salto_horizontal_2', label: 'Salto Horiz. (2)' },
     { key: 'sentadillas_1m', label: 'Sentadillas (1m)' }
 ];
 
 const superiorKeys = [
     { key: 'flexiones', label: 'Flexiones' },
-    { key: 'lanzamiento_pecho', label: 'Lanz. Pecho' },
-    { key: 'lanzamiento_encima_cabeza', label: 'Lanz. Encima Cabeza' }
+    { key: 'lanzamiento_pecho', label: 'Lanz. Pecho (1)' },
+    { key: 'lanzamiento_pecho_2', label: 'Lanz. Pecho (2)' },
+    { key: 'lanzamiento_encima_cabeza', label: 'Lanz. Cabeza (1)' },
+    { key: 'lanzamiento_encima_cabeza_2', label: 'Lanz. Cabeza (2)' }
 ];
 
 const coreKeys = [
