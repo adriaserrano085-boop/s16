@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiGet, apiPost } from '../lib/apiClient';
 import './UserManagement.css';
 
-const UserManagement = () => {
+const UserManagement = ({ user: currentUser }) => {
     const [users, setUsers] = useState([]);
     const [staffList, setStaffList] = useState([]);
     const [playerList, setPlayerList] = useState([]);
