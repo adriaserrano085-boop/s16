@@ -4,30 +4,41 @@ import './UserManagement.css';
 
 const UserManagement = () => {
     const [users, setUsers] = useState([]);
+    const [staffList, setStaffList] = useState([]);
+    const [playerList, setPlayerList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [updatingUserId, setUpdatingUserId] = useState(null);
 
     const roles = ['ADMIN', 'STAFF', 'JUGADOR', 'FAMILIA'];
 
-    const fetchUsers = async () => {
+    const fetchData = async () => {
         setLoading(true);
         try {
-            const data = await apiGet('/users/all');
-            // Sort by email
-            const sortedData = data.sort((a, b) => a.email.localeCompare(b.email));
-            setUsers(sortedData);
+            // Fetch users
+            const usersData = await apiGet('/users/all');
+            const sortedUsers = usersData.sort((a, b) => a.email.localeCompare(b.email));
+            setUsers(sortedUsers);
+
+            // Fetch profiles for linking
+            const staffData = await apiGet('/Staff');
+            // Assuming response is an array or { items: array } 
+            setStaffList(Array.isArray(staffData) ? staffData : (staffData.items || []));
+
+            const playersData = await apiGet('/jugadores_propios');
+            setPlayerList(Array.isArray(playersData) ? playersData : (playersData.items || []));
+
             setError(null);
         } catch (err) {
-            console.error('Error fetching users:', err);
-            setError(err.message || 'No se pudieron cargar los usuarios. Verifica tus permisos.');
+            console.error('Error fetching data:', err);
+            setError(err.message || 'No se pudieron cargar los datos. Verifica tus permisos.');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchUsers();
+        fetchData();
     }, []);
 
     const handleRoleChange = async (userId, newRole) => {
@@ -44,6 +55,27 @@ const UserManagement = () => {
         } catch (err) {
             console.error('Error updating role:', err);
             alert('Error al actualizar el rol: ' + (err.message || 'Error desconocido'));
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
+    const handleLinkProfile = async (userId, profileType, profileId) => {
+        if (!profileId) return; // Ignore if unselected empty option
+
+        setUpdatingUserId(userId);
+        try {
+            await apiPost('/users/link-profile', {
+                user_id: userId,
+                profile_type: profileType,
+                profile_id: profileId
+            });
+            // Refresh data to reflect validated status and links
+            await fetchData();
+            alert(`Perfil ${profileType} vinculado correctamente.`);
+        } catch (err) {
+            console.error('Error linking profile:', err);
+            alert('Error al vincular el perfil: ' + (err.message || 'Error desconocido'));
         } finally {
             setUpdatingUserId(null);
         }
@@ -68,6 +100,7 @@ const UserManagement = () => {
                             <th>Email</th>
                             <th>Rol Actual</th>
                             <th>Acciones</th>
+                            <th>Vincular a Perfil</th>
                             <th>Estado</th>
                         </tr>
                     </thead>
@@ -92,6 +125,36 @@ const UserManagement = () => {
                                             <option key={role} value={role}>{role}</option>
                                         ))}
                                     </select>
+                                </td>
+                                <td>
+                                    {user.role === 'STAFF' && (
+                                        <select
+                                            className="admin-role-select"
+                                            value={staffList.find(s => s.auth_id === user.id)?.id || ''}
+                                            onChange={(e) => handleLinkProfile(user.id, 'STAFF', e.target.value)}
+                                            disabled={updatingUserId === user.id}
+                                        >
+                                            <option value="">-- Seleccionar Miembro Staff --</option>
+                                            {staffList.map(s => (
+                                                <option key={s.id} value={s.id}>{s.nombre} {s.apellidos || ''}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    {user.role === 'JUGADOR' && (
+                                        <select
+                                            className="admin-role-select"
+                                            value={playerList.find(p => p.email?.toLowerCase() === user.email.toLowerCase())?.id || ''}
+                                            onChange={(e) => handleLinkProfile(user.id, 'JUGADOR', e.target.value)}
+                                            disabled={updatingUserId === user.id}
+                                        >
+                                            <option value="">-- Seleccionar Jugador --</option>
+                                            {playerList.map(p => (
+                                                <option key={p.id} value={p.id}>{p.nombre} {p.apellidos || ''}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    {user.role === 'ADMIN' && <span style={{ color: '#aaa', fontSize: '0.85rem' }}>N/A</span>}
+                                    {user.role === 'FAMILIA' && <span style={{ color: '#aaa', fontSize: '0.85rem' }}>Usa el gestor de familias</span>}
                                 </td>
                                 <td>
                                     {user.is_pending_validation ? (

@@ -10,7 +10,10 @@ const Login = ({ setUser }) => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [resetMode, setResetMode] = useState(false);
+    const [registerMode, setRegisterMode] = useState(false);
     const [resetSent, setResetSent] = useState(false);
+    const [registerSuccess, setRegisterSuccess] = useState(false);
+    const [confirmPassword, setConfirmPassword] = useState('');
     const navigate = useNavigate();
 
     const handleResetPassword = async (e) => {
@@ -31,6 +34,50 @@ const Login = ({ setUser }) => {
                 setResetSent(true);
             } else {
                 throw new Error(data.detail || 'Error al solicitar el restablecimiento');
+            }
+        } catch (err) {
+            setError(err.message || 'Error de conexión con el servidor.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRegister = async (e) => {
+        e.preventDefault();
+
+        if (password !== confirmPassword) {
+            setError('Las contraseñas no coinciden.');
+            return;
+        }
+
+        if (password.length < 6) {
+            setError('La contraseña debe tener al menos 6 caracteres.');
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+
+        try {
+            const response = await fetch('/api/v1/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    password,
+                    confirm_password: confirmPassword
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                setRegisterSuccess(true);
+                // Clear sensitive fields
+                setPassword('');
+                setConfirmPassword('');
+            } else {
+                throw new Error(data.detail || 'Error al crear la cuenta. Verifica tus datos o intenta más tarde.');
             }
         } catch (err) {
             setError(err.message || 'Error de conexión con el servidor.');
@@ -107,7 +154,9 @@ const Login = ({ setUser }) => {
                 />
 
                 <h1 className="login-title">S16 RCLH</h1>
-                <h2 className="login-subtitle">Bienvenido al equipo</h2>
+                <h2 className="login-subtitle">
+                    {resetMode ? 'Recuperar Contraseña' : registerMode ? 'Únete al Equipo' : 'Bienvenido al equipo'}
+                </h2>
 
                 {resetMode ? (
                     /* Password Recovery Form */
@@ -151,6 +200,72 @@ const Login = ({ setUser }) => {
                             </button>
                         </form>
                     )
+                ) : registerMode ? (
+                    /* Registration Form */
+                    registerSuccess ? (
+                        <div className="login-reset-success">
+                            <div className="login-reset-icon">🚀</div>
+                            <p>¡Cuenta creada exitosamente!</p>
+                            <p style={{ marginTop: '1rem', marginBottom: '1rem', color: '#003366', fontWeight: '500' }}>
+                                Hemos enviado un enlace de activación a: <br />
+                                <strong>{email}</strong>
+                            </p>
+                            <p style={{ fontSize: '0.9rem', color: '#555' }}>Por favor, revisa tu correo y haz clic en el enlace para activar tu cuenta antes de iniciar sesión.</p>
+                            <button
+                                className="login-button"
+                                onClick={() => { setRegisterMode(false); setRegisterSuccess(false); setError(''); }}
+                                style={{ marginTop: '1.5rem' }}
+                            >
+                                Volver al Login
+                            </button>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleRegister} className="login-form">
+                            <input
+                                type="email"
+                                placeholder="Correo electrónico válido"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                className="login-input"
+                            />
+                            <input
+                                type="password"
+                                placeholder="Contraseña (mín. 6 caracteres)"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                minLength="6"
+                                className="login-input"
+                            />
+                            <input
+                                type="password"
+                                placeholder="Confirma tu contraseña"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                                minLength="6"
+                                className="login-input"
+                            />
+
+                            <button
+                                type="submit"
+                                className="login-button"
+                                style={{ backgroundColor: '#FF6600' }}
+                                disabled={loading}
+                            >
+                                {loading ? 'Creando...' : 'Crear Cuenta'}
+                            </button>
+
+                            <button
+                                type="button"
+                                className="login-link-btn"
+                                onClick={() => { setRegisterMode(false); setError(''); }}
+                            >
+                                ¿Ya tienes cuenta? Inicia sesión
+                            </button>
+                        </form>
+                    )
                 ) : (
                     /* Normal Login Form */
                     <form onSubmit={handleSubmit} className="login-form">
@@ -179,13 +294,25 @@ const Login = ({ setUser }) => {
                             {loading ? 'Iniciando...' : 'Iniciar Sesión'}
                         </button>
 
-                        <button
-                            type="button"
-                            className="login-link-btn"
-                            onClick={() => { setResetMode(true); setError(''); }}
-                        >
-                            ¿Olvidaste tu contraseña?
-                        </button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
+                            <button
+                                type="button"
+                                className="login-link-btn"
+                                style={{ margin: 0, padding: 0 }}
+                                onClick={() => { setRegisterMode(true); setError(''); }}
+                            >
+                                Crear cuenta nueva
+                            </button>
+
+                            <button
+                                type="button"
+                                className="login-link-btn"
+                                style={{ margin: 0, padding: 0 }}
+                                onClick={() => { setResetMode(true); setError(''); }}
+                            >
+                                ¿Olvidaste tu contraseña?
+                            </button>
+                        </div>
                     </form>
                 )}
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { X, User, Camera, Loader2, Save, CalendarDays, Hash, Ruler, Phone, Mail } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 import playerService from '../services/playerService';
 import './CreatePlayerModal.css';
 

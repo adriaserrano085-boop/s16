@@ -18,6 +18,7 @@ const RivalAnalysisPage = React.lazy(() => import('./pages/RivalAnalysisPage'));
 const MatchReportPage = React.lazy(() => import('./pages/MatchReportPage'));
 const UserManagement = React.lazy(() => import('./pages/UserManagement'));
 const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
+const ActivateAccount = React.lazy(() => import('./pages/ActivateAccount'));
 
 // Shared loading fallback
 const PageLoader = () => (
@@ -164,6 +165,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login setUser={setUser} />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/activate" element={<ActivateAccount />} />
           {user ? (
             <Route path="/*" element={<AuthLayout user={user} setUser={setUser} />} />
           ) : (

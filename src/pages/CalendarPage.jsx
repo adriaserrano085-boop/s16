@@ -772,16 +772,27 @@ const CalendarPage = ({ user }) => {
                                             return eventDate >= today;
                                         })
                                         .sort((a, b) => new Date(a.start) - new Date(b.start))
-                                        .slice(0, 8) // Show more in horizontal scroll
+                                        .slice(0, 5) // Show next 5 events
                                         .map(event => {
                                             const props = event.extendedProps;
                                             return (
                                                 <div
                                                     key={event.id}
-                                                    className="upcoming-event-item"
+                                                    className={`upcoming-event-item ${props.isMatch ? 'match-card' : ''}`}
                                                     onClick={() => openEventDetails(props, event.start, event.title)}
                                                     style={{ '--event-color': event.color }}
                                                 >
+                                                    <div className="upcoming-event-header">
+                                                        <span className="upcoming-event-badge" style={{ backgroundColor: event.color, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            {props.isMatch ? (
+                                                                <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/Pelota_rugby.png" alt="Partido" style={{ width: '14px', height: '14px', objectFit: 'contain' }} />
+                                                            ) : (
+                                                                <img src="https://tyqyixwqoxrrfvoeotax.supabase.co/storage/v1/object/public/imagenes/cono.png" alt="Entrenamiento" style={{ width: '14px', height: '14px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+                                                            )}
+                                                            {(props.displayTipo || 'EVENTO').toUpperCase()}
+                                                        </span>
+                                                    </div>
+
                                                     {/* Show team shields for matches */}
                                                     {props.isMatch && props.homeTeamShield && props.awayTeamShield ? (
                                                         <React.Fragment>
@@ -803,11 +814,26 @@ const CalendarPage = ({ user }) => {
                                                                     {props.scoreDisplay}
                                                                 </div>
                                                             )}
+                                                            {props.observaciones && (
+                                                                <div className="upcoming-event-obs">
+                                                                    <Info size={14} color={event.color} />
+                                                                    <span title={props.observaciones}>
+                                                                        {props.observaciones.length > 50 ? props.observaciones.substring(0, 50) + '...' : props.observaciones}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </React.Fragment>
                                                     ) : (
-                                                        <div className="event-title-simple" style={{ color: event.color, fontSize: '1.2rem', marginBottom: '1rem' }}>
-                                                            {getEventTitle(event)}
-                                                        </div>
+                                                        <React.Fragment>
+                                                            {props.observaciones && (
+                                                                <div className="upcoming-event-obs" style={{ borderLeftColor: event.color }}>
+                                                                    <Info size={14} color={event.color} />
+                                                                    <span title={props.observaciones}>
+                                                                        {props.observaciones.length > 50 ? props.observaciones.substring(0, 50) + '...' : props.observaciones}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </React.Fragment>
                                                     )}
 
                                                     <div className="event-details-footer">
