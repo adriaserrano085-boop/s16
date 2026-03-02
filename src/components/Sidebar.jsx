@@ -58,7 +58,7 @@ export default function Sidebar({ user, onLogout }) {
         }
         // If item is Admin only, check role
         if (item.isAdminOnly) {
-            return user?.role === 'ADMIN';
+            return ['ADMIN', 'STAFF'].includes(user?.role);
         }
         return true;
     });

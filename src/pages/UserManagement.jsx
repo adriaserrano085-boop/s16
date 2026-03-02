@@ -119,11 +119,20 @@ const UserManagement = () => {
                                         className="admin-role-select"
                                         value={user.role}
                                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                        disabled={updatingUserId === user.id}
+                                        disabled={
+                                            updatingUserId === user.id ||
+                                            (currentUser?.role === 'STAFF' && ['ADMIN', 'STAFF'].includes(user.role))
+                                        }
                                     >
-                                        {roles.map(role => (
-                                            <option key={role} value={role}>{role}</option>
-                                        ))}
+                                        {roles.map(role => {
+                                            // Staff can only assign JUGADOR and FAMILIA
+                                            if (currentUser?.role === 'STAFF' && ['ADMIN', 'STAFF'].includes(role)) {
+                                                // Only show current role if it's already ADMIN/STAFF to not break UI, 
+                                                // but they can't assign it to others.
+                                                if (user.role !== role) return null;
+                                            }
+                                            return <option key={role} value={role}>{role}</option>;
+                                        })}
                                     </select>
                                 </td>
                                 <td>
@@ -136,7 +145,8 @@ const UserManagement = () => {
                                                     className="admin-role-select"
                                                     value={linkedId}
                                                     onChange={(e) => handleLinkProfile(user.id, 'STAFF', e.target.value)}
-                                                    disabled={updatingUserId === user.id}
+                                                    disabled={updatingUserId === user.id || currentUser?.role === 'STAFF'}
+                                                    title={currentUser?.role === 'STAFF' ? "No tienes permisos para vincular Staff" : ""}
                                                 >
                                                     <option value="">-- Seleccionar Miembro Staff --</option>
                                                     {staffList.map(s => (
@@ -156,7 +166,7 @@ const UserManagement = () => {
                                                     className="admin-role-select"
                                                     value={linkedId}
                                                     onChange={(e) => handleLinkProfile(user.id, 'JUGADOR', e.target.value)}
-                                                    disabled={updatingUserId === user.id}
+                                                    disabled={updatingUserId === user.id || (currentUser?.role === 'STAFF' && user.role !== 'JUGADOR')}
                                                 >
                                                     <option value="">-- Seleccionar Jugador --</option>
                                                     {playerList.map(p => (

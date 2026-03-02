@@ -59,7 +59,7 @@ function AuthLayout({ user, setUser }) {
               </>
             )}
 
-            {user?.role === 'ADMIN' && (
+            {['ADMIN', 'STAFF'].includes(user?.role) && (
               <Route path="/admin/usuarios" element={<UserManagement user={user} />} />
             )}
 
