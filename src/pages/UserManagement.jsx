@@ -18,7 +18,11 @@ const UserManagement = ({ user: currentUser }) => {
             // Fetch users
             const usersData = await apiGet('/users/all');
             const sortedUsers = usersData.sort((a, b) => a.email.localeCompare(b.email));
-            setUsers(sortedUsers);
+            let filteredUsers = sortedUsers;
+            if (currentUser?.role === 'STAFF') {
+                filteredUsers = sortedUsers.filter(u => !['ADMIN', 'STAFF'].includes(u.role));
+            }
+            setUsers(filteredUsers);
 
             // Fetch profiles for linking
             const staffData = await apiGet('/Staff');
