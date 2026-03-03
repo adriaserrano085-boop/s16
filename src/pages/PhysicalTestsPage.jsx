@@ -293,6 +293,8 @@ const PhysicalTestsPage = ({ user }) => {
     };
 
     const renderResultsView = () => {
+        const dataColors = ['#ff6600', '#003366', '#00cc66', '#ffcc00', '#cc0066', '#6600cc'];
+
         const charts = validSessionsForTest.map((s, idx) => {
             // Only include players who actually have data for this session
             const playersWithData = activePlayers.map(p => {
@@ -614,85 +616,93 @@ const PhysicalTestsPage = ({ user }) => {
                     </div>
                 </div>
 
-
-                <div className="tabs-container" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '2px solid #ddd', paddingBottom: '0.5rem' }}>
-                    <button
-                        className="tab-button"
-                        onClick={() => setIsEvolutionMode(false)}
-                        style={{
-                            borderBottom: !isEvolutionMode ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
-                            color: !isEvolutionMode ? 'var(--color-primary-blue)' : '#666',
-                            padding: '0.5rem 1rem', background: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s ease'
-                        }}
-                    >
-                        Resultados y Pruebas
-                    </button>
-                    <button
-                        className="tab-button"
-                        onClick={() => setIsEvolutionMode(true)}
-                        style={{
-                            borderBottom: isEvolutionMode ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
-                            color: isEvolutionMode ? 'var(--color-primary-blue)' : '#666',
-                            padding: '0.5rem 1rem', background: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s ease'
-                        }}
-                    >
-                        Evolución Individual
-                    </button>
-                </div>
-
-                {/* Category Tabs */}
-                <div className="tabs-container" style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', borderBottom: 'none' }}>
-                    {UI_CATEGORIES.map(cat => (
+                <div style={{
+                    backgroundColor: 'var(--color-bg-orange, #FFF9F5)',
+                    padding: '1.5rem',
+                    borderRadius: '16px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+                    border: '1px solid rgba(255, 102, 0, 0.1)',
+                    marginBottom: '2rem'
+                }}>
+                    <div className="tabs-container" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '2px solid rgba(255, 102, 0, 0.2)', paddingBottom: '0.5rem' }}>
                         <button
-                            key={cat.id}
                             className="tab-button"
-                            onClick={() => handleCategoryChange(cat.id)}
+                            onClick={() => setIsEvolutionMode(false)}
                             style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                borderBottom: activeCategoryId === cat.id ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
-                                color: activeCategoryId === cat.id ? 'var(--color-primary-blue)' : '#777',
-                                backgroundColor: activeCategoryId === cat.id ? 'rgba(0,51,102,0.05)' : 'transparent',
-                                border: 'none',
-                                borderRadius: '8px 8px 0 0',
-                                padding: '0.75rem 1.2rem',
-                                fontWeight: activeCategoryId === cat.id ? 'bold' : 'normal'
+                                borderBottom: !isEvolutionMode ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
+                                color: !isEvolutionMode ? 'var(--color-primary-blue)' : '#666',
+                                padding: '0.5rem 1rem', background: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s ease'
                             }}
                         >
-                            {cat.icon}
-                            {cat.label}
+                            Resultados y Pruebas
                         </button>
-                    ))}
-                </div>
+                        <button
+                            className="tab-button"
+                            onClick={() => setIsEvolutionMode(true)}
+                            style={{
+                                borderBottom: isEvolutionMode ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
+                                color: isEvolutionMode ? 'var(--color-primary-blue)' : '#666',
+                                padding: '0.5rem 1rem', background: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s ease'
+                            }}
+                        >
+                            Evolución Individual
+                        </button>
+                    </div>
 
-                {/* Subcategory Tabs */}
-                {
-                    activeCategoryData && (
-                        <div className="subtabs-container" style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                            {activeCategoryData.tests.map(test => (
-                                <button
-                                    key={test.id}
-                                    onClick={() => setActiveSubcategoryId(test.id)}
-                                    style={{
-                                        padding: '0.5rem 1rem',
-                                        borderRadius: '8px',
-                                        border: '1px solid',
-                                        borderColor: activeSubcategoryId === test.id ? 'var(--color-primary-orange)' : '#ddd',
-                                        backgroundColor: activeSubcategoryId === test.id ? 'var(--color-primary-orange)' : 'white',
-                                        color: activeSubcategoryId === test.id ? 'white' : '#666',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s ease',
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    {test.label}
-                                </button>
-                            ))}
-                        </div>
-                    )
-                }
+                    {/* Category Tabs */}
+                    <div className="tabs-container" style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', borderBottom: 'none' }}>
+                        {UI_CATEGORIES.map(cat => (
+                            <button
+                                key={cat.id}
+                                className="tab-button"
+                                onClick={() => handleCategoryChange(cat.id)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    borderBottom: activeCategoryId === cat.id ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
+                                    color: activeCategoryId === cat.id ? 'var(--color-primary-blue)' : '#777',
+                                    backgroundColor: activeCategoryId === cat.id ? 'rgba(0,51,102,0.05)' : 'transparent',
+                                    border: 'none',
+                                    borderRadius: '8px 8px 0 0',
+                                    padding: '0.75rem 1.2rem',
+                                    fontWeight: activeCategoryId === cat.id ? 'bold' : 'normal'
+                                }}
+                            >
+                                {cat.icon}
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Subcategory Tabs */}
+                    {
+                        activeCategoryData && (
+                            <div className="subtabs-container" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                                {activeCategoryData.tests.map(test => (
+                                    <button
+                                        key={test.id}
+                                        onClick={() => setActiveSubcategoryId(test.id)}
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '8px',
+                                            border: '1px solid',
+                                            borderColor: activeSubcategoryId === test.id ? 'var(--color-primary-orange)' : '#ddd',
+                                            backgroundColor: activeSubcategoryId === test.id ? 'var(--color-primary-orange)' : 'white',
+                                            color: activeSubcategoryId === test.id ? 'white' : '#666',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        {test.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )
+                    }
+                </div>
 
                 {
                     loading ? (
