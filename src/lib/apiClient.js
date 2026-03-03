@@ -9,7 +9,7 @@ export const API_BASE_URL = '/api/v1';
  * @param {RequestInit} options - Opciones de fetch (method, body, etc).
  * @returns {Promise<any>} - La respuesta parseada en JSON.
  */
-export async function apiFetch(endpoint, options = {}, retries = 5, delayMs = 2000) {
+export async function apiFetch(endpoint, options = {}, retries = 10, delayMs = 2000) {
     // Aseguramos que la URL está bien formada
     const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
