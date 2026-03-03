@@ -95,8 +95,8 @@ const PhysicalTestsPage = ({ user }) => {
         setLoading(true);
         try {
             const [testsData, playersDataUnsorted] = await Promise.all([
-                apiGet('/pruebas_fisicas/').catch(() => []),
-                apiGet('/jugadores_propios/').catch(() => [])
+                apiGet('/pruebas_fisicas').catch(() => []),
+                apiGet('/jugadores_propios').catch(() => [])
             ]);
 
             const playersData = (playersDataUnsorted || []).sort((a, b) => {
@@ -203,7 +203,7 @@ const PhysicalTestsPage = ({ user }) => {
             });
 
             if (hasData) {
-                promises.push(apiPost('/pruebas_fisicas/', payload));
+                promises.push(apiPost('/pruebas_fisicas', payload));
             }
         });
 
