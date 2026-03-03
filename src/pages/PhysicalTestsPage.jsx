@@ -643,11 +643,10 @@ const PhysicalTestsPage = ({ user }) => {
                 } else {
                     globalScore = globalScore / activePillarsWeightSum;
                 }
-
                 reports.push({
                     player: p,
-                    isForward,
-                    positionText: positionToCheck,
+                    isForward: isForwardPrimary,
+                    positionText: rawPos,
                     globalScore: parseFloat(globalScore.toFixed(1)),
                     pillars: {
                         velocidad: parseFloat(speedScore.toFixed(1)),
