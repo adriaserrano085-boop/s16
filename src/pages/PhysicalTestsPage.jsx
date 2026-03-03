@@ -6,17 +6,25 @@ import {
     Chart as ChartJS,
     CategoryScale,
     LinearScale,
+    RadialLinearScale,
+    PointElement,
+    LineElement,
+    Filler,
     BarElement,
     Title,
     Tooltip,
     Legend
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Bar, Radar } from 'react-chartjs-2';
 import './PhysicalTestsPage.css';
 
 ChartJS.register(
     CategoryScale,
     LinearScale,
+    RadialLinearScale,
+    PointElement,
+    LineElement,
+    Filler,
     BarElement,
     Title,
     Tooltip,
