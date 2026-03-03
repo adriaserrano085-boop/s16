@@ -1,8 +1,19 @@
 /* src/pages/PhysicalTestsPage.css */
 
-.physical-tests-page-container {
-    padding-bottom: 3rem;
+.physical-tests-page {
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    font-family: var(--font-main);
     animation: fadeIn 0.4s ease-out;
+}
+
+.physical-tests-wrapper {
+    background-color: var(--color-bg-pastel-orange);
+    padding: 1.5rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    min-height: 600px;
+    border: 1px solid rgba(255, 102, 0, 0.1);
 }
 
 @keyframes fadeIn {

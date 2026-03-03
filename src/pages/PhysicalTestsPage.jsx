@@ -1,55 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../lib/apiClient';
-import { ArrowLeft, Activity, Zap, Heart, Shield, Dumbbell, Plus, X, TrendingUp, Save } from 'lucide-react';
+import { ArrowLeft, Activity, Zap, Heart, Shield, Dumbbell, Plus, X, Save, TrendingUp } from 'lucide-react';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
 import './PhysicalTestsPage.css';
 
-const speedKeys = [
-    { key: 'velocidad_10m', label: '10m (1)' },
-    { key: 'velocidad_10m_2', label: '10m (2)' },
-    { key: 'velocidad_30m', label: '30m (1)' },
-    { key: 'velocidad_30m_2', label: '30m (2)' },
-    { key: 'velocidad_80m', label: '80m (1)' },
-    { key: 'velocidad_80m_2', label: '80m (2)' }
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend
+);
+
+const UI_CATEGORIES = [
+    {
+        id: 'velocidad', label: 'Velocidad', icon: <Zap size={20} />,
+        tests: [
+            { id: '10m', label: '10 Metros', keys: ['velocidad_10m', 'velocidad_10m_2'], lowerIsBetter: true },
+            { id: '30m', label: '30 Metros', keys: ['velocidad_30m', 'velocidad_30m_2'], lowerIsBetter: true },
+            { id: '80m', label: '80 Metros', keys: ['velocidad_80m', 'velocidad_80m_2'], lowerIsBetter: true }
+        ]
+    },
+    {
+        id: 'resistencia', label: 'Resistencia', icon: <Activity size={20} />,
+        tests: [
+            { id: 'broncotest', label: 'Broncotest 15/30/45', keys: ['broncotest'], lowerIsBetter: true },
+            { id: 'broncotest_20m', label: 'Broncotest 10/20/30', keys: ['broncotest_20m'], lowerIsBetter: true },
+            { id: 'course_navette', label: 'Course Navette', keys: ['course_navette'], lowerIsBetter: false }
+        ]
+    },
+    {
+        id: 'inferior', label: 'Fuerza Inferior', icon: <Dumbbell size={20} />,
+        tests: [
+            { id: 'salto_sj', label: 'Salto SJ', keys: ['salto_sj', 'salto_sj_2'], lowerIsBetter: false },
+            { id: 'salto_cmj', label: 'Salto CMJ', keys: ['salto_cmj', 'salto_cmj_2'], lowerIsBetter: false },
+            { id: 'salto_rebote', label: 'Salto Rebote', keys: ['salto_rebote', 'salto_rebote_2'], lowerIsBetter: false },
+            { id: 'salto_horizontal', label: 'Salto Horizontal', keys: ['salto_horizontal', 'salto_horizontal_2'], lowerIsBetter: false },
+            { id: 'sentadillas_1m', label: 'Sentadillas (1 Minuto)', keys: ['sentadillas_1m'], lowerIsBetter: false }
+        ]
+    },
+    {
+        id: 'superior', label: 'Fuerza Superior', icon: <Shield size={20} />,
+        tests: [
+            { id: 'flexiones', label: 'Flexiones', keys: ['flexiones'], lowerIsBetter: false },
+            { id: 'lanzamiento_pecho', label: 'Lanz. Pecho', keys: ['lanzamiento_pecho', 'lanzamiento_pecho_2'], lowerIsBetter: false },
+            { id: 'lanzamiento_encima_cabeza', label: 'Lanz. Cabeza', keys: ['lanzamiento_encima_cabeza', 'lanzamiento_encima_cabeza_2'], lowerIsBetter: false }
+        ]
+    },
+    {
+        id: 'core', label: 'Fuerza Core', icon: <Heart size={20} />,
+        tests: [
+            { id: 'plancha', label: 'Plancha', keys: ['plancha'], lowerIsBetter: false },
+            { id: 'abdominales', label: 'Abdominales', keys: ['abdominales'], lowerIsBetter: false }
+        ]
+    }
 ];
 
-const resistKeys = [
-    { key: 'broncotest', label: 'Broncotest' },
-    { key: 'course_navette', label: 'Course Navette' }
-];
 
-const inferiorKeys = [
-    { key: 'salto_sj', label: 'Salto SJ (1)' },
-    { key: 'salto_sj_2', label: 'Salto SJ (2)' },
-    { key: 'salto_cmj', label: 'Salto CMJ (1)' },
-    { key: 'salto_cmj_2', label: 'Salto CMJ (2)' },
-    { key: 'salto_rebote', label: 'Salto Rebote (1)' },
-    { key: 'salto_rebote_2', label: 'Salto Rebote (2)' },
-    { key: 'salto_horizontal', label: 'Salto Horiz. (1)' },
-    { key: 'salto_horizontal_2', label: 'Salto Horiz. (2)' },
-    { key: 'sentadillas_1m', label: 'Sentadillas (1m)' }
-];
-
-const superiorKeys = [
-    { key: 'flexiones', label: 'Flexiones' },
-    { key: 'lanzamiento_pecho', label: 'Lanz. Pecho (1)' },
-    { key: 'lanzamiento_pecho_2', label: 'Lanz. Pecho (2)' },
-    { key: 'lanzamiento_encima_cabeza', label: 'Lanz. Cabeza (1)' },
-    { key: 'lanzamiento_encima_cabeza_2', label: 'Lanz. Cabeza (2)' }
-];
-
-const coreKeys = [
-    { key: 'plancha', label: 'Plancha (t)' },
-    { key: 'abdominales', label: 'Abdominales' }
-];
-
-const CATEGORIES = [
-    { id: 'velocidad', label: 'Velocidad', fields: speedKeys },
-    { id: 'resistencia', label: 'Resistencia', fields: resistKeys },
-    { id: 'inferior', label: 'Fuerza Inferior', fields: inferiorKeys },
-    { id: 'superior', label: 'Fuerza Superior', fields: superiorKeys },
-    { id: 'core', label: 'Fuerza Core', fields: coreKeys }
-];
 
 const PhysicalTestsPage = ({ user }) => {
     const navigate = useNavigate();
@@ -57,13 +75,16 @@ const PhysicalTestsPage = ({ user }) => {
     const [players, setPlayers] = useState([]);
     const [results, setResults] = useState([]);
     const [sessions, setSessions] = useState([]);
-    const [activeSession, setActiveSession] = useState(null);
+
+    // Page tabs
+    const [activeCategoryId, setActiveCategoryId] = useState(UI_CATEGORIES[0].id);
+    const [activeSubcategoryId, setActiveSubcategoryId] = useState(UI_CATEGORIES[0].tests[0].id);
     const [isEvolutionMode, setIsEvolutionMode] = useState(false);
 
     // Bulk Modal state
     const [showModal, setShowModal] = useState(false);
     const [testDate, setTestDate] = useState(new Date().toISOString().split('T')[0]);
-    const [testCategory, setTestCategory] = useState('velocidad');
+    const [modalCategoryId, setModalCategoryId] = useState(UI_CATEGORIES[0].id);
     const [bulkData, setBulkData] = useState({});
 
     useEffect(() => {
@@ -78,7 +99,6 @@ const PhysicalTestsPage = ({ user }) => {
                 apiGet('/jugadores_propios/').catch(() => [])
             ]);
 
-            // Sort players alphabetically
             const playersData = (playersDataUnsorted || []).sort((a, b) => {
                 const nameA = `${a.nombre} ${a.apellidos}`.toLowerCase();
                 const nameB = `${b.nombre} ${b.apellidos}`.toLowerCase();
@@ -88,24 +108,9 @@ const PhysicalTestsPage = ({ user }) => {
             setPlayers(playersData);
 
             if (testsData && testsData.length > 0) {
-                // Enrich test data with player names
-                const formatted = testsData.map(test => {
-                    const player = playersData.find(p => p.id === test.jugador_id);
-                    return {
-                        ...test,
-                        playerName: player ? `${player.nombre} ${player.apellidos}` : 'Desconocido',
-                        photoUrl: player ? player.foto : null
-                    };
-                }).sort((a, b) => a.playerName.localeCompare(b.playerName)); // Sort by playerName
-
-                setResults(formatted);
-
-                // Extract unique dates for sessions
-                const uniqueDates = [...new Set(formatted.map(t => t.fecha))].sort((a, b) => new Date(b) - new Date(a));
+                setResults(testsData);
+                const uniqueDates = [...new Set(testsData.map(t => t.fecha))].sort((a, b) => new Date(a) - new Date(b));
                 setSessions(uniqueDates);
-                if (!activeSession && uniqueDates.length > 0) {
-                    setActiveSession(uniqueDates[0]);
-                }
             } else {
                 setResults([]);
                 setSessions([]);
@@ -117,7 +122,29 @@ const PhysicalTestsPage = ({ user }) => {
         }
     };
 
-    // Pre-fill existing data into bulkData when modal opens or configurations change
+    const handleCategoryChange = (catId) => {
+        setActiveCategoryId(catId);
+        const cat = UI_CATEGORIES.find(c => c.id === catId);
+        if (cat && cat.tests.length > 0) {
+            setActiveSubcategoryId(cat.tests[0].id);
+        }
+    };
+
+    const getActiveModalFields = () => {
+        const cat = UI_CATEGORIES.find(c => c.id === modalCategoryId);
+        if (!cat) return [];
+        const fields = [];
+        cat.tests.forEach(test => {
+            test.keys.forEach((k, idx) => {
+                fields.push({
+                    key: k,
+                    label: `${test.label}${test.keys.length > 1 ? ` (${idx + 1})` : ''}`
+                });
+            });
+        });
+        return fields;
+    };
+
     useEffect(() => {
         if (!showModal) return;
 
@@ -155,6 +182,7 @@ const PhysicalTestsPage = ({ user }) => {
         }
 
         const promises = [];
+        const fields = getActiveModalFields();
 
         Object.keys(bulkData).forEach(playerId => {
             const data = bulkData[playerId];
@@ -162,17 +190,14 @@ const PhysicalTestsPage = ({ user }) => {
 
             const payload = { jugador_id: playerId, fecha: testDate };
 
-            // Only examine fields for the currently selected category to know if we should update
-            const categoryFields = CATEGORIES.find(c => c.id === testCategory).fields.map(f => f.key);
-
-            categoryFields.forEach(key => {
-                let val = data[key];
+            fields.forEach(f => {
+                let val = data[f.key];
                 if (val !== '' && val !== null && val !== undefined) {
                     hasData = true;
-                    if (!['broncotest', 'plancha'].includes(key)) {
-                        payload[key] = parseFloat(val);
+                    if (!['broncotest', 'broncotest_20m', 'plancha'].includes(f.key)) {
+                        payload[f.key] = parseFloat(val);
                     } else {
-                        payload[key] = val;
+                        payload[f.key] = String(val);
                     }
                 }
             });
@@ -197,172 +222,311 @@ const PhysicalTestsPage = ({ user }) => {
         }
     };
 
-    const getSessionData = () => {
-        return results.filter(r => r.fecha === activeSession);
-    };
-
     const formatDateStr = (dateStr) => {
         if (!dateStr) return '';
         const d = new Date(dateStr);
         return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
     };
 
-    // Calculate evolution for players with >1 test
-    const getEvolutionData = () => {
-        const groupedByPlayer = {};
-        results.forEach(test => {
-            if (!groupedByPlayer[test.jugador_id]) {
-                groupedByPlayer[test.jugador_id] = {
-                    playerName: test.playerName,
-                    tests: []
-                };
-            }
-            groupedByPlayer[test.jugador_id].tests.push(test);
+    const parseToNumber = (val) => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') {
+            const parsed = parseFloat(val.replace(':', '.').replace(',', '.'));
+            return isNaN(parsed) ? null : parsed;
+        }
+        return null;
+    };
+
+    const activeCategoryData = UI_CATEGORIES.find(c => c.id === activeCategoryId);
+    const activeTest = activeCategoryData?.tests.find(t => t.id === activeSubcategoryId);
+
+    // Filter valid sessions
+    const validSessionsForTest = sessions.filter(s => {
+        if (!activeTest) return false;
+        return players.some(p => {
+            const res = results.find(r => r.jugador_id === p.id && r.fecha === s);
+            if (!res) return false;
+            return activeTest.keys.some(k => res[k] !== null && res[k] !== undefined && res[k] !== '');
         });
+    });
 
-        const evolution = [];
-        Object.values(groupedByPlayer).forEach(playerData => {
-            if (playerData.tests.length > 1) {
-                // Sort tests by date ascending
-                const sortedTests = [...playerData.tests].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-                const first = sortedTests[0];
-                const last = sortedTests[sortedTests.length - 1];
+    // Find valid players
+    const activePlayers = players.filter(p => {
+        if (!activeTest) return false;
+        return validSessionsForTest.some(s => {
+            const res = results.find(r => r.jugador_id === p.id && r.fecha === s);
+            if (!res) return false;
+            return activeTest.keys.some(k => res[k] !== null && res[k] !== undefined && res[k] !== '');
+        });
+    });
 
-                evolution.push({
-                    playerName: playerData.playerName,
-                    photoUrl: playerData.tests[0].photoUrl,
-                    firstDate: first.fecha,
-                    lastDate: last.fecha,
-                    first,
-                    last
+    // Compute Evolution Data (first vs last for each player per active test)
+    const computeEvolutionData = () => {
+        if (!activeTest) return [];
+        const evData = [];
+
+        activePlayers.forEach(p => {
+            const playerSessions = validSessionsForTest.filter(s => {
+                const res = results.find(r => r.jugador_id === p.id && r.fecha === s);
+                return res && activeTest.keys.some(k => res[k] !== null && res[k] !== undefined && res[k] !== '');
+            });
+
+            if (playerSessions.length > 1) {
+                const sortedSessions = playerSessions.sort((a, b) => new Date(a) - new Date(b));
+                const firstDate = sortedSessions[0];
+                const lastDate = sortedSessions[sortedSessions.length - 1];
+
+                const firstRes = results.find(r => r.jugador_id === p.id && r.fecha === firstDate);
+                const lastRes = results.find(r => r.jugador_id === p.id && r.fecha === lastDate);
+
+                evData.push({
+                    player: p,
+                    firstDate,
+                    lastDate,
+                    firstRes,
+                    lastRes
                 });
             }
         });
 
-        return evolution.sort((a, b) => a.playerName.localeCompare(b.playerName));
+        return evData;
     };
 
-    const renderTestCategory = (title, icon, keys, data) => {
-        const hasAnyData = data.some(row => keys.some(k => row[k.key] !== null && row[k.key] !== undefined));
-        if (!hasAnyData) return null;
+    const renderResultsView = () => {
+        const charts = validSessionsForTest.map((s, idx) => {
+            // Only include players who actually have data for this session
+            const playersWithData = activePlayers.map(p => {
+                const res = results.find(r => r.jugador_id === p.id && r.fecha === s);
+                let bestNumVal = null;
+                if (res) {
+                    const validItems = activeTest.keys.map(k => ({ key: k, num: parseToNumber(res[k]) })).filter(item => item.num !== null);
+                    if (validItems.length > 0) {
+                        if (activeTest.lowerIsBetter) {
+                            bestNumVal = Math.min(...validItems.map(i => i.num));
+                        } else {
+                            bestNumVal = Math.max(...validItems.map(i => i.num));
+                        }
+                    }
+                }
+                return { player: p, val: bestNumVal };
+            }).filter(item => item.val !== null);
+
+            const thisChartLabels = playersWithData.map(item => `${item.player.nombre} ${item.player.apellidos.charAt(0)}.`);
+
+            const chartData = {
+                labels: thisChartLabels,
+                datasets: [{
+                    label: formatDateStr(s),
+                    data: playersWithData.map(item => item.val),
+                    backgroundColor: dataColors[idx % dataColors.length],
+                    borderRadius: 4
+                }]
+            };
+
+            // Calculate dynamic height for this specific chart based on players that took the test
+            const thisChartHeight = Math.max(250, playersWithData.length * 35);
+
+            return { session: s, chartData, height: thisChartHeight };
+        });
+
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y', // Horizontal bars
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                },
+                y: {
+                    grid: {
+                        display: false // Cleaner look for names
+                    }
+                }
+            }
+        };
 
         return (
-            <div style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <div style={{ padding: '0.5rem', borderRadius: '8px', backgroundColor: 'var(--color-primary-orange)', color: 'white' }}>
-                        {icon}
-                    </div>
-                    <h3 style={{ margin: 0, color: 'var(--color-primary-blue)', fontSize: '1.2rem' }}>{title}</h3>
-                </div>
-                <div className="data-table-container">
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Jugador</th>
-                                {keys.map(k => (
-                                    <th key={k.key}>{k.label}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {data.map((row, idx) => {
-                                const rowHasData = keys.some(k => row[k.key] !== null && row[k.key] !== undefined);
-                                if (!rowHasData) return null;
-
-                                return (
-                                    <tr key={idx}>
-                                        <td style={{ fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', width: '100%' }}>
+                {/* Tabla de Resultados */}
+                <div style={{ width: '100%', backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 8px 16px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
+                    <h3 style={{ marginTop: 0, marginBottom: '1.5rem', color: 'var(--color-primary-blue)', fontSize: '1.4rem', borderBottom: '2px solid #eee', paddingBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Activity size={24} color="var(--color-primary-orange)" />
+                        Tabla de Resultados - {activeTest.label}
+                    </h3>
+                    <div className="data-table-container" style={{ boxShadow: 'none' }}>
+                        <table className="data-table" style={{ margin: 0 }}>
+                            <thead>
+                                <tr>
+                                    <th rowSpan={activeTest.keys.length > 1 ? 2 : 1} style={{ minWidth: '220px', verticalAlign: 'middle' }}>
+                                        Jugador
+                                    </th>
+                                    {validSessionsForTest.map(s => {
+                                        return (
+                                            <th key={s} colSpan={activeTest.keys.length} style={{ textAlign: 'center', backgroundColor: '#f4f7f6', borderLeft: '2px solid #e2e8f0' }}>
+                                                {formatDateStr(s)}
+                                            </th>
+                                        );
+                                    })}
+                                </tr>
+                                {activeTest.keys.length > 1 && (
+                                    <tr>
+                                        {validSessionsForTest.map(s => activeTest.keys.map((k, i) => (
+                                            <th key={`${s}-${k}`} style={{ textAlign: 'center', fontSize: '0.8rem', backgroundColor: '#fdfdfd', borderLeft: i === 0 ? '2px solid #e2e8f0' : '1px solid #eef2f6' }}>
+                                                {`Int. ${i + 1}`}
+                                            </th>
+                                        )))}
+                                    </tr>
+                                )}
+                            </thead>
+                            <tbody>
+                                {activePlayers.map(p => (
+                                    <tr key={p.id}>
+                                        <td style={{ fontWeight: '600' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                {row.photoUrl ? (
-                                                    <img src={row.photoUrl} alt={row.playerName} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                {p.foto ? (
+                                                    <img src={p.foto} alt={p.nombre} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
                                                 ) : (
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <span style={{ fontSize: '0.8rem', color: '#999' }}>?</span>
+                                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <span style={{ fontSize: '0.9rem', color: '#999', fontWeight: 'bold' }}>{p.nombre.charAt(0)}{p.apellidos.charAt(0)}</span>
                                                     </div>
                                                 )}
-                                                {row.playerName}
+                                                {p.nombre} {p.apellidos}
                                             </div>
                                         </td>
-                                        {keys.map(k => (
-                                            <td key={k.key}>{row[k.key] !== null && row[k.key] !== undefined ? row[k.key] : '-'}</td>
-                                        ))}
+                                        {validSessionsForTest.map(s => {
+                                            const res = results.find(r => r.jugador_id === p.id && r.fecha === s);
+
+                                            let bestNumVal = null;
+                                            if (res && activeTest.keys.length > 1) {
+                                                const validItems = activeTest.keys.map(k => ({ key: k, num: parseToNumber(res[k]) }))
+                                                    .filter(item => item.num !== null);
+
+                                                if (validItems.length > 1) {
+                                                    if (activeTest.lowerIsBetter) {
+                                                        bestNumVal = Math.min(...validItems.map(i => i.num));
+                                                    } else {
+                                                        bestNumVal = Math.max(...validItems.map(i => i.num));
+                                                    }
+                                                }
+                                            }
+
+                                            return activeTest.keys.map((k, i) => {
+                                                const rawVal = res ? res[k] : null;
+                                                const isEmpty = rawVal === null || rawVal === undefined || rawVal === '';
+                                                const displayVal = !isEmpty ? rawVal : '-';
+
+                                                const numVal = parseToNumber(rawVal);
+                                                const isBest = bestNumVal !== null && numVal !== null && numVal === bestNumVal;
+
+                                                return (
+                                                    <td
+                                                        key={`${s}-${k}`}
+                                                        style={{
+                                                            textAlign: 'center',
+                                                            color: isEmpty ? '#ccc' : (isBest ? '#15803d' : '#333'),
+                                                            backgroundColor: isBest ? '#dcfce7' : 'transparent',
+                                                            fontWeight: isBest ? 'bold' : 'normal',
+                                                            borderLeft: i === 0 ? '2px solid #e2e8f0' : '1px solid #f0f4f8'
+                                                        }}
+                                                    >
+                                                        {displayVal}
+                                                    </td>
+                                                );
+                                            });
+                                        })}
                                     </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Gráficos Comparativos (uno por sesión) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', width: '100%' }}>
+                    {charts.map((c, i) => (
+                        <div key={i} style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 8px 16px rgba(0,0,0,0.06)' }}>
+                            <h3 style={{ marginTop: 0, marginBottom: '1.5rem', color: 'var(--color-primary-blue)', fontSize: '1.2rem', borderBottom: '2px solid #eee', paddingBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Activity size={20} color="var(--color-primary-orange)" />
+                                {formatDateStr(c.session)}
+                            </h3>
+                            <div style={{ width: '100%', height: `${c.height}px` }}>
+                                <Bar data={c.chartData} options={chartOptions} />
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         );
     };
 
-    const renderEvolutionCategory = (title, icon, keys, evolutionData) => {
-        const hasAnyData = evolutionData.some(row => keys.some(k => row.first[k.key] !== null && row.last[k.key] !== null && row.first[k.key] !== undefined && row.last[k.key] !== undefined));
-        if (!hasAnyData) return null;
+    const renderEvolutionView = () => {
+        const evData = computeEvolutionData();
+
+        if (evData.length === 0) {
+            return (
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#666', backgroundColor: 'white', borderRadius: '12px' }}>
+                    <TrendingUp size={48} style={{ marginBottom: '1rem', opacity: 0.3, margin: '0 auto' }} />
+                    <p style={{ fontSize: '1.1rem' }}>No hay suficientes datos comparables para medir la evolución en esta prueba.</p>
+                </div>
+            );
+        }
 
         return (
-            <div style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <div style={{ padding: '0.5rem', borderRadius: '8px', backgroundColor: 'var(--color-primary-blue)', color: 'white' }}>
-                        {icon}
-                    </div>
-                    <h3 style={{ margin: 0, color: 'var(--color-primary-orange)', fontSize: '1.2rem' }}>{title} (Evolución)</h3>
-                </div>
+            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
                 <div className="data-table-container">
-                    <table className="data-table">
-                        <thead>
+                    <table className="data-table" style={{ margin: 0 }}>
+                        <thead style={{ backgroundColor: '#f0f4f8' }}>
                             <tr>
-                                <th>Jugador</th>
-                                <th style={{ fontSize: '0.85rem' }}>Fechas (1ª → Última)</th>
-                                {keys.map(k => (
-                                    <th key={k.key} style={{ textAlign: 'center' }}>{k.label}</th>
+                                <th style={{ minWidth: '220px' }}>Jugador</th>
+                                <th style={{ textAlign: 'center' }}>Progreso de Fechas</th>
+                                {activeTest.keys.map((k, i) => (
+                                    <th key={k} style={{ textAlign: 'center', borderLeft: i === 0 ? '2px solid #e2e8f0' : '1px solid #eef2f6' }}>
+                                        {activeTest.keys.length > 1 ? `Int. ${i + 1}` : activeTest.label}
+                                    </th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
-                            {evolutionData.map((row, idx) => {
-                                const rowHasData = keys.some(k => row.first[k.key] !== null && row.last[k.key] !== null && row.first[k.key] !== undefined && row.last[k.key] !== undefined);
-                                if (!rowHasData) return null;
+                            {evData.map((data, idx) => (
+                                <tr key={data.player.id}>
+                                    <td style={{ fontWeight: '600' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            {data.player.foto ? (
+                                                <img src={data.player.foto} alt={data.player.nombre} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                                            ) : (
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <span style={{ fontSize: '0.9rem', color: '#999', fontWeight: 'bold' }}>{data.player.nombre.charAt(0)}{data.player.apellidos.charAt(0)}</span>
+                                                </div>
+                                            )}
+                                            {data.player.nombre} {data.player.apellidos}
+                                        </div>
+                                    </td>
+                                    <td style={{ textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>
+                                        {formatDateStr(data.firstDate)} → {formatDateStr(data.lastDate)}
+                                    </td>
+                                    {activeTest.keys.map((k, i) => {
+                                        const rawFirst = data.firstRes[k];
+                                        const rawLast = data.lastRes[k];
+                                        const hasBoth = rawFirst !== null && rawFirst !== undefined && rawFirst !== '' &&
+                                            rawLast !== null && rawLast !== undefined && rawLast !== '';
 
-                                return (
-                                    <tr key={idx}>
-                                        <td style={{ fontWeight: 'bold' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                {row.photoUrl ? (
-                                                    <img src={row.photoUrl} alt={row.playerName} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
-                                                ) : (
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <span style={{ fontSize: '0.8rem', color: '#999' }}>?</span>
+                                        return (
+                                            <td key={k} style={{ textAlign: 'center', borderLeft: i === 0 ? '2px solid #e2e8f0' : '1px solid #f0f4f8' }}>
+                                                {hasBoth ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                                        <span style={{ color: '#888' }}>{rawFirst}</span>
+                                                        <TrendingUp size={14} style={{ color: 'var(--color-primary-orange)' }} />
+                                                        <span style={{ fontWeight: 'bold' }}>{rawLast}</span>
                                                     </div>
-                                                )}
-                                                {row.playerName}
-                                            </div>
-                                        </td>
-                                        <td style={{ fontSize: '0.85rem', color: '#666' }}>
-                                            {formatDateStr(row.firstDate)} → {formatDateStr(row.lastDate)}
-                                        </td>
-                                        {keys.map(k => {
-                                            const val1 = row.first[k.key];
-                                            const val2 = row.last[k.key];
-                                            const hasBoth = val1 !== null && val2 !== null && val1 !== undefined && val2 !== undefined;
-
-                                            // For running (speed/resistance), lower is usually better, but let's just show absolute difference and color it
-                                            // A simple display: Val1 -> Val2
-                                            return (
-                                                <td key={k.key} style={{ textAlign: 'center' }}>
-                                                    {hasBoth ? (
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                                            <span style={{ color: '#888' }}>{val1}</span>
-                                                            <TrendingUp size={14} style={{ color: 'var(--color-primary-orange)' }} />
-                                                            <span style={{ fontWeight: 'bold' }}>{val2}</span>
-                                                        </div>
-                                                    ) : '-'}
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
-                                );
-                            })}
+                                                ) : '-'}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
@@ -371,57 +535,97 @@ const PhysicalTestsPage = ({ user }) => {
     };
 
     return (
-        <div className="physical-tests-page-container" style={{ minHeight: '100vh', backgroundColor: '#f4f7f6' }}>
-            <div className="container" style={{ position: 'relative', zIndex: 1, padding: '2rem 1rem', maxWidth: '1200px', margin: '0 auto' }}>
-                <header style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <button
-                            onClick={() => navigate('/dashboard')}
-                            style={{
-                                background: 'white',
-                                border: '1px solid #ddd',
-                                borderRadius: '50%',
-                                width: '40px',
-                                height: '40px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                            }}
-                        >
-                            <ArrowLeft size={20} color="var(--color-primary-blue)" />
-                        </button>
-                        <h1 style={{ color: 'var(--color-primary-blue)', margin: 0, fontSize: '1.8rem' }}>Preparación Física</h1>
-                    </div>
-                    {user?.role !== 'JUGADOR' && (
-                        <button
-                            onClick={() => setShowModal(true)}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                                padding: '0.75rem 1.5rem', borderRadius: '8px',
-                                backgroundColor: 'var(--color-primary-orange)', color: 'white',
-                                border: 'none', fontWeight: 'bold', cursor: 'pointer',
-                                boxShadow: '0 4px 6px rgba(255,102,0,0.3)'
-                            }}
-                        >
-                            <Plus size={18} />
-                            Añadir Resultados
-                        </button>
-                    )}
-                </header>
+        <div className="physical-tests-page">
+            <div className="physical-tests-wrapper" style={{ margin: '0 auto', maxWidth: '1400px' }}>
 
-                {/* Tabs */}
-                <div className="tabs-container">
+                {/* Header Section styled like CalendarPage */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '2rem',
+                    backgroundColor: 'var(--color-bg-orange, #FFF9F5)',
+                    padding: '1.5rem 2rem',
+                    borderRadius: '16px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+                    border: '1px solid rgba(255, 102, 0, 0.1)'
+                }}>
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.75rem 1.25rem',
+                            border: 'none',
+                            background: '#f1f3f5',
+                            borderRadius: '12px',
+                            color: '#495057',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <ArrowLeft size={18} /> Volver
+                    </button>
+
+                    <div style={{ textAlign: 'center' }}>
+                        <h1 style={{
+                            margin: 0,
+                            color: '#003366',
+                            fontSize: '1.75rem',
+                            fontWeight: '800',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem'
+                        }}>
+                            <Activity size={24} color="var(--color-primary-orange, #FF6600)" />
+                            Preparación Física
+                        </h1>
+                        <p style={{
+                            margin: '0.25rem 0 0 0',
+                            color: '#FF6600',
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: '1px',
+                            fontSize: '0.9rem'
+                        }}>
+                            Registro y control de rendimiento
+                        </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        {user?.role !== 'JUGADOR' && (
+                            <button
+                                onClick={() => setShowModal(true)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                    padding: '0.75rem 1.5rem', borderRadius: '12px',
+                                    backgroundColor: 'var(--color-primary-orange, #FF6600)', color: 'white',
+                                    border: 'none', fontWeight: 'bold', cursor: 'pointer',
+                                    boxShadow: '0 4px 15px rgba(255,102,0,0.3)'
+                                }}
+                            >
+                                <Plus size={18} />
+                                Añadir Resultados
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+
+                <div className="tabs-container" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '2px solid #ddd', paddingBottom: '0.5rem' }}>
                     <button
                         className="tab-button"
                         onClick={() => setIsEvolutionMode(false)}
                         style={{
                             borderBottom: !isEvolutionMode ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
                             color: !isEvolutionMode ? 'var(--color-primary-blue)' : '#666',
+                            padding: '0.5rem 1rem', background: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s ease'
                         }}
                     >
-                        Resultados por Fecha
+                        Resultados y Pruebas
                     </button>
                     <button
                         className="tab-button"
@@ -429,159 +633,151 @@ const PhysicalTestsPage = ({ user }) => {
                         style={{
                             borderBottom: isEvolutionMode ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
                             color: isEvolutionMode ? 'var(--color-primary-blue)' : '#666',
+                            padding: '0.5rem 1rem', background: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s ease'
                         }}
                     >
                         Evolución Individual
                     </button>
                 </div>
 
-                {loading ? (
-                    <div style={{ padding: '5rem', textAlign: 'center', color: 'var(--color-primary-blue)' }}>
-                        <Activity size={48} className="animate-pulse" style={{ marginBottom: '1rem', margin: '0 auto' }} />
-                        <p style={{ fontSize: '1.2rem' }}>Cargando datos...</p>
-                    </div>
-                ) : isEvolutionMode ? (
-                    <div className="card">
-                        {getEvolutionData().length > 0 ? (
-                            <>
-                                {renderEvolutionCategory('Velocidad', <Zap size={20} />, speedKeys, getEvolutionData())}
-                                {renderEvolutionCategory('Resistencia', <Activity size={20} />, resistKeys, getEvolutionData())}
-                                {renderEvolutionCategory('Fuerza Tren Superior', <Shield size={20} />, superiorKeys, getEvolutionData())}
-                                {renderEvolutionCategory('Fuerza Tren Inferior', <Dumbbell size={20} />, inferiorKeys, getEvolutionData())}
-                                {renderEvolutionCategory('Fuerza Core', <Heart size={20} />, coreKeys, getEvolutionData())}
+                {/* Category Tabs */}
+                <div className="tabs-container" style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', borderBottom: 'none' }}>
+                    {UI_CATEGORIES.map(cat => (
+                        <button
+                            key={cat.id}
+                            className="tab-button"
+                            onClick={() => handleCategoryChange(cat.id)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                borderBottom: activeCategoryId === cat.id ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
+                                color: activeCategoryId === cat.id ? 'var(--color-primary-blue)' : '#777',
+                                backgroundColor: activeCategoryId === cat.id ? 'rgba(0,51,102,0.05)' : 'transparent',
+                                border: 'none',
+                                borderRadius: '8px 8px 0 0',
+                                padding: '0.75rem 1.2rem',
+                                fontWeight: activeCategoryId === cat.id ? 'bold' : 'normal'
+                            }}
+                        >
+                            {cat.icon}
+                            {cat.label}
+                        </button>
+                    ))}
+                </div>
 
-                                {!CATEGORIES.some(cat => renderEvolutionCategory(cat.label, React.createElement(Activity), cat.fields, getEvolutionData()) !== null) && (
-                                    <div style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
-                                        <TrendingUp size={48} style={{ marginBottom: '1rem', opacity: 0.3, margin: '0 auto' }} />
-                                        <p style={{ fontSize: '1.1rem' }}>Hay sesiones registradas, pero ningún jugador cuenta con suficientes datos pareados para mostrar su evolución completa.</p>
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            <div style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
-                                <TrendingUp size={48} style={{ marginBottom: '1rem', opacity: 0.3, margin: '0 auto' }} />
-                                <p style={{ fontSize: '1.1rem' }}>No hay suficientes datos para mostrar la evolución. Se requieren al menos dos pruebas para un mismo jugador.</p>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <>
-                        {/* Session Tabs */}
-                        {sessions.length > 0 ? (
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                                {sessions.map(s => (
-                                    <button
-                                        key={s}
-                                        onClick={() => setActiveSession(s)}
-                                        style={{
-                                            padding: '0.75rem 1.5rem',
-                                            borderRadius: '12px',
-                                            border: 'none',
-                                            backgroundColor: activeSession === s ? 'var(--color-primary-blue)' : 'rgba(0,51,102,0.1)',
-                                            color: activeSession === s ? 'white' : 'var(--color-primary-blue)',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        {formatDateStr(s)}
-                                    </button>
-                                ))}
-                            </div>
-                        ) : null}
-
-                        <div className="card">
-                            {getSessionData().length > 0 ? (
-                                <>
-                                    {renderTestCategory('Velocidad', <Zap size={20} />, speedKeys, getSessionData())}
-                                    {renderTestCategory('Resistencia', <Activity size={20} />, resistKeys, getSessionData())}
-                                    {renderTestCategory('Fuerza Tren Superior', <Shield size={20} />, superiorKeys, getSessionData())}
-                                    {renderTestCategory('Fuerza Tren Inferior', <Dumbbell size={20} />, inferiorKeys, getSessionData())}
-                                    {renderTestCategory('Fuerza Core', <Heart size={20} />, coreKeys, getSessionData())}
-
-                                    {!CATEGORIES.some(cat => renderTestCategory(cat.label, React.createElement(Activity), cat.fields, getSessionData()) !== null) && (
-                                        <div style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
-                                            <Activity size={48} style={{ marginBottom: '1rem', opacity: 0.3, margin: '0 auto' }} />
-                                            <p style={{ fontSize: '1.1rem' }}>Hay jugadores registrados en esta fecha, pero sus datos físicos están vacíos.</p>
-                                        </div>
-                                    )}
-                                </>
-                            ) : (
-                                <div style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
-                                    <Activity size={48} style={{ marginBottom: '1rem', opacity: 0.3, margin: '0 auto' }} />
-                                    <p style={{ fontSize: '1.1rem' }}>No hay pruebas físicas registradas.</p>
-                                </div>
-                            )}
+                {/* Subcategory Tabs */}
+                {
+                    activeCategoryData && (
+                        <div className="subtabs-container" style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                            {activeCategoryData.tests.map(test => (
+                                <button
+                                    key={test.id}
+                                    onClick={() => setActiveSubcategoryId(test.id)}
+                                    style={{
+                                        padding: '0.5rem 1rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid',
+                                        borderColor: activeSubcategoryId === test.id ? 'var(--color-primary-orange)' : '#ddd',
+                                        backgroundColor: activeSubcategoryId === test.id ? 'var(--color-primary-orange)' : 'white',
+                                        color: activeSubcategoryId === test.id ? 'white' : '#666',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    {test.label}
+                                </button>
+                            ))}
                         </div>
-                    </>
-                )}
-            </div>
+                    )
+                }
+
+                {
+                    loading ? (
+                        <div style={{ padding: '5rem', textAlign: 'center', color: 'var(--color-primary-blue)' }}>
+                            <Activity size={48} className="animate-pulse" style={{ marginBottom: '1rem', margin: '0 auto' }} />
+                            <p style={{ fontSize: '1.2rem' }}>Cargando datos...</p>
+                        </div>
+                    ) : (
+                        <>
+                            {!activeTest || validSessionsForTest.length === 0 || activePlayers.length === 0 ? (
+                                <div style={{ padding: '3rem', textAlign: 'center', color: '#666', backgroundColor: 'white', borderRadius: '12px' }}>
+                                    <Activity size={48} style={{ marginBottom: '1rem', opacity: 0.3, margin: '0 auto' }} />
+                                    <p style={{ fontSize: '1.1rem' }}>No hay resultados registrados para esta prueba.</p>
+                                </div>
+                            ) : (
+                                isEvolutionMode ? renderEvolutionView() : renderResultsView()
+                            )}
+                        </>
+                    )
+                }
+            </div >
 
             {/* Modal for Inserting Data in Bulk */}
-            {showModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <div style={{ padding: '1.5rem', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10 }}>
-                            <h2 style={{ margin: 0, color: 'var(--color-primary-blue)' }}>Añadir Resultados por Prueba</h2>
-                            <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                                <X size={24} color="#666" />
-                            </button>
-                        </div>
-
-                        <div style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', borderBottom: '1px solid #eee', backgroundColor: '#f9fbfd' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary-blue)', marginBottom: '0.25rem' }}>Fecha de Evaluación *</label>
-                                <input
-                                    type="date"
-                                    value={testDate}
-                                    onChange={(e) => setTestDate(e.target.value)}
-                                    style={{ padding: '0.6rem', borderRadius: '6px', border: '1px solid #ccc', minWidth: '200px' }}
-                                />
+            {
+                showModal && (
+                    <div className="modal-overlay">
+                        <div className="modal-content" style={{ maxWidth: '900px' }}>
+                            <div style={{ padding: '1.5rem', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10 }}>
+                                <h2 style={{ margin: 0, color: 'var(--color-primary-blue)' }}>Añadir Resultados por Prueba</h2>
+                                <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                                    <X size={24} color="#666" />
+                                </button>
                             </div>
-                            <div style={{ flex: 1 }}>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary-blue)', marginBottom: '0.25rem' }}>Tipo de Prueba *</label>
-                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                    {CATEGORIES.map(cat => (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => setTestCategory(cat.id)}
-                                            style={{
-                                                padding: '0.5rem 1rem',
-                                                borderRadius: '8px',
-                                                border: '1px solid',
-                                                borderColor: testCategory === cat.id ? 'var(--color-primary-blue)' : '#ddd',
-                                                backgroundColor: testCategory === cat.id ? 'var(--color-primary-blue)' : 'white',
-                                                color: testCategory === cat.id ? 'white' : '#666',
-                                                fontWeight: 'bold',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                        >
-                                            {cat.label}
-                                        </button>
-                                    ))}
+
+                            <div style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', borderBottom: '1px solid #eee', backgroundColor: '#f9fbfd' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary-blue)', marginBottom: '0.4rem' }}>Fecha de Evaluación *</label>
+                                    <input
+                                        type="date"
+                                        value={testDate}
+                                        onChange={(e) => setTestDate(e.target.value)}
+                                        style={{ padding: '0.6rem', borderRadius: '6px', border: '1px solid #ccc', minWidth: '200px', fontSize: '1rem' }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary-blue)', marginBottom: '0.4rem' }}>Categoría *</label>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {UI_CATEGORIES.map(cat => (
+                                            <button
+                                                key={cat.id}
+                                                onClick={() => setModalCategoryId(cat.id)}
+                                                style={{
+                                                    padding: '0.5rem 1rem',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid',
+                                                    borderColor: modalCategoryId === cat.id ? 'var(--color-primary-blue)' : '#ddd',
+                                                    backgroundColor: modalCategoryId === cat.id ? 'var(--color-primary-blue)' : 'white',
+                                                    color: modalCategoryId === cat.id ? 'white' : '#666',
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                {cat.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <form onSubmit={handleBulkSubmit} style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <div className="data-table-container" style={{ flex: 1, maxHeight: '50vh' }}>
-                                <table className="data-table" style={{ margin: 0 }}>
-                                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 5, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                                        <tr>
-                                            <th style={{ width: '250px' }}>Jugador</th>
-                                            {CATEGORIES.find(c => c.id === testCategory).fields.map(f => (
-                                                <th key={f.key} style={{ textAlign: 'center' }}>
-                                                    {f.label}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {players.map(player => {
-                                            const categoryFields = CATEGORIES.find(c => c.id === testCategory).fields;
-                                            return (
+                            <form onSubmit={handleBulkSubmit} style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                <div className="data-table-container" style={{ flex: 1, maxHeight: '45vh', border: '1px solid #eee', borderRadius: '8px' }}>
+                                    <table className="data-table" style={{ margin: 0 }}>
+                                        <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 5, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                                            <tr>
+                                                <th style={{ width: '250px' }}>Jugador</th>
+                                                {getActiveModalFields().map(f => (
+                                                    <th key={f.key} style={{ textAlign: 'center', fontSize: '0.85rem' }}>
+                                                        {f.label}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {players.map(player => (
                                                 <tr key={player.id}>
                                                     <td style={{ fontWeight: '500', backgroundColor: '#fdfdfd' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -589,56 +785,56 @@ const PhysicalTestsPage = ({ user }) => {
                                                                 <img src={player.foto} alt={`${player.nombre}`} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
                                                             ) : (
                                                                 <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    <span style={{ fontSize: '0.7rem', color: '#999' }}>?</span>
+                                                                    <span style={{ fontSize: '0.7rem', color: '#999', fontWeight: 'bold' }}>{player.nombre.charAt(0)}{player.apellidos.charAt(0)}</span>
                                                                 </div>
                                                             )}
                                                             {player.nombre} {player.apellidos}
                                                         </div>
                                                     </td>
-                                                    {categoryFields.map(f => {
-                                                        const isTextType = ['broncotest', 'plancha'].includes(f.key);
+                                                    {getActiveModalFields().map(f => {
+                                                        const isTextType = ['broncotest', 'broncotest_20m', 'plancha'].includes(f.key);
                                                         return (
-                                                            <td key={f.key} style={{ padding: '0.5rem' }}>
+                                                            <td key={f.key} style={{ padding: '0.4rem' }}>
                                                                 <input
                                                                     type={isTextType ? "text" : "number"}
                                                                     step="0.01"
-                                                                    placeholder={isTextType ? "Ej: 5:30" : "0.00"}
+                                                                    placeholder={isTextType ? "Ej: 5.30" : "0.00"}
                                                                     value={bulkData[player.id]?.[f.key] || ''}
                                                                     onChange={(e) => handleBulkInputChange(player.id, f.key, e.target.value)}
                                                                     className="input-field"
-                                                                    style={{ textAlign: 'center' }}
+                                                                    style={{ textAlign: 'center', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc', margin: 0, width: '100%' }}
                                                                 />
                                                             </td>
                                                         );
                                                     })}
                                                 </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowModal(false)}
-                                    style={{ padding: '0.75rem 1.5rem', borderRadius: '8px', border: '1px solid #ccc', background: 'white', fontWeight: 'bold', cursor: 'pointer' }}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', borderRadius: '8px', border: 'none', background: 'var(--color-primary-blue)', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}
-                                >
-                                    <Save size={18} />
-                                    Guardar Resultados de {CATEGORIES.find(c => c.id === testCategory).label}
-                                </button>
-                            </div>
-                        </form>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowModal(false)}
+                                        style={{ padding: '0.75rem 1.5rem', borderRadius: '8px', border: '1px solid #ccc', background: 'white', fontWeight: 'bold', cursor: 'pointer' }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', borderRadius: '8px', border: 'none', background: 'var(--color-primary-blue)', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}
+                                    >
+                                        <Save size={18} />
+                                        Guardar Cambios
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 
