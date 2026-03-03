@@ -437,6 +437,9 @@ const PhysicalTestsPage = ({ user }) => {
                 let catId = cat.id; // 'velocidad', 'resistencia', 'inferior', 'superior', 'core'
 
                 cat.tests.forEach(test => {
+                    // Skip course navette as requested by the user
+                    if (test.id === 'course_navette') return;
+
                     let latestResVal = null;
                     let latestResNumForRanking = null;
                     let latestKey = null;
@@ -545,28 +548,43 @@ const PhysicalTestsPage = ({ user }) => {
                 const forceScore = pillarTotals.fuerza.weightSum > 0 ? (pillarTotals.fuerza.scoreSum / pillarTotals.fuerza.weightSum) : 0;
                 const coreScore = pillarTotals.core.weightSum > 0 ? (pillarTotals.core.scoreSum / pillarTotals.core.weightSum) : 0;
 
-                // Weighted Global Based on Position
-                // Simple deduction: "Delantero/1ª-2ª/3ª"/1-8 -> Forward. "Medio/Apertura/Centro/Ala/Zaguero"/9-15 -> Back
-                let isForward = false;
+                // Generate dual-position logic properly tracking primary and secondary roles
+                let pos1 = '';
+                let pos2 = '';
 
-                // Read the first position only if comma-separated
-                let positionToCheck = '';
+                let rawPos = '';
                 if (p.posiciones) {
-                    positionToCheck = p.posiciones.split(',')[0].toLowerCase().trim();
+                    rawPos = p.posiciones.toLowerCase().trim();
                 } else if (p.posicion) {
-                    positionToCheck = p.posicion.split(',')[0].toLowerCase().trim();
+                    rawPos = p.posicion.toLowerCase().trim();
                 }
 
-                if (positionToCheck) {
-                    const numMatch = positionToCheck.match(/\b([1-9]|1[0-5])\b/);
+                if (rawPos) {
+                    const parts = rawPos.split(',').map(str => str.trim());
+                    pos1 = parts[0] || '';
+                    pos2 = parts[1] || '';
+                }
 
+                // Helper to check if a single parsed position string is a forward
+                const isForwardFn = (posString) => {
+                    if (!posString) return null;
+                    const numMatch = posString.match(/\b([1-9]|1[0-5])\b/);
                     if (numMatch) {
                         const num = parseInt(numMatch[1], 10);
-                        if (num >= 1 && num <= 8) isForward = true;
-                    } else if (positionToCheck.includes('delantero') || positionToCheck.includes('primera') || positionToCheck.includes('segunda') || positionToCheck.includes('tercera') || positionToCheck.includes('pilier') || positionToCheck.includes('talonador') || positionToCheck.includes('ocho')) {
-                        isForward = true;
+                        if (num >= 1 && num <= 8) return true;
+                        return false;
                     }
-                }
+                    if (posString.includes('delantero') || posString.includes('primera') || posString.includes('segunda') || posString.includes('tercera') || posString.includes('pilier') || posString.includes('talonador') || posString.includes('ocho')) {
+                        return true;
+                    }
+                    if (posString.includes('medio') || posString.includes('apertura') || posString.includes('centro') || posString.includes('ala') || posString.includes('zaguero')) {
+                        return false;
+                    }
+                    return null; // unknown
+                };
+
+                const isForwardPrimary = isForwardFn(pos1);
+                const isForwardSecondary = isForwardFn(pos2);
 
                 let globalScore = 0;
                 let activePillarsWeightSum = 0;
@@ -578,21 +596,48 @@ const PhysicalTestsPage = ({ user }) => {
                     }
                 };
 
-                // Positional weightings
-                if (isForward) {
-                    addWeight(speedScore, 0.15); // Less speed
-                    addWeight(resScore, 0.25);   // High resistance
-                    addWeight(forceScore, 0.40); // Max strength
-                    addWeight(coreScore, 0.20);  // High core
+                // Helper to calculate score using a specific profile (isForward)
+                const applyProfileWeights = (pScoreSpeed, pScoreRes, pScoreForce, pScoreCore, isFwd) => {
+                    if (isFwd) {
+                        addWeight(pScoreSpeed, 0.15); // Less speed
+                        addWeight(pScoreRes, 0.25);   // High resistance
+                        addWeight(pScoreForce, 0.40); // Max strength
+                        addWeight(pScoreCore, 0.20);  // High core
+                    } else {
+                        addWeight(pScoreSpeed, 0.40); // Max speed
+                        addWeight(pScoreRes, 0.30);   // High resistance
+                        addWeight(pScoreForce, 0.15); // Less strength
+                        addWeight(pScoreCore, 0.15);  // Less core
+                    }
+                };
+
+                // Calculate weights based on primary and secondary positions
+                if (isForwardPrimary !== null) {
+                    if (isForwardSecondary !== null && isForwardPrimary !== isForwardSecondary) {
+                        // Mixed role (e.g. Forward primary, Back secondary) => 66% / 33% 
+                        // To keep math simple and maintain proportions relative to `activePillarsWeightSum`, 
+                        // we add the raw weighted combinations directly.
+
+                        const w1 = isForwardPrimary ? { s: 0.15, r: 0.25, f: 0.40, c: 0.20 } : { s: 0.40, r: 0.30, f: 0.15, c: 0.15 };
+                        const w2 = isForwardSecondary ? { s: 0.15, r: 0.25, f: 0.40, c: 0.20 } : { s: 0.40, r: 0.30, f: 0.15, c: 0.15 };
+
+                        addWeight(speedScore, (w1.s * 0.66) + (w2.s * 0.33));
+                        addWeight(resScore, (w1.r * 0.66) + (w2.r * 0.33));
+                        addWeight(forceScore, (w1.f * 0.66) + (w2.f * 0.33));
+                        addWeight(coreScore, (w1.c * 0.66) + (w2.c * 0.33));
+                    } else {
+                        // Standard single role (or both roles are the same type)
+                        applyProfileWeights(speedScore, resScore, forceScore, coreScore, isForwardPrimary);
+                    }
                 } else {
-                    addWeight(speedScore, 0.40); // Max speed
-                    addWeight(resScore, 0.30);   // High resistance
-                    addWeight(forceScore, 0.15); // Less strength
-                    addWeight(coreScore, 0.15);  // Less core
+                    // Fallback to equally weighted if position is not identified
+                    addWeight(speedScore, 0.25);
+                    addWeight(resScore, 0.25);
+                    addWeight(forceScore, 0.25);
+                    addWeight(coreScore, 0.25);
                 }
 
                 if (activePillarsWeightSum === 0) {
-                    // Fallback to equally weighted if something fails
                     const arr = [speedScore, resScore, forceScore, coreScore].filter(v => v > 0);
                     globalScore = arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
                 } else {
