@@ -81,6 +81,7 @@ const PhysicalTestsPage = ({ user }) => {
     const [activeSubcategoryId, setActiveSubcategoryId] = useState(UI_CATEGORIES[0].tests[0].id);
     const [viewMode, setViewMode] = useState('resultados'); // 'resultados', 'evolucion', 'informe'
     const [sortConfig, setSortConfig] = useState(null); // { key: 'name' | 'score', direction: 'asc' | 'desc', session: string, keyIndex: number }
+    const [detailedReportPlayer, setDetailedReportPlayer] = useState(null); // selected player id for detailed report
 
     // Bulk Modal state
     const [showModal, setShowModal] = useState(false);
@@ -413,18 +414,21 @@ const PhysicalTestsPage = ({ user }) => {
             const playerResults = results.filter(r => r.jugador_id === p.id);
             if (playerResults.length === 0) return;
 
-            // Sort logic to find the LATEST attempt for any test
-            const scores = [];
-            const testRanks = []; // To display their position vs others
-            let totalPoints = 0;
+            const testRanks = [];
             let validTests = 0;
 
+            // Four Pillars Tracking
+            const pillarTotals = {
+                velocidad: { score: 0, count: 0 },
+                resistencia: { score: 0, count: 0 },
+                fuerza: { score: 0, count: 0 },
+                core: { score: 0, count: 0 }
+            };
+
             UI_CATEGORIES.forEach(cat => {
-                let catScoreTotal = 0;
-                let catTests = 0;
+                let catId = cat.id; // 'velocidad', 'resistencia', 'fuerza_inferior', 'fuerza_superior', 'fuerza_core'
 
                 cat.tests.forEach(test => {
-                    // Find actual latest recorded result for this specific test
                     let latestResVal = null;
                     let latestResNumForRanking = null;
                     let latestKey = null;
@@ -435,7 +439,6 @@ const PhysicalTestsPage = ({ user }) => {
                     for (const s of sortedSessionsDesc) {
                         const rec = playerResults.find(r => r.fecha === s);
                         if (rec) {
-                            // Find the best try within the keys
                             const validItems = test.keys.map(k => ({ key: k, raw: rec[k], num: parseToNumber(rec[k]) })).filter(item => item.num !== null);
                             if (validItems.length > 0) {
                                 const bestNum = test.lowerIsBetter ? Math.min(...validItems.map(i => i.num)) : Math.max(...validItems.map(i => i.num));
@@ -449,13 +452,46 @@ const PhysicalTestsPage = ({ user }) => {
                         }
                     }
 
+                    // Check historical best for trend analysis
+                    let historicalBestNum = null;
+                    for (const s of sessions) {
+                        const rec = playerResults.find(r => r.fecha === s && r.fecha !== latestSession); // previous sessions only
+                        if (rec) {
+                            const validItems = test.keys.map(k => ({ num: parseToNumber(rec[k]) })).filter(item => item.num !== null);
+                            if (validItems.length > 0) {
+                                const b = test.lowerIsBetter ? Math.min(...validItems.map(i => i.num)) : Math.max(...validItems.map(i => i.num));
+                                if (historicalBestNum === null) historicalBestNum = b;
+                                else historicalBestNum = test.lowerIsBetter ? Math.min(historicalBestNum, b) : Math.max(historicalBestNum, b);
+                            }
+                        }
+                    }
+
                     if (latestResVal !== null) {
                         const score = getScoreForTest(latestKey, latestResVal);
                         if (score !== null) {
-                            catScoreTotal += score;
-                            catTests++;
-                            totalPoints += score;
                             validTests++;
+
+                            // Map category to Pillar
+                            let pillarGroup = 'fuerza'; // fallback
+                            if (catId === 'velocidad') pillarGroup = 'velocidad';
+                            if (catId === 'resistencia') pillarGroup = 'resistencia';
+                            if (catId === 'fuerza_core') pillarGroup = 'core';
+                            if (catId === 'fuerza_inferior' || catId === 'fuerza_superior') pillarGroup = 'fuerza';
+
+                            pillarTotals[pillarGroup].score += score;
+                            pillarTotals[pillarGroup].count++;
+
+                            // Trend
+                            let trend = 'same'; // 'up', 'down', 'same'
+                            if (historicalBestNum !== null) {
+                                if (test.lowerIsBetter) {
+                                    if (latestResNumForRanking > historicalBestNum) trend = 'down'; // Slower = worse
+                                    else if (latestResNumForRanking < historicalBestNum) trend = 'up';
+                                } else {
+                                    if (latestResNumForRanking < historicalBestNum) trend = 'down'; // Less jumps = worse
+                                    else if (latestResNumForRanking > historicalBestNum) trend = 'up';
+                                }
+                            }
 
                             // Calculate Rank vs Teammates for that SAME session
                             const allSessionResults = results.filter(r => r.fecha === latestSession);
@@ -475,11 +511,14 @@ const PhysicalTestsPage = ({ user }) => {
                             });
 
                             testRanks.push({
+                                categoryId: catId,
+                                pillarGroup,
                                 label: test.label,
                                 val: latestResVal,
                                 score,
                                 rank,
-                                totalPeers: teammateNums.length
+                                totalPeers: teammateNums.length,
+                                trend
                             });
                         }
                     }
@@ -487,11 +526,63 @@ const PhysicalTestsPage = ({ user }) => {
             });
 
             if (validTests > 0) {
-                const globalScore = (totalPoints / validTests).toFixed(1);
+                // Calculate pillar averages
+                const speedScore = pillarTotals.velocidad.count > 0 ? (pillarTotals.velocidad.score / pillarTotals.velocidad.count) : 0;
+                const resScore = pillarTotals.resistencia.count > 0 ? (pillarTotals.resistencia.score / pillarTotals.resistencia.count) : 0;
+                const forceScore = pillarTotals.fuerza.count > 0 ? (pillarTotals.fuerza.score / pillarTotals.fuerza.count) : 0;
+                const coreScore = pillarTotals.core.count > 0 ? (pillarTotals.core.score / pillarTotals.core.count) : 0;
+
+                // Weighted Global Based on Position
+                // Simple deduction: "Delantero/1ª-2ª/3ª" -> Forward. "Medio/Apertura/Centro/Ala/Zaguero" -> Back
+                let isForward = false;
+                if (p.posicion) {
+                    const posLower = p.posicion.toLowerCase();
+                    if (posLower.includes('delantero') || posLower.includes('primera') || posLower.includes('segunda') || posLower.includes('tercera') || posLower.includes('pilier') || posLower.includes('talonador') || posLower.includes('ocho')) {
+                        isForward = true;
+                    }
+                }
+
+                let globalScore = 0;
+                let activePillarsWeightSum = 0;
+
+                const addWeight = (pScore, weight) => {
+                    if (pScore > 0) {
+                        globalScore += (pScore * weight);
+                        activePillarsWeightSum += weight;
+                    }
+                };
+
+                // Positional weightings
+                if (isForward) {
+                    addWeight(speedScore, 0.15); // Less speed
+                    addWeight(resScore, 0.25);   // High resistance
+                    addWeight(forceScore, 0.40); // Max strength
+                    addWeight(coreScore, 0.20);  // High core
+                } else {
+                    addWeight(speedScore, 0.40); // Max speed
+                    addWeight(resScore, 0.30);   // High resistance
+                    addWeight(forceScore, 0.15); // Less strength
+                    addWeight(coreScore, 0.15);  // Less core
+                }
+
+                if (activePillarsWeightSum === 0) {
+                    // Fallback to equally weighted if something fails
+                    const arr = [speedScore, resScore, forceScore, coreScore].filter(v => v > 0);
+                    globalScore = arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+                } else {
+                    globalScore = globalScore / activePillarsWeightSum;
+                }
 
                 reports.push({
                     player: p,
-                    globalScore: parseFloat(globalScore),
+                    isForward,
+                    globalScore: parseFloat(globalScore.toFixed(1)),
+                    pillars: {
+                        velocidad: parseFloat(speedScore.toFixed(1)),
+                        resistencia: parseFloat(resScore.toFixed(1)),
+                        fuerza: parseFloat(forceScore.toFixed(1)),
+                        core: parseFloat(coreScore.toFixed(1))
+                    },
                     testsEvaluated: validTests,
                     ranks: testRanks
                 });
@@ -863,19 +954,27 @@ const PhysicalTestsPage = ({ user }) => {
                         const best = sortedRanks[0];
                         const worst = sortedRanks[sortedRanks.length - 1];
 
+                        const role = r.isForward ? 'Delantero' : 'Tres Cuartos';
+
                         if (sortedRanks.length >= 3 && r.globalScore >= 7) {
-                            stringEval = `Estado físico excelente. Destaca muy positivamente en ${best.label} (Score: ${best.score}). Listo para alta intensidad.`;
+                            stringEval = `Estado físico excelente para su rol de ${role}. Destaca especialmente en ${best.label} (Score: ${best.score}). Listo para máxima exigencia.`;
                         } else if (sortedRanks.length >= 3 && r.globalScore < 5) {
-                            stringEval = `Precisa plan de trabajo específico urgente. Prioridad a mejorar en ${worst.label} (${worst.score} pts).`;
+                            stringEval = `Precisa plan específico adaptado a ${role}. Prioridad urgente en ${worst.label} (${worst.score} pts).`;
                         } else if (sortedRanks.length >= 2) {
-                            stringEval = `Mejor aspecto físico: ${best.label}. Requiere trabajo en: ${worst.label}.`;
+                            stringEval = `Aspecto fuerte: ${best.label}. Requiere trabajo enfocado en: ${worst.label} para su rol de ${role}.`;
                         } else {
-                            stringEval = `Último registro analizado: ${best.label} con ${best.val}. Faltan datos para evaluación global.`;
+                            stringEval = `Último registro validado: ${best.label} con ${best.val}. Completar pilares físicos.`;
+                        }
+
+                        // Check if any trend is down
+                        const recentDowns = r.ranks.filter(rk => rk.trend === 'down');
+                        if (recentDowns.length > 0 && r.globalScore >= 5) { // Only append if it's not already catastrophic
+                            stringEval += ` ¡Atención! Leve bajada de rendimiento detectado en ${recentDowns[0].label}.`;
                         }
                     }
 
                     return (
-                        <div key={r.player.id} style={{ backgroundColor: 'white', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 10px 25px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', overflow: 'hidden' }}>
+                        <div onClick={() => setDetailedReportPlayer(r)} key={r.player.id} className="report-card-hover" style={{ cursor: 'pointer', backgroundColor: 'white', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 10px 25px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', overflow: 'hidden', transition: 'transform 0.2s', border: '1px solid transparent' }}>
                             <div style={{ position: 'absolute', top: 0, left: 0, width: '6px', height: '100%', backgroundColor: scoreColor }}></div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -920,20 +1019,271 @@ const PhysicalTestsPage = ({ user }) => {
                                             <div key={rk.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem', padding: '0.4rem 0.6rem', backgroundColor: '#f9fafa', borderRadius: '6px' }}>
                                                 <span style={{ fontWeight: '500', color: '#444' }}>{rk.label}</span>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    <span style={{ color: '#666' }}>{rk.val}</span>
-                                                    <span style={{ color: '#aaa', fontSize: '0.75rem' }}>({rk.rank}º de {rk.totalPeers})</span>
+                                                    {rk.trend === 'down' && <TrendingDown size={14} color="#dc2626" />}
+                                                    <span style={{ color: '#aaa', fontSize: '0.75rem' }}>{rk.score > 0 ? `Sc: ${rk.score}` : ''} ({rk.rank}º)</span>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
+
+                            <button style={{
+                                marginTop: '0.5rem',
+                                padding: '0.6rem',
+                                borderRadius: '8px',
+                                border: '1px solid #eee',
+                                background: '#fdfdfd',
+                                color: 'var(--color-primary-blue)',
+                                fontWeight: 'bold',
+                                width: '100%',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                            }}>
+                                <Eye size={16} /> Abrir Perfil Físico
+                            </button>
                         </div>
                     );
                 })}
             </div>
         );
     };
+
+    const renderDetailedPlayerReport = () => {
+        if (!detailedReportPlayer) return null;
+
+        const r = detailedReportPlayer;
+        let scoreColor = '#dc2626'; // Red (<5)
+        if (r.globalScore >= 5) scoreColor = '#ca8a04'; // Yellow (5-7)
+        if (r.globalScore >= 7) scoreColor = '#15803d'; // Green (>=7)
+
+        const radarData = {
+            labels: ['Velocidad', 'Fuerza', 'Resistencia', 'Core'],
+            datasets: [
+                {
+                    label: 'Score del Jugador',
+                    data: [r.pillars.velocidad, r.pillars.fuerza, r.pillars.resistencia, r.pillars.core],
+                    backgroundColor: 'rgba(255, 102, 0, 0.2)',
+                    borderColor: 'rgba(255, 102, 0, 1)',
+                    pointBackgroundColor: 'rgba(255, 102, 0, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(255, 102, 0, 1)',
+                    borderWidth: 2,
+                }
+            ]
+        };
+
+        const radarOptions = {
+            scales: {
+                r: {
+                    angleLines: { display: true, color: 'rgba(0,0,0,0.05)' },
+                    suggestedMin: 0,
+                    suggestedMax: 10,
+                    ticks: {
+                        stepSize: 2,
+                        backdropColor: 'transparent',
+                        color: '#999'
+                    },
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    pointLabels: {
+                        font: { size: 13, weight: 'bold', family: 'Inter' },
+                        color: 'var(--color-primary-blue)'
+                    }
+                }
+            },
+            plugins: { legend: { display: false } },
+            maintainAspectRatio: false
+        };
+
+        // Find Best/Worst Pillars
+        const pillArr = [
+            { name: 'Velocidad', val: r.pillars.velocidad },
+            { name: 'Fuerza', val: r.pillars.fuerza },
+            { name: 'Resistencia', val: r.pillars.resistencia },
+            { name: 'Core', val: r.pillars.core }
+        ].filter(p => p.val > 0).sort((a, b) => b.val - a.val);
+
+        const bestPillar = pillArr.length > 0 ? pillArr[0] : null;
+        const worstPillar = pillArr.length > 0 ? pillArr[pillArr.length - 1] : null;
+
+        const roleText = r.isForward ? 'Delantero / Forward' : 'Tres Cuartos / Back';
+
+        return (
+            <div className="modal-overlay" style={{ zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setDetailedReportPlayer(null)}>
+                <div className="modal-content" style={{ maxWidth: '1000px', width: '95%', height: '90vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f4f7f6', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+
+                    {/* Header */}
+                    <div style={{ padding: '2rem', backgroundColor: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '6px', backgroundColor: scoreColor }}></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                            {r.player.foto ? (
+                                <img src={r.player.foto} alt={r.player.nombre} style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: `3px solid ${scoreColor}` }} />
+                            ) : (
+                                <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `3px solid ${scoreColor}` }}>
+                                    <span style={{ fontSize: '1.5rem', color: '#999', fontWeight: 'bold' }}>{r.player.nombre.charAt(0)}{r.player.apellidos.charAt(0)}</span>
+                                </div>
+                            )}
+                            <div>
+                                <h2 style={{ margin: '0 0 0.25rem 0', color: 'var(--color-primary-blue)', fontSize: '1.8rem' }}>{r.player.nombre} {r.player.apellidos}</h2>
+                                <div style={{ display: 'flex', gap: '1rem', color: '#666', fontSize: '0.95rem' }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><User size={16} /> {roleText}</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Calendar size={16} /> {r.testsEvaluated} Evaluaciones Registradas</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                            <div style={{ textAlign: 'right' }}>
+                                <p style={{ margin: 0, fontSize: '0.85rem', color: '#888', textTransform: 'uppercase', fontWeight: 'bold' }}>Nota Global Ponderada</p>
+                                <p style={{ margin: 0, fontSize: '2.5rem', fontWeight: '900', color: scoreColor }}>{r.globalScore}</p>
+                            </div>
+                            <button onClick={() => setDetailedReportPlayer(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', backgroundColor: '#f1f3f5' }}>
+                                <X size={24} color="#666" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Content Scrollable Area */}
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
+
+                        {/* Top Overview Cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '2rem', marginBottom: '2rem' }}>
+
+                            {/* Spider Chart */}
+                            <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <h3 style={{ margin: '0 0 1rem 0', color: '#444', fontSize: '1.1rem', alignSelf: 'flex-start' }}>Balance Físico por Pilares</h3>
+                                <div style={{ width: '100%', height: '280px', position: 'relative' }}>
+                                    <Radar data={radarData} options={radarOptions} />
+                                </div>
+                                <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', marginTop: '1rem', padding: '1rem', backgroundColor: '#f9fbfd', borderRadius: '12px' }}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.8rem', color: '#888' }}>Vel</div>
+                                        <div style={{ fontWeight: 'bold', color: r.pillars.velocidad >= 7 ? '#15803d' : r.pillars.velocidad < 5 ? '#dc2626' : '#ca8a04' }}>{r.pillars.velocidad || '-'}</div>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.8rem', color: '#888' }}>Fuerza</div>
+                                        <div style={{ fontWeight: 'bold', color: r.pillars.fuerza >= 7 ? '#15803d' : r.pillars.fuerza < 5 ? '#dc2626' : '#ca8a04' }}>{r.pillars.fuerza || '-'}</div>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.8rem', color: '#888' }}>Resis</div>
+                                        <div style={{ fontWeight: 'bold', color: r.pillars.resistencia >= 7 ? '#15803d' : r.pillars.resistencia < 5 ? '#dc2626' : '#ca8a04' }}>{r.pillars.resistencia || '-'}</div>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.8rem', color: '#888' }}>Core</div>
+                                        <div style={{ fontWeight: 'bold', color: r.pillars.core >= 7 ? '#15803d' : r.pillars.core < 5 ? '#dc2626' : '#ca8a04' }}>{r.pillars.core || '-'}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Analysis Panel */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', flex: 1 }}>
+                                    <h3 style={{ margin: '0 0 1rem 0', color: '#444', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Award size={20} color="var(--color-primary-orange)" />
+                                        Evaluación Cualitativa Algorítmica
+                                    </h3>
+
+                                    <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                        {bestPillar && (
+                                            <div style={{ flex: 1, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1rem', borderRadius: '12px' }}>
+                                                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#166534', textTransform: 'uppercase', marginBottom: '0.3rem' }}>Principal Fortaleza</div>
+                                                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#15803d' }}>{bestPillar.name} (Sc. {bestPillar.val})</div>
+                                            </div>
+                                        )}
+                                        {worstPillar && (
+                                            <div style={{ flex: 1, backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '1rem', borderRadius: '12px' }}>
+                                                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#991b1b', textTransform: 'uppercase', marginBottom: '0.3rem' }}>Debilidad Crítica</div>
+                                                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#dc2626' }}>{worstPillar.name} (Sc. {worstPillar.val})</div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ backgroundColor: '#f9fafa', padding: '1.25rem', borderRadius: '12px', borderLeft: `4px solid ${scoreColor}` }}>
+                                        <p style={{ margin: 0, fontSize: '1rem', color: '#444', lineHeight: '1.6' }}>
+                                            Este algoritmo pondera las variables en función de su rol como <strong>{roleText}</strong>.
+                                            {r.isForward ? " En esta posición, la Fuerza y la Resistencia dominan el coeficiente multiplicador para empuje en cerrado y mantenimiento posicional." : " En esta posición, la Velocidad sprint y la Resistencia (Bronco) tienen dominancia en el multiplicador para coberturas y rupturas de línea."}
+                                            {bestPillar && worstPillar ? ` Su balance actual demuestra excelencia en ${bestPillar.name}, pero precisa enfoque metodológico urgente en ${worstPillar.name} para equilibrar su Perfil Físico Completo.` : ''}
+                                        </p>
+                                    </div>
+
+                                    {r.ranks.some(x => x.trend === 'down') && (
+                                        <div style={{ marginTop: '1rem', backgroundColor: '#fff7ed', border: '1px solid #fed7aa', padding: '1rem', borderRadius: '12px', display: 'flex', gap: '1rem' }}>
+                                            <TrendingDown color="#ea580c" size={24} />
+                                            <div>
+                                                <strong style={{ color: '#9a3412', display: 'block', marginBottom: '0.25rem' }}>Alerta de Tendencia Negativa Histórica</strong>
+                                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#c2410c' }}>Las últimas marcas registradas en <strong>{r.ranks.filter(x => x.trend === 'down').map(x => x.label).join(', ')}</strong> son estadísticamente peores que su Mejor Marca Histórica personal. Revisar posibles sobrecargas, estado de forma local o motivación.</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Full Detailed Grid of Tests */}
+                        <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+                            <h3 style={{ margin: '0 0 1.5rem 0', color: '#444', fontSize: '1.1rem' }}>Desglose Detallado por Prueba Independiente</h3>
+                            <div className="data-table-container">
+                                <table className="data-table" style={{ margin: 0 }}>
+                                    <thead style={{ backgroundColor: '#f8fafc' }}>
+                                        <tr>
+                                            <th>Grupo</th>
+                                            <th>Prueba</th>
+                                            <th style={{ textAlign: 'center' }}>Mejor Intento Registrado</th>
+                                            <th style={{ textAlign: 'center' }}>Puesto en Equipo (Ranking)</th>
+                                            <th style={{ textAlign: 'center' }}>Nota Interpolar</th>
+                                            <th style={{ textAlign: 'center' }}>Evolución Int.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {r.ranks.sort((a, b) => b.score - a.score).map((rk, idx) => {
+                                            let rkColor = '#dc2626';
+                                            if (rk.score >= 5) rkColor = '#ca8a04';
+                                            if (rk.score >= 7) rkColor = '#15803d';
+
+                                            return (
+                                                <tr key={idx}>
+                                                    <td style={{ fontWeight: '500', color: '#666', textTransform: 'capitalize' }}>{rk.pillarGroup}</td>
+                                                    <td style={{ fontWeight: '600', color: '#333' }}>{rk.label}</td>
+                                                    <td style={{ textAlign: 'center', fontSize: '1.1rem', fontWeight: 'bold' }}>{rk.val}</td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <span style={{
+                                                            backgroundColor: rk.rank <= 3 && rk.totalPeers >= 10 ? '#f0fdf4' : '#f1f5f9',
+                                                            color: rk.rank <= 3 && rk.totalPeers >= 10 ? '#166534' : '#475569',
+                                                            border: rk.rank <= 3 && rk.totalPeers >= 10 ? '1px solid #bbf7d0' : 'none',
+                                                            padding: '0.2rem 0.6rem',
+                                                            borderRadius: '12px',
+                                                            fontWeight: 'bold',
+                                                            fontSize: '0.9rem'
+                                                        }}>
+                                                            {rk.rank}º <span style={{ fontWeight: 'normal', fontSize: '0.8rem', opacity: 0.8 }}>de {rk.totalPeers}</span>
+                                                        </span>
+                                                        {rk.rank <= 3 && rk.totalPeers >= 10 && <span style={{ marginLeft: '0.5rem' }}>🏆</span>}
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <span style={{ backgroundColor: rkColor, color: 'white', padding: '0.25rem 0.6rem', borderRadius: '6px', fontWeight: 'bold' }}>{rk.score}</span>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        {rk.trend === 'up' && <span style={{ color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}><TrendingUp size={16} /> Mejorando</span>}
+                                                        {rk.trend === 'down' && <span style={{ color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}><TrendingDown size={16} /> Empeorando</span>}
+                                                        {rk.trend === 'same' && <span style={{ color: '#94a3b8' }}>-</span>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="physical-tests-page">
