@@ -538,7 +538,7 @@ const PhysicalTestsPage = ({ user }) => {
 
     return (
         <div className="physical-tests-page">
-            <div className="physical-tests-wrapper" style={{ margin: '0 auto', maxWidth: '1400px' }}>
+            <div className="physical-tests-wrapper">
 
                 {/* Header Section styled like CalendarPage */}
                 <div style={{

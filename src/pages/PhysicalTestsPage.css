@@ -8,6 +8,8 @@
 }
 
 .physical-tests-wrapper {
+    max-width: 1600px;
+    margin: 0 auto;
     background-color: var(--color-bg-pastel-orange);
     padding: 1.5rem;
     border-radius: 20px;
