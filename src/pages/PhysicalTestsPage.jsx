@@ -425,16 +425,16 @@ const PhysicalTestsPage = ({ user }) => {
             const testRanks = [];
             let validTests = 0;
 
-            // Four Pillars Tracking
+            // Four Pillars Tracking (Weighted)
             const pillarTotals = {
-                velocidad: { score: 0, count: 0 },
-                resistencia: { score: 0, count: 0 },
-                fuerza: { score: 0, count: 0 },
-                core: { score: 0, count: 0 }
+                velocidad: { scoreSum: 0, weightSum: 0 },
+                resistencia: { scoreSum: 0, weightSum: 0 },
+                fuerza: { scoreSum: 0, weightSum: 0 },
+                core: { scoreSum: 0, weightSum: 0 }
             };
 
             UI_CATEGORIES.forEach(cat => {
-                let catId = cat.id; // 'velocidad', 'resistencia', 'fuerza_inferior', 'fuerza_superior', 'fuerza_core'
+                let catId = cat.id; // 'velocidad', 'resistencia', 'inferior', 'superior', 'core'
 
                 cat.tests.forEach(test => {
                     let latestResVal = null;
@@ -486,8 +486,13 @@ const PhysicalTestsPage = ({ user }) => {
                             if (catId === 'core') pillarGroup = 'core';
                             if (catId === 'inferior' || catId === 'superior') pillarGroup = 'fuerza';
 
-                            pillarTotals[pillarGroup].score += score;
-                            pillarTotals[pillarGroup].count++;
+                            // Dynamic weighting for specific tests
+                            let weight = 1.0;
+                            if (test.id === '30m') weight = 2.0; // 30m is more representative of max velocity
+                            if (test.id === '80m') weight = 1.5;
+
+                            pillarTotals[pillarGroup].scoreSum += (score * weight);
+                            pillarTotals[pillarGroup].weightSum += weight;
 
                             // Trend
                             let trend = 'same'; // 'up', 'down', 'same'
@@ -534,23 +539,31 @@ const PhysicalTestsPage = ({ user }) => {
             });
 
             if (validTests > 0) {
-                // Calculate pillar averages
-                const speedScore = pillarTotals.velocidad.count > 0 ? (pillarTotals.velocidad.score / pillarTotals.velocidad.count) : 0;
-                const resScore = pillarTotals.resistencia.count > 0 ? (pillarTotals.resistencia.score / pillarTotals.resistencia.count) : 0;
-                const forceScore = pillarTotals.fuerza.count > 0 ? (pillarTotals.fuerza.score / pillarTotals.fuerza.count) : 0;
-                const coreScore = pillarTotals.core.count > 0 ? (pillarTotals.core.score / pillarTotals.core.count) : 0;
+                // Calculate pillar weighted averages
+                const speedScore = pillarTotals.velocidad.weightSum > 0 ? (pillarTotals.velocidad.scoreSum / pillarTotals.velocidad.weightSum) : 0;
+                const resScore = pillarTotals.resistencia.weightSum > 0 ? (pillarTotals.resistencia.scoreSum / pillarTotals.resistencia.weightSum) : 0;
+                const forceScore = pillarTotals.fuerza.weightSum > 0 ? (pillarTotals.fuerza.scoreSum / pillarTotals.fuerza.weightSum) : 0;
+                const coreScore = pillarTotals.core.weightSum > 0 ? (pillarTotals.core.scoreSum / pillarTotals.core.weightSum) : 0;
 
                 // Weighted Global Based on Position
                 // Simple deduction: "Delantero/1ª-2ª/3ª"/1-8 -> Forward. "Medio/Apertura/Centro/Ala/Zaguero"/9-15 -> Back
                 let isForward = false;
-                if (p.posicion) {
-                    const posLower = p.posicion.toLowerCase().trim();
-                    const numMatch = posLower.match(/\b([1-9]|1[0-5])\b/);
+
+                // Read the first position only if comma-separated
+                let positionToCheck = '';
+                if (p.posiciones) {
+                    positionToCheck = p.posiciones.split(',')[0].toLowerCase().trim();
+                } else if (p.posicion) {
+                    positionToCheck = p.posicion.split(',')[0].toLowerCase().trim();
+                }
+
+                if (positionToCheck) {
+                    const numMatch = positionToCheck.match(/\b([1-9]|1[0-5])\b/);
 
                     if (numMatch) {
                         const num = parseInt(numMatch[1], 10);
                         if (num >= 1 && num <= 8) isForward = true;
-                    } else if (posLower.includes('delantero') || posLower.includes('primera') || posLower.includes('segunda') || posLower.includes('tercera') || posLower.includes('pilier') || posLower.includes('talonador') || posLower.includes('ocho')) {
+                    } else if (positionToCheck.includes('delantero') || positionToCheck.includes('primera') || positionToCheck.includes('segunda') || positionToCheck.includes('tercera') || positionToCheck.includes('pilier') || positionToCheck.includes('talonador') || positionToCheck.includes('ocho')) {
                         isForward = true;
                     }
                 }
@@ -589,6 +602,7 @@ const PhysicalTestsPage = ({ user }) => {
                 reports.push({
                     player: p,
                     isForward,
+                    positionText: positionToCheck,
                     globalScore: parseFloat(globalScore.toFixed(1)),
                     pillars: {
                         velocidad: parseFloat(speedScore.toFixed(1)),
