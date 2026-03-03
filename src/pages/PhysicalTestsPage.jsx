@@ -238,7 +238,32 @@ const PhysicalTestsPage = ({ user }) => {
     };
 
     const activeCategoryData = UI_CATEGORIES.find(c => c.id === activeCategoryId);
-    const activeTest = activeCategoryData?.tests.find(t => t.id === activeSubcategoryId);
+
+    const hasEvolutionData = (test) => {
+        if (!test) return false;
+        return players.some(p => {
+            let count = 0;
+            for (const s of sessions) {
+                const res = results.find(r => r.jugador_id === p.id && r.fecha === s);
+                if (res && test.keys.some(k => res[k] !== null && res[k] !== undefined && res[k] !== '')) {
+                    count++;
+                    if (count >= 2) return true;
+                }
+            }
+            return false;
+        });
+    };
+
+    const visibleTests = activeCategoryData ? activeCategoryData.tests.filter(test => !isEvolutionMode || hasEvolutionData(test)) : [];
+
+    // Auto-select first visible test if active one is hidden
+    useEffect(() => {
+        if (visibleTests.length > 0 && !visibleTests.some(t => t.id === activeSubcategoryId)) {
+            setActiveSubcategoryId(visibleTests[0].id);
+        }
+    }, [isEvolutionMode, activeCategoryId, results, players]);
+
+    const activeTest = visibleTests.find(t => t.id === activeSubcategoryId) || visibleTests[0];
 
     // Filter valid sessions
     const validSessionsForTest = sessions.filter(s => {
@@ -727,9 +752,9 @@ const PhysicalTestsPage = ({ user }) => {
 
                     {/* Subcategory Tabs */}
                     {
-                        activeCategoryData && (
+                        activeCategoryData && visibleTests.length > 0 ? (
                             <div className="subtabs-container" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                                {activeCategoryData.tests.map(test => (
+                                {visibleTests.map(test => (
                                     <button
                                         key={test.id}
                                         onClick={() => setActiveSubcategoryId(test.id)}
@@ -750,6 +775,12 @@ const PhysicalTestsPage = ({ user }) => {
                                     </button>
                                 ))}
                             </div>
+                        ) : (
+                            isEvolutionMode && (
+                                <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #eee', color: '#666' }}>
+                                    <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><TrendingUp size={18} opacity={0.5} /> No hay pruebas en esta categoría con suficientes datos para medir evolución todavía.</p>
+                                </div>
+                            )
                         )
                     }
                 </div>
