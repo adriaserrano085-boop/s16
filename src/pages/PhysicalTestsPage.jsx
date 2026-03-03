@@ -1494,6 +1494,12 @@ const PhysicalTestsPage = ({ user }) => {
                         </>
                     )
                 }
+
+                {
+                    /* Detailed Player Report Modal */
+                    renderDetailedPlayerReport()
+                }
+
             </div >
 
             {/* Modal for Inserting Data in Bulk */}
