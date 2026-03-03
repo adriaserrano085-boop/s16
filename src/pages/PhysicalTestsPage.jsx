@@ -279,12 +279,36 @@ const PhysicalTestsPage = ({ user }) => {
                 const firstRes = results.find(r => r.jugador_id === p.id && r.fecha === firstDate);
                 const lastRes = results.find(r => r.jugador_id === p.id && r.fecha === lastDate);
 
+                // Calculate BEST attempt for FirstDate
+                let firstBestNum = null;
+                let firstBestRaw = null;
+                if (firstRes) {
+                    const validItems = activeTest.keys.map(k => ({ raw: firstRes[k], num: parseToNumber(firstRes[k]) })).filter(item => item.num !== null);
+                    if (validItems.length > 0) {
+                        firstBestNum = activeTest.lowerIsBetter ? Math.min(...validItems.map(i => i.num)) : Math.max(...validItems.map(i => i.num));
+                        firstBestRaw = validItems.find(i => i.num === firstBestNum)?.raw || firstBestNum;
+                    }
+                }
+
+                // Calculate BEST attempt for LastDate
+                let lastBestNum = null;
+                let lastBestRaw = null;
+                if (lastRes) {
+                    const validItems = activeTest.keys.map(k => ({ raw: lastRes[k], num: parseToNumber(lastRes[k]) })).filter(item => item.num !== null);
+                    if (validItems.length > 0) {
+                        lastBestNum = activeTest.lowerIsBetter ? Math.min(...validItems.map(i => i.num)) : Math.max(...validItems.map(i => i.num));
+                        lastBestRaw = validItems.find(i => i.num === lastBestNum)?.raw || lastBestNum;
+                    }
+                }
+
                 evData.push({
                     player: p,
                     firstDate,
                     lastDate,
-                    firstRes,
-                    lastRes
+                    firstBestNum,
+                    firstBestRaw,
+                    lastBestNum,
+                    lastBestRaw
                 });
             }
         });
@@ -484,51 +508,77 @@ const PhysicalTestsPage = ({ user }) => {
                             <tr>
                                 <th style={{ minWidth: '220px' }}>Jugador</th>
                                 <th style={{ textAlign: 'center' }}>Progreso de Fechas</th>
-                                {activeTest.keys.map((k, i) => (
-                                    <th key={k} style={{ textAlign: 'center', borderLeft: i === 0 ? '2px solid #e2e8f0' : '1px solid #eef2f6' }}>
-                                        {activeTest.keys.length > 1 ? `Int. ${i + 1}` : activeTest.label}
-                                    </th>
-                                ))}
+                                <th style={{ textAlign: 'center', borderLeft: '2px solid #e2e8f0' }}>Mejor Marca Inicial</th>
+                                <th style={{ textAlign: 'center', borderLeft: '1px solid #eef2f6' }}>Mejor Marca Final</th>
+                                <th style={{ textAlign: 'center', borderLeft: '1px solid #eef2f6' }}>Evolución</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {evData.map((data, idx) => (
-                                <tr key={data.player.id}>
-                                    <td style={{ fontWeight: '600' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            {data.player.foto ? (
-                                                <img src={data.player.foto} alt={data.player.nombre} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <span style={{ fontSize: '0.9rem', color: '#999', fontWeight: 'bold' }}>{data.player.nombre.charAt(0)}{data.player.apellidos.charAt(0)}</span>
-                                                </div>
-                                            )}
-                                            {data.player.nombre} {data.player.apellidos}
-                                        </div>
-                                    </td>
-                                    <td style={{ textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>
-                                        {formatDateStr(data.firstDate)} → {formatDateStr(data.lastDate)}
-                                    </td>
-                                    {activeTest.keys.map((k, i) => {
-                                        const rawFirst = data.firstRes[k];
-                                        const rawLast = data.lastRes[k];
-                                        const hasBoth = rawFirst !== null && rawFirst !== undefined && rawFirst !== '' &&
-                                            rawLast !== null && rawLast !== undefined && rawLast !== '';
+                            {evData.map((data, idx) => {
+                                const hasBoth = data.firstBestNum !== null && data.lastBestNum !== null && data.firstBestNum !== undefined && data.lastBestNum !== undefined;
+                                let diffText = '-';
+                                let evolutionColor = '#888';
 
-                                        return (
-                                            <td key={k} style={{ textAlign: 'center', borderLeft: i === 0 ? '2px solid #e2e8f0' : '1px solid #f0f4f8' }}>
-                                                {hasBoth ? (
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                                        <span style={{ color: '#888' }}>{rawFirst}</span>
-                                                        <TrendingUp size={14} style={{ color: 'var(--color-primary-orange)' }} />
-                                                        <span style={{ fontWeight: 'bold' }}>{rawLast}</span>
+                                if (hasBoth) {
+                                    const diff = data.lastBestNum - data.firstBestNum;
+                                    const isPositiveEvol = activeTest.lowerIsBetter ? (diff < 0) : (diff > 0);
+                                    const isNeutral = diff === 0;
+
+                                    diffText = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+                                    // if format is a string time, let's keep it simple and just show the number diff
+                                    if (['broncotest', 'broncotest_20m', 'plancha'].some(k => activeTest.keys.includes(k))) {
+                                        // It's a string, we parsed it using : to .
+                                        // Let's format the diff back to MM:SS if it was a time
+                                        const totalSeconds = Math.round(Math.abs(diff) * 100);
+                                        const m = Math.floor(Math.abs(diff));
+                                        const s = totalSeconds % 100;
+                                        diffText = `${diff > 0 ? '+' : '-'}${m}:${s.toString().padStart(2, '0')}`;
+                                        if (isNeutral) diffText = '0:00';
+                                    }
+
+                                    if (isNeutral) {
+                                        evolutionColor = '#666';
+                                    } else if (isPositiveEvol) {
+                                        evolutionColor = '#15803d'; // green
+                                    } else {
+                                        evolutionColor = '#dc2626'; // red
+                                    }
+                                }
+
+                                return (
+                                    <tr key={data.player.id}>
+                                        <td style={{ fontWeight: '600' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                {data.player.foto ? (
+                                                    <img src={data.player.foto} alt={data.player.nombre} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <span style={{ fontSize: '0.9rem', color: '#999', fontWeight: 'bold' }}>{data.player.nombre.charAt(0)}{data.player.apellidos.charAt(0)}</span>
                                                     </div>
-                                                ) : '-'}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))}
+                                                )}
+                                                {data.player.nombre} {data.player.apellidos}
+                                            </div>
+                                        </td>
+                                        <td style={{ textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>
+                                            {formatDateStr(data.firstDate)} → {formatDateStr(data.lastDate)}
+                                        </td>
+
+                                        <td style={{ textAlign: 'center', borderLeft: '2px solid #e2e8f0', color: '#888' }}>
+                                            {data.firstBestRaw ?? '-'}
+                                        </td>
+                                        <td style={{ textAlign: 'center', borderLeft: '1px solid #f0f4f8', fontWeight: 'bold' }}>
+                                            {data.lastBestRaw ?? '-'}
+                                        </td>
+                                        <td style={{ textAlign: 'center', borderLeft: '1px solid #f0f4f8', fontWeight: 'bold', color: evolutionColor }}>
+                                            {hasBoth ? (
+                                                <span style={{ backgroundColor: `${evolutionColor}15`, padding: '4px 8px', borderRadius: '8px' }}>
+                                                    {diffText}
+                                                </span>
+                                            ) : '-'}
+                                        </td>
+                                    </tr>
+                                )
+                            })}
                         </tbody>
                     </table>
                 </div>
