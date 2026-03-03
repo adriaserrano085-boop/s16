@@ -80,6 +80,7 @@ const PhysicalTestsPage = ({ user }) => {
     const [activeCategoryId, setActiveCategoryId] = useState(UI_CATEGORIES[0].id);
     const [activeSubcategoryId, setActiveSubcategoryId] = useState(UI_CATEGORIES[0].tests[0].id);
     const [viewMode, setViewMode] = useState('resultados'); // 'resultados', 'evolucion', 'informe'
+    const [sortConfig, setSortConfig] = useState(null); // { key: 'name' | 'score', direction: 'asc' | 'desc', session: string, keyIndex: number }
 
     // Bulk Modal state
     const [showModal, setShowModal] = useState(false);
@@ -254,14 +255,14 @@ const PhysicalTestsPage = ({ user }) => {
         });
     };
 
-    const visibleTests = activeCategoryData ? activeCategoryData.tests.filter(test => !isEvolutionMode || hasEvolutionData(test)) : [];
+    const visibleTests = activeCategoryData ? activeCategoryData.tests.filter(test => viewMode !== 'evolucion' || hasEvolutionData(test)) : [];
 
     // Auto-select first visible test if active one is hidden
     useEffect(() => {
         if (visibleTests.length > 0 && !visibleTests.some(t => t.id === activeSubcategoryId)) {
             setActiveSubcategoryId(visibleTests[0].id);
         }
-    }, [isEvolutionMode, activeCategoryId, results, players]);
+    }, [viewMode, activeCategoryId, results, players]);
 
     const activeTest = visibleTests.find(t => t.id === activeSubcategoryId) || visibleTests[0];
 
@@ -558,6 +559,72 @@ const PhysicalTestsPage = ({ user }) => {
             }
         };
 
+        const getPlayerBestScoreInSession = (p, session, keyIndex = -1) => {
+            const res = results.find(r => r.jugador_id === p.id && r.fecha === session);
+            if (!res) return null;
+
+            // If checking a specific INTento
+            if (keyIndex >= 0 && keyIndex < activeTest.keys.length) {
+                return parseToNumber(res[activeTest.keys[keyIndex]]);
+            }
+
+            // Standard: Best of all intents
+            const validItems = activeTest.keys.map(k => ({ key: k, num: parseToNumber(res[k]) })).filter(item => item.num !== null);
+            if (validItems.length > 0) {
+                if (activeTest.lowerIsBetter) {
+                    return Math.min(...validItems.map(i => i.num));
+                } else {
+                    return Math.max(...validItems.map(i => i.num));
+                }
+            }
+            return null;
+        }
+
+        const handleSort = (type, session = null, keyIndex = -1) => {
+            let direction = 'asc';
+            if (sortConfig && sortConfig.key === type && sortConfig.session === session && sortConfig.keyIndex === keyIndex && sortConfig.direction === 'asc') {
+                direction = 'desc';
+            }
+            setSortConfig({ key: type, direction, session, keyIndex });
+        };
+
+        const sortedPlayers = [...activePlayers].sort((a, b) => {
+            if (!sortConfig) return 0;
+
+            if (sortConfig.key === 'name') {
+                const nameA = `${a.nombre} ${a.apellidos}`.toLowerCase();
+                const nameB = `${b.nombre} ${b.apellidos}`.toLowerCase();
+                if (nameA < nameB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (nameA > nameB) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            }
+
+            if (sortConfig.key === 'score') {
+                const scoreA = getPlayerBestScoreInSession(a, sortConfig.session, sortConfig.keyIndex);
+                const scoreB = getPlayerBestScoreInSession(b, sortConfig.session, sortConfig.keyIndex);
+
+                if (scoreA === null && scoreB !== null) return 1; // Nulls always at bottom
+                if (scoreB === null && scoreA !== null) return -1;
+                if (scoreA === null && scoreB === null) return 0;
+
+                // For testing metrics, "Better" could mean lower. But for generic sorting by numbers, 
+                // asc means 1..10, desc means 10..1. We'll stick to mathematical sorting and rely on the arrow.
+                if (scoreA < scoreB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (scoreA > scoreB) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            }
+            return 0;
+        });
+
+        // Helper render sorting arrow
+        const SortIcon = ({ sortKey, session = null, keyIndex = -1 }) => {
+            if (!sortConfig) return null;
+            if (sortConfig.key === sortKey && sortConfig.session === session && sortConfig.keyIndex === keyIndex) {
+                return <span style={{ fontSize: '0.8rem', marginLeft: '0.3rem' }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>;
+            }
+            return null;
+        };
+
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', width: '100%' }}>
                 {/* Tabla de Resultados */}
@@ -570,13 +637,13 @@ const PhysicalTestsPage = ({ user }) => {
                         <table className="data-table" style={{ margin: 0 }}>
                             <thead>
                                 <tr>
-                                    <th rowSpan={activeTest.keys.length > 1 ? 2 : 1} style={{ minWidth: '220px', verticalAlign: 'middle' }}>
-                                        Jugador
+                                    <th rowSpan={activeTest.keys.length > 1 ? 2 : 1} onClick={() => handleSort('name')} style={{ minWidth: '220px', verticalAlign: 'middle', cursor: 'pointer', userSelect: 'none' }}>
+                                        Jugador <SortIcon sortKey="name" />
                                     </th>
                                     {validSessionsForTest.map(s => {
                                         return (
-                                            <th key={s} colSpan={activeTest.keys.length} style={{ textAlign: 'center', backgroundColor: '#f4f7f6', borderLeft: '2px solid #e2e8f0' }}>
-                                                {formatDateStr(s)}
+                                            <th key={s} colSpan={activeTest.keys.length} onClick={() => handleSort('score', s, -1)} style={{ textAlign: 'center', backgroundColor: '#f4f7f6', borderLeft: '2px solid #e2e8f0', cursor: 'pointer', userSelect: 'none' }}>
+                                                {formatDateStr(s)} <SortIcon sortKey="score" session={s} />
                                             </th>
                                         );
                                     })}
@@ -584,15 +651,15 @@ const PhysicalTestsPage = ({ user }) => {
                                 {activeTest.keys.length > 1 && (
                                     <tr>
                                         {validSessionsForTest.map(s => activeTest.keys.map((k, i) => (
-                                            <th key={`${s}-${k}`} style={{ textAlign: 'center', fontSize: '0.8rem', backgroundColor: '#fdfdfd', borderLeft: i === 0 ? '2px solid #e2e8f0' : '1px solid #eef2f6' }}>
-                                                {`Int. ${i + 1}`}
+                                            <th key={`${s}-${k}`} onClick={() => handleSort('score', s, i)} style={{ textAlign: 'center', fontSize: '0.8rem', backgroundColor: '#fdfdfd', borderLeft: i === 0 ? '2px solid #e2e8f0' : '1px solid #eef2f6', cursor: 'pointer', userSelect: 'none' }}>
+                                                {`Int. ${i + 1}`} <SortIcon sortKey="score" session={s} keyIndex={i} />
                                             </th>
                                         )))}
                                     </tr>
                                 )}
                             </thead>
                             <tbody>
-                                {activePlayers.map(p => (
+                                {sortedPlayers.map(p => (
                                     <tr key={p.id}>
                                         <td style={{ fontWeight: '600' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
