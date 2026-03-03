@@ -79,7 +79,7 @@ const PhysicalTestsPage = ({ user }) => {
     // Page tabs
     const [activeCategoryId, setActiveCategoryId] = useState(UI_CATEGORIES[0].id);
     const [activeSubcategoryId, setActiveSubcategoryId] = useState(UI_CATEGORIES[0].tests[0].id);
-    const [isEvolutionMode, setIsEvolutionMode] = useState(false);
+    const [viewMode, setViewMode] = useState('resultados'); // 'resultados', 'evolucion', 'informe'
 
     // Bulk Modal state
     const [showModal, setShowModal] = useState(false);
@@ -278,6 +278,10 @@ const PhysicalTestsPage = ({ user }) => {
     // Find valid players
     const activePlayers = players.filter(p => {
         if (!activeTest) return false;
+        // In informe mode, we show all active players roughly (or we can just use the players who have at least one test recorded EVER)
+        if (viewMode === 'informe') {
+            return results.some(r => r.jugador_id === p.id);
+        }
         return validSessionsForTest.some(s => {
             const res = results.find(r => r.jugador_id === p.id && r.fecha === s);
             if (!res) return false;
@@ -339,6 +343,161 @@ const PhysicalTestsPage = ({ user }) => {
         });
 
         return evData;
+    };
+
+    // Benchmark definitions for U16 (1 = Poor, 10 = Excellent)
+    const U16_BENCHMARKS = {
+        'velocidad_10m': { min: 2.20, max: 1.60, lowerIsBetter: true },
+        'velocidad_30m': { min: 5.30, max: 4.20, lowerIsBetter: true },
+        'velocidad_80m': { min: 12.00, max: 9.80, lowerIsBetter: true },
+        'broncotest': { min: 390, max: 270, lowerIsBetter: true }, // 6:30 to 4:30
+        'broncotest_20m': { min: 270, max: 180, lowerIsBetter: true }, // 4:30 to 3:00
+        'course_navette': { min: 5, max: 12, lowerIsBetter: false },
+        'salto_sj': { min: 25, max: 45, lowerIsBetter: false },
+        'salto_cmj': { min: 25, max: 45, lowerIsBetter: false },
+        'salto_rebote': { min: 20, max: 40, lowerIsBetter: false },
+        'salto_horizontal': { min: 1.40, max: 2.20, lowerIsBetter: false },
+        'sentadillas_1m': { min: 20, max: 50, lowerIsBetter: false },
+        'flexiones': { min: 10, max: 40, lowerIsBetter: false },
+        'lanzamiento_pecho': { min: 3, max: 8, lowerIsBetter: false },
+        'lanzamiento_encima_cabeza': { min: 4, max: 10, lowerIsBetter: false },
+        'plancha': { min: 45, max: 150, lowerIsBetter: false }, // 0:45 to 2:30
+        'abdominales': { min: 20, max: 60, lowerIsBetter: false }
+    };
+
+    const getScoreForTest = (key, rawValue) => {
+        if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+        let numVal = null;
+
+        // Handle time strings
+        if (['broncotest', 'broncotest_20m', 'plancha'].includes(key)) {
+            const parts = String(rawValue).split(/[:.,]/);
+            if (parts.length === 2) {
+                numVal = parseInt(parts[0]) * 60 + parseInt(parts[1]); // seconds
+            } else {
+                numVal = parseFloat(rawValue);
+            }
+        } else {
+            numVal = parseToNumber(rawValue);
+        }
+
+        if (numVal === null || isNaN(numVal)) return null;
+
+        const bench = U16_BENCHMARKS[key];
+        if (!bench) return 5; // default fallback
+
+        // Calculate 1 to 10 interpolation
+        let score = 0;
+        if (bench.lowerIsBetter) {
+            if (numVal >= bench.min) return 1;
+            if (numVal <= bench.max) return 10;
+            const diff = bench.min - numVal;
+            const range = bench.min - bench.max;
+            score = 1 + (diff / range) * 9;
+        } else {
+            if (numVal <= bench.min) return 1;
+            if (numVal >= bench.max) return 10;
+            const diff = numVal - bench.min;
+            const range = bench.max - bench.min;
+            score = 1 + (diff / range) * 9;
+        }
+
+        return Math.max(1, Math.min(10, Math.round(score * 10) / 10)); // round to 1 decimal
+    };
+
+    const getPlayerReport = () => {
+        const reports = [];
+
+        players.forEach(p => {
+            const playerResults = results.filter(r => r.jugador_id === p.id);
+            if (playerResults.length === 0) return;
+
+            // Sort logic to find the LATEST attempt for any test
+            const scores = [];
+            const testRanks = []; // To display their position vs others
+            let totalPoints = 0;
+            let validTests = 0;
+
+            UI_CATEGORIES.forEach(cat => {
+                let catScoreTotal = 0;
+                let catTests = 0;
+
+                cat.tests.forEach(test => {
+                    // Find actual latest recorded result for this specific test
+                    let latestResVal = null;
+                    let latestResNumForRanking = null;
+                    let latestKey = null;
+                    let latestSession = null;
+
+                    const sortedSessionsDesc = [...sessions].reverse();
+
+                    for (const s of sortedSessionsDesc) {
+                        const rec = playerResults.find(r => r.fecha === s);
+                        if (rec) {
+                            // Find the best try within the keys
+                            const validItems = test.keys.map(k => ({ key: k, raw: rec[k], num: parseToNumber(rec[k]) })).filter(item => item.num !== null);
+                            if (validItems.length > 0) {
+                                const bestNum = test.lowerIsBetter ? Math.min(...validItems.map(i => i.num)) : Math.max(...validItems.map(i => i.num));
+                                const bestItem = validItems.find(i => i.num === bestNum);
+                                latestResVal = bestItem.raw;
+                                latestResNumForRanking = bestNum;
+                                latestKey = bestItem.key;
+                                latestSession = s;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (latestResVal !== null) {
+                        const score = getScoreForTest(latestKey, latestResVal);
+                        if (score !== null) {
+                            catScoreTotal += score;
+                            catTests++;
+                            totalPoints += score;
+                            validTests++;
+
+                            // Calculate Rank vs Teammates for that SAME session
+                            const allSessionResults = results.filter(r => r.fecha === latestSession);
+                            const teammateNums = allSessionResults.map(r => {
+                                const vItems = test.keys.map(k => ({ num: parseToNumber(r[k]) })).filter(item => item.num !== null);
+                                if (vItems.length === 0) return null;
+                                return test.lowerIsBetter ? Math.min(...vItems.map(i => i.num)) : Math.max(...vItems.map(i => i.num));
+                            }).filter(n => n !== null);
+
+                            let rank = 1;
+                            teammateNums.forEach(n => {
+                                if (test.lowerIsBetter) {
+                                    if (n < latestResNumForRanking) rank++;
+                                } else {
+                                    if (n > latestResNumForRanking) rank++;
+                                }
+                            });
+
+                            testRanks.push({
+                                label: test.label,
+                                val: latestResVal,
+                                score,
+                                rank,
+                                totalPeers: teammateNums.length
+                            });
+                        }
+                    }
+                });
+            });
+
+            if (validTests > 0) {
+                const globalScore = (totalPoints / validTests).toFixed(1);
+
+                reports.push({
+                    player: p,
+                    globalScore: parseFloat(globalScore),
+                    testsEvaluated: validTests,
+                    ranks: testRanks
+                });
+            }
+        });
+
+        return reports.sort((a, b) => b.globalScore - a.globalScore); // sort by highest score
     };
 
     const renderResultsView = () => {
@@ -611,6 +770,104 @@ const PhysicalTestsPage = ({ user }) => {
         );
     };
 
+    const renderReportView = () => {
+        const reports = getPlayerReport();
+
+        if (reports.length === 0) {
+            return (
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#666', backgroundColor: 'white', borderRadius: '12px' }}>
+                    <Activity size={48} style={{ marginBottom: '1rem', opacity: 0.3, margin: '0 auto' }} />
+                    <p style={{ fontSize: '1.1rem' }}>No hay suficientes datos para generar los informes. Registra resultados primero.</p>
+                </div>
+            );
+        }
+
+        return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem', width: '100%' }}>
+                {reports.map((r, idx) => {
+                    let scoreColor = '#dc2626'; // Red (<5)
+                    if (r.globalScore >= 5) scoreColor = '#ca8a04'; // Yellow (5-7)
+                    if (r.globalScore >= 7) scoreColor = '#15803d'; // Green (>=7)
+
+                    // Generate dynamic evaluation text based on best/worst rank
+                    let stringEval = `Se recomiendan más pruebas (${r.testsEvaluated} reg.) para una valoración detallada.`;
+                    if (r.ranks.length > 0) {
+                        const sortedRanks = [...r.ranks].sort((a, b) => b.score - a.score); // Highest scores first
+                        const best = sortedRanks[0];
+                        const worst = sortedRanks[sortedRanks.length - 1];
+
+                        if (sortedRanks.length >= 3 && r.globalScore >= 7) {
+                            stringEval = `Estado físico excelente. Destaca muy positivamente en ${best.label} (Score: ${best.score}). Listo para alta intensidad.`;
+                        } else if (sortedRanks.length >= 3 && r.globalScore < 5) {
+                            stringEval = `Precisa plan de trabajo específico urgente. Prioridad a mejorar en ${worst.label} (${worst.score} pts).`;
+                        } else if (sortedRanks.length >= 2) {
+                            stringEval = `Mejor aspecto físico: ${best.label}. Requiere trabajo en: ${worst.label}.`;
+                        } else {
+                            stringEval = `Último registro analizado: ${best.label} con ${best.val}. Faltan datos para evaluación global.`;
+                        }
+                    }
+
+                    return (
+                        <div key={r.player.id} style={{ backgroundColor: 'white', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 10px 25px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'absolute', top: 0, left: 0, width: '6px', height: '100%', backgroundColor: scoreColor }}></div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    {r.player.foto ? (
+                                        <img src={r.player.foto} alt={r.player.nombre} style={{ width: '45px', height: '45px', borderRadius: '50%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: '45px', height: '45px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <span style={{ fontSize: '1rem', color: '#999', fontWeight: 'bold' }}>{r.player.nombre.charAt(0)}{r.player.apellidos.charAt(0)}</span>
+                                        </div>
+                                    )}
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#333' }}>{r.player.nombre} {r.player.apellidos}</h4>
+                                        <span style={{ fontSize: '0.8rem', color: '#888' }}>{r.testsEvaluated} Pruebas recientes evaluadas</span>
+                                    </div>
+                                </div>
+                                <div style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    borderRadius: '50%',
+                                    backgroundColor: `${scoreColor}15`,
+                                    color: scoreColor,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontWeight: 'bold',
+                                    fontSize: '1.2rem',
+                                    border: `2px solid ${scoreColor}`
+                                }}>
+                                    {r.globalScore}
+                                </div>
+                            </div>
+
+                            <p style={{ margin: 0, fontSize: '0.9rem', color: '#555', lineHeight: '1.4' }}>
+                                {stringEval}
+                            </p>
+
+                            {r.ranks.length > 0 && (
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.8rem', textTransform: 'uppercase', color: '#999', letterSpacing: '0.5px' }}>Desglose de Puntos (últimas marcas)</h5>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                        {r.ranks.map(rk => (
+                                            <div key={rk.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem', padding: '0.4rem 0.6rem', backgroundColor: '#f9fafa', borderRadius: '6px' }}>
+                                                <span style={{ fontWeight: '500', color: '#444' }}>{rk.label}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <span style={{ color: '#666' }}>{rk.val}</span>
+                                                    <span style={{ color: '#aaa', fontSize: '0.75rem' }}>({rk.rank}º de {rk.totalPeers})</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
     return (
         <div className="physical-tests-page">
             <div className="physical-tests-wrapper">
@@ -702,10 +959,10 @@ const PhysicalTestsPage = ({ user }) => {
                     <div className="tabs-container" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '2px solid rgba(255, 102, 0, 0.2)', paddingBottom: '0.5rem' }}>
                         <button
                             className="tab-button"
-                            onClick={() => setIsEvolutionMode(false)}
+                            onClick={() => setViewMode('resultados')}
                             style={{
-                                borderBottom: !isEvolutionMode ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
-                                color: !isEvolutionMode ? 'var(--color-primary-blue)' : '#666',
+                                borderBottom: viewMode === 'resultados' ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
+                                color: viewMode === 'resultados' ? 'var(--color-primary-blue)' : '#666',
                                 padding: '0.5rem 1rem', background: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s ease'
                             }}
                         >
@@ -713,76 +970,90 @@ const PhysicalTestsPage = ({ user }) => {
                         </button>
                         <button
                             className="tab-button"
-                            onClick={() => setIsEvolutionMode(true)}
+                            onClick={() => setViewMode('evolucion')}
                             style={{
-                                borderBottom: isEvolutionMode ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
-                                color: isEvolutionMode ? 'var(--color-primary-blue)' : '#666',
+                                borderBottom: viewMode === 'evolucion' ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
+                                color: viewMode === 'evolucion' ? 'var(--color-primary-blue)' : '#666',
                                 padding: '0.5rem 1rem', background: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s ease'
                             }}
                         >
                             Evolución Individual
                         </button>
+                        <button
+                            className="tab-button"
+                            onClick={() => setViewMode('informe')}
+                            style={{
+                                borderBottom: viewMode === 'informe' ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
+                                color: viewMode === 'informe' ? 'var(--color-primary-blue)' : '#666',
+                                padding: '0.5rem 1rem', background: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'all 0.2s ease'
+                            }}
+                        >
+                            Informe General
+                        </button>
                     </div>
 
-                    {/* Category Tabs */}
-                    <div className="tabs-container" style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', borderBottom: 'none' }}>
-                        {UI_CATEGORIES.map(cat => (
-                            <button
-                                key={cat.id}
-                                className="tab-button"
-                                onClick={() => handleCategoryChange(cat.id)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    borderBottom: activeCategoryId === cat.id ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
-                                    color: activeCategoryId === cat.id ? 'var(--color-primary-blue)' : '#777',
-                                    backgroundColor: activeCategoryId === cat.id ? 'rgba(0,51,102,0.05)' : 'transparent',
-                                    border: 'none',
-                                    borderRadius: '8px 8px 0 0',
-                                    padding: '0.75rem 1.2rem',
-                                    fontWeight: activeCategoryId === cat.id ? 'bold' : 'normal'
-                                }}
-                            >
-                                {cat.icon}
-                                {cat.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Subcategory Tabs */}
-                    {
-                        activeCategoryData && visibleTests.length > 0 ? (
-                            <div className="subtabs-container" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                                {visibleTests.map(test => (
+                    {/* Category & Subcategory Tabs - Hidden in Informe View */}
+                    {viewMode !== 'informe' && (
+                        <>
+                            <div className="tabs-container" style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', borderBottom: 'none' }}>
+                                {UI_CATEGORIES.map(cat => (
                                     <button
-                                        key={test.id}
-                                        onClick={() => setActiveSubcategoryId(test.id)}
+                                        key={cat.id}
+                                        className="tab-button"
+                                        onClick={() => handleCategoryChange(cat.id)}
                                         style={{
-                                            padding: '0.5rem 1rem',
-                                            borderRadius: '8px',
-                                            border: '1px solid',
-                                            borderColor: activeSubcategoryId === test.id ? 'var(--color-primary-orange)' : '#ddd',
-                                            backgroundColor: activeSubcategoryId === test.id ? 'var(--color-primary-orange)' : 'white',
-                                            color: activeSubcategoryId === test.id ? 'white' : '#666',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease',
-                                            whiteSpace: 'nowrap'
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            borderBottom: activeCategoryId === cat.id ? '3px solid var(--color-primary-blue)' : '3px solid transparent',
+                                            color: activeCategoryId === cat.id ? 'var(--color-primary-blue)' : '#777',
+                                            backgroundColor: activeCategoryId === cat.id ? 'rgba(0,51,102,0.05)' : 'transparent',
+                                            border: 'none',
+                                            borderRadius: '8px 8px 0 0',
+                                            padding: '0.75rem 1.2rem',
+                                            fontWeight: activeCategoryId === cat.id ? 'bold' : 'normal'
                                         }}
                                     >
-                                        {test.label}
+                                        {cat.icon}
+                                        {cat.label}
                                     </button>
                                 ))}
                             </div>
-                        ) : (
-                            isEvolutionMode && (
-                                <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #eee', color: '#666' }}>
-                                    <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><TrendingUp size={18} opacity={0.5} /> No hay pruebas en esta categoría con suficientes datos para medir evolución todavía.</p>
-                                </div>
-                            )
-                        )
-                    }
+
+                            {
+                                activeCategoryData && visibleTests.length > 0 ? (
+                                    <div className="subtabs-container" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                                        {visibleTests.map(test => (
+                                            <button
+                                                key={test.id}
+                                                onClick={() => setActiveSubcategoryId(test.id)}
+                                                style={{
+                                                    padding: '0.5rem 1rem',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid',
+                                                    borderColor: activeSubcategoryId === test.id ? 'var(--color-primary-orange)' : '#ddd',
+                                                    backgroundColor: activeSubcategoryId === test.id ? 'var(--color-primary-orange)' : 'white',
+                                                    color: activeSubcategoryId === test.id ? 'white' : '#666',
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                {test.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    viewMode === 'evolucion' && (
+                                        <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #eee', color: '#666' }}>
+                                            <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><TrendingUp size={18} opacity={0.5} /> No hay pruebas en esta categoría con suficientes datos para medir evolución todavía.</p>
+                                        </div>
+                                    )
+                                )
+                            }
+                        </>
+                    )}
                 </div>
 
                 {
@@ -791,6 +1062,8 @@ const PhysicalTestsPage = ({ user }) => {
                             <Activity size={48} className="animate-pulse" style={{ marginBottom: '1rem', margin: '0 auto' }} />
                             <p style={{ fontSize: '1.2rem' }}>Cargando datos...</p>
                         </div>
+                    ) : viewMode === 'informe' ? (
+                        renderReportView()
                     ) : (
                         <>
                             {!activeTest || validSessionsForTest.length === 0 || activePlayers.length === 0 ? (
@@ -799,7 +1072,7 @@ const PhysicalTestsPage = ({ user }) => {
                                     <p style={{ fontSize: '1.1rem' }}>No hay resultados registrados para esta prueba.</p>
                                 </div>
                             ) : (
-                                isEvolutionMode ? renderEvolutionView() : renderResultsView()
+                                viewMode === 'evolucion' ? renderEvolutionView() : renderResultsView()
                             )}
                         </>
                     )
