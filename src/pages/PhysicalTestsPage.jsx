@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../lib/apiClient';
-import { ArrowLeft, Activity, Zap, Heart, Shield, Dumbbell, Plus, X, Save, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Activity, Zap, Heart, Shield, Dumbbell, Plus, X, Save, TrendingUp, TrendingDown, Eye, User, Calendar, Award } from 'lucide-react';
 import {
     Chart as ChartJS,
     CategoryScale,
