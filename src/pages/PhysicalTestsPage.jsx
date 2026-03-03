@@ -483,8 +483,8 @@ const PhysicalTestsPage = ({ user }) => {
                             let pillarGroup = 'fuerza'; // fallback
                             if (catId === 'velocidad') pillarGroup = 'velocidad';
                             if (catId === 'resistencia') pillarGroup = 'resistencia';
-                            if (catId === 'fuerza_core') pillarGroup = 'core';
-                            if (catId === 'fuerza_inferior' || catId === 'fuerza_superior') pillarGroup = 'fuerza';
+                            if (catId === 'core') pillarGroup = 'core';
+                            if (catId === 'inferior' || catId === 'superior') pillarGroup = 'fuerza';
 
                             pillarTotals[pillarGroup].score += score;
                             pillarTotals[pillarGroup].count++;
@@ -541,11 +541,16 @@ const PhysicalTestsPage = ({ user }) => {
                 const coreScore = pillarTotals.core.count > 0 ? (pillarTotals.core.score / pillarTotals.core.count) : 0;
 
                 // Weighted Global Based on Position
-                // Simple deduction: "Delantero/1ª-2ª/3ª" -> Forward. "Medio/Apertura/Centro/Ala/Zaguero" -> Back
+                // Simple deduction: "Delantero/1ª-2ª/3ª"/1-8 -> Forward. "Medio/Apertura/Centro/Ala/Zaguero"/9-15 -> Back
                 let isForward = false;
                 if (p.posicion) {
-                    const posLower = p.posicion.toLowerCase();
-                    if (posLower.includes('delantero') || posLower.includes('primera') || posLower.includes('segunda') || posLower.includes('tercera') || posLower.includes('pilier') || posLower.includes('talonador') || posLower.includes('ocho')) {
+                    const posLower = p.posicion.toLowerCase().trim();
+                    const numMatch = posLower.match(/\b([1-9]|1[0-5])\b/);
+
+                    if (numMatch) {
+                        const num = parseInt(numMatch[1], 10);
+                        if (num >= 1 && num <= 8) isForward = true;
+                    } else if (posLower.includes('delantero') || posLower.includes('primera') || posLower.includes('segunda') || posLower.includes('tercera') || posLower.includes('pilier') || posLower.includes('talonador') || posLower.includes('ocho')) {
                         isForward = true;
                     }
                 }
